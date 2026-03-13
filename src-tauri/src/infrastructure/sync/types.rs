@@ -40,6 +40,8 @@ pub struct SyncFolderState {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncMessageObservation {
+    pub uid: u64,
+    pub uid_validity: u64,
     pub message_id: String,
     pub thread_id: String,
     pub folder_path: String,

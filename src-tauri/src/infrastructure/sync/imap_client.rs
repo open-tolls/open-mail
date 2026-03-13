@@ -60,6 +60,46 @@ struct FakeImapClient {
     idle_cycles: u32,
 }
 
+fn fake_observations(observed_at: DateTime<Utc>) -> Vec<SyncMessageObservation> {
+    vec![
+        SyncMessageObservation {
+            uid: 101,
+            uid_validity: 1,
+            message_id: "msg_1".into(),
+            thread_id: "thr_1".into(),
+            folder_path: "INBOX".into(),
+            subject: "Premium motion system approved".into(),
+            snippet: "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
+                .into(),
+            plain_text: Some(
+                "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
+                    .into(),
+            ),
+            observed_at,
+            is_unread: true,
+            headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
+        },
+        SyncMessageObservation {
+            uid: 205,
+            uid_validity: 1,
+            message_id: "msg_2".into(),
+            thread_id: "thr_2".into(),
+            folder_path: "Starred".into(),
+            subject: "Rust health-check online".into(),
+            snippet:
+                "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
+                    .into(),
+            plain_text: Some(
+                "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
+                    .into(),
+            ),
+            observed_at,
+            is_unread: false,
+            headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
+        },
+    ]
+}
+
 #[async_trait]
 impl ImapClient for FakeImapClient {
     async fn connect(
@@ -128,47 +168,15 @@ impl ImapClient for FakeImapClient {
         let observed_at = DateTime::parse_from_rfc3339("2026-03-13T10:05:00Z")
             .map(|timestamp| timestamp.with_timezone(&Utc))
             .map_err(|error| SyncError::Operation(error.to_string()))?;
-
-        let observations = vec![
-            SyncMessageObservation {
-                message_id: "msg_1".into(),
-                thread_id: "thr_1".into(),
-                folder_path: "INBOX".into(),
-                subject: "Premium motion system approved".into(),
-                snippet: "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
-                    .into(),
-                plain_text: Some(
-                    "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
-                        .into(),
-                ),
-                observed_at,
-                is_unread: true,
-                headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
-            },
-            SyncMessageObservation {
-                message_id: "msg_2".into(),
-                thread_id: "thr_2".into(),
-                folder_path: "Starred".into(),
-                subject: "Rust health-check online".into(),
-                snippet: "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
-                    .into(),
-                plain_text: Some(
-                    "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
-                        .into(),
-                ),
-                observed_at,
-                is_unread: false,
-                headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
-            },
-        ];
+        let observations = fake_observations(observed_at);
 
         Ok(observations
             .into_iter()
             .filter(|observation| {
                 !cursors.iter().any(|cursor| {
                     cursor.folder_path.eq_ignore_ascii_case(&observation.folder_path)
-                        && cursor.last_message_id.as_deref() == Some(observation.message_id.as_str())
-                        && cursor.last_thread_id.as_deref() == Some(observation.thread_id.as_str())
+                        && cursor.uid_validity == Some(observation.uid_validity)
+                        && cursor.last_seen_uid.is_some_and(|last_seen_uid| last_seen_uid >= observation.uid)
                 })
             })
             .collect())

@@ -583,6 +583,8 @@ async fn apply_message_observations(
             account_id: context.account_id.to_string(),
             folder_id: message.folder_id.clone(),
             folder_path: observation.folder_path,
+            uid_validity: Some(observation.uid_validity),
+            last_seen_uid: Some(observation.uid),
             last_message_id: Some(message.id.clone()),
             last_message_observed_at: Some(message.date),
             last_thread_id: Some(thread.id.clone()),
@@ -999,6 +1001,8 @@ mod tests {
         );
         assert!(synced_thread.snippet.contains("Sync confirmado"));
         assert!(synced_message.headers.contains_key("x-open-mail-sync"));
+        assert_eq!(synced_cursor.uid_validity, Some(1));
+        assert_eq!(synced_cursor.last_seen_uid, Some(101));
         assert_eq!(synced_cursor.last_message_id.as_deref(), Some("msg_1"));
         assert_eq!(synced_cursor.last_thread_id.as_deref(), Some("thr_1"));
         assert_eq!(synced_cursor.observed_message_count, 1);
@@ -1073,6 +1077,8 @@ mod tests {
             .unwrap();
         assert_eq!(statuses.get("acc_sync"), Some(&SyncState::Sleeping));
         assert_eq!(initial_message_events, final_message_events);
+        assert_eq!(initial_cursor.uid_validity, final_cursor.uid_validity);
+        assert_eq!(initial_cursor.last_seen_uid, final_cursor.last_seen_uid);
         assert_eq!(initial_cursor.last_message_id, final_cursor.last_message_id);
         assert_eq!(
             initial_cursor.observed_message_count,

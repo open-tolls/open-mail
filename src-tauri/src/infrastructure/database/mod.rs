@@ -10,7 +10,6 @@ use crate::domain::errors::DomainError;
 
 const INITIAL_MIGRATION: &str = include_str!("migrations/001_initial_schema.sql");
 const SYNC_CURSOR_MIGRATION: &str = include_str!("migrations/002_sync_cursors.sql");
-
 pub mod repositories;
 
 #[derive(Debug, Clone)]
@@ -45,6 +44,8 @@ impl Database {
         connection
             .execute_batch(SYNC_CURSOR_MIGRATION)
             .map_err(|error| DomainError::Database(error.to_string()))?;
+        ensure_column(&connection, "sync_cursors", "uid_validity", "INTEGER")?;
+        ensure_column(&connection, "sync_cursors", "last_seen_uid", "INTEGER")?;
 
         Ok(())
     }
@@ -62,6 +63,35 @@ impl Database {
 
 pub fn subsystem_name() -> &'static str {
     "database"
+}
+
+fn ensure_column(
+    connection: &Connection,
+    table_name: &str,
+    column_name: &str,
+    column_definition: &str,
+) -> Result<(), DomainError> {
+    let mut statement = connection
+        .prepare(&format!("PRAGMA table_info({table_name})"))
+        .map_err(|error| DomainError::Database(error.to_string()))?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| DomainError::Database(error.to_string()))?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|error| DomainError::Database(error.to_string()))?;
+
+    if columns.iter().any(|column| column == column_name) {
+        return Ok(());
+    }
+
+    connection
+        .execute(
+            &format!("ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"),
+            [],
+        )
+        .map_err(|error| DomainError::Database(error.to_string()))?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -283,6 +313,26 @@ mod tests {
         assert!(rows.next().unwrap().is_some());
     }
 
+    #[test]
+    fn reruns_migrations_without_duplicate_column_failures() {
+        let database_path = unique_database_path("open-mail-repeat");
+        let database = Database::new(&database_path).unwrap();
+
+        database.run_migrations().unwrap();
+        database.run_migrations().unwrap();
+
+        let connection = database.connection().unwrap();
+        let mut statement = connection.prepare("PRAGMA table_info(sync_cursors)").unwrap();
+        let columns = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+
+        assert!(columns.iter().any(|column| column == "uid_validity"));
+        assert!(columns.iter().any(|column| column == "last_seen_uid"));
+    }
+
     #[tokio::test]
     async fn persists_and_reads_accounts() {
         let database_path = unique_database_path("open-mail-account");
@@ -438,6 +488,8 @@ mod tests {
             account_id: "acc_1".into(),
             folder_id: "fld_inbox".into(),
             folder_path: "INBOX".into(),
+            uid_validity: Some(1),
+            last_seen_uid: Some(205),
             last_message_id: Some("msg_2".into()),
             last_message_observed_at: Some(sample_timestamp()),
             last_thread_id: Some("thr_1".into()),
@@ -457,6 +509,8 @@ mod tests {
         let by_account = sync_cursor_repo.find_by_account("acc_1").await.unwrap();
 
         assert_eq!(persisted.folder_path, "INBOX");
+        assert_eq!(persisted.uid_validity, Some(1));
+        assert_eq!(persisted.last_seen_uid, Some(205));
         assert_eq!(persisted.last_message_id.as_deref(), Some("msg_2"));
         assert_eq!(persisted.observed_message_count, 2);
         assert_eq!(by_account.len(), 1);
