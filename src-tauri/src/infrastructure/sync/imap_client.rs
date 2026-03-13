@@ -1,10 +1,11 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 use crate::domain::models::account::{Account, ConnectionSettings};
 
-use super::{Credentials, SyncError};
+use super::{Credentials, SyncError, SyncMessageObservation};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImapFolder {
@@ -35,6 +36,7 @@ pub trait ImapClient: Send + Sync {
     ) -> Result<(), SyncError>;
     async fn list_folders(&mut self) -> Result<Vec<ImapFolder>, SyncError>;
     async fn fetch_folder_statuses(&mut self) -> Result<Vec<ImapFolderStatus>, SyncError>;
+    async fn fetch_message_observations(&mut self) -> Result<Vec<SyncMessageObservation>, SyncError>;
     async fn idle(&mut self, timeout: Duration) -> Result<IdleResult, SyncError>;
 }
 
@@ -105,6 +107,49 @@ impl ImapClient for FakeImapClient {
                 },
                 unread_count: 0,
                 total_count: 4,
+            },
+        ])
+    }
+
+    async fn fetch_message_observations(&mut self) -> Result<Vec<SyncMessageObservation>, SyncError> {
+        if !self.connected {
+            return Err(SyncError::Connection("client is not connected".into()));
+        }
+
+        let observed_at = DateTime::parse_from_rfc3339("2026-03-13T10:05:00Z")
+            .map(|timestamp| timestamp.with_timezone(&Utc))
+            .map_err(|error| SyncError::Operation(error.to_string()))?;
+
+        Ok(vec![
+            SyncMessageObservation {
+                message_id: "msg_1".into(),
+                thread_id: "thr_1".into(),
+                folder_path: "INBOX".into(),
+                subject: "Premium motion system approved".into(),
+                snippet: "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
+                    .into(),
+                plain_text: Some(
+                    "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
+                        .into(),
+                ),
+                observed_at,
+                is_unread: true,
+                headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
+            },
+            SyncMessageObservation {
+                message_id: "msg_2".into(),
+                thread_id: "thr_2".into(),
+                folder_path: "Starred".into(),
+                subject: "Rust health-check online".into(),
+                snippet: "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
+                    .into(),
+                plain_text: Some(
+                    "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
+                        .into(),
+                ),
+                observed_at,
+                is_unread: false,
+                headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
             },
         ])
     }

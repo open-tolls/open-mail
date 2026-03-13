@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SyncError {
@@ -34,6 +35,20 @@ pub struct SyncFolderState {
     pub display_name: String,
     pub unread_count: u32,
     pub total_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncMessageObservation {
+    pub message_id: String,
+    pub thread_id: String,
+    pub folder_path: String,
+    pub subject: String,
+    pub snippet: String,
+    pub plain_text: Option<String>,
+    pub observed_at: DateTime<Utc>,
+    pub is_unread: bool,
+    pub headers: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

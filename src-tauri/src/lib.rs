@@ -96,7 +96,12 @@ fn build_app_state() -> Result<AppState, String> {
     let thread_repo: Arc<dyn ThreadRepository> = Arc::new(SqliteThreadRepository::new(db.clone()));
     let message_repo: Arc<dyn MessageRepository> =
         Arc::new(SqliteMessageRepository::new(db.clone()));
-    let sync_manager = Arc::new(SyncManager::new(account_repo.clone(), folder_repo.clone()));
+    let sync_manager = Arc::new(SyncManager::new(
+        account_repo.clone(),
+        folder_repo.clone(),
+        thread_repo.clone(),
+        message_repo.clone(),
+    ));
 
     Ok(AppState {
         db,

@@ -7,4 +7,7 @@ pub use imap_client::{
     ImapFolderStatus,
 };
 pub use sync_manager::{NoopSyncEventEmitter, SyncEventEmitter, SyncManager};
-pub use types::{Credentials, SyncError, SyncFolderState, SyncPhase, SyncStatusSnapshot};
+pub use types::{
+    Credentials, SyncError, SyncFolderState, SyncMessageObservation, SyncPhase,
+    SyncStatusSnapshot,
+};

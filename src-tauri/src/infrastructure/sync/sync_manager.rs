@@ -13,12 +13,13 @@ use tokio::{
 use crate::domain::{
     events::DomainEvent,
     models::{account::{Account, SyncState}, folder::Folder},
-    repositories::{AccountRepository, FolderRepository},
+    repositories::{AccountRepository, FolderRepository, MessageRepository, ThreadRepository},
 };
 
 use super::{
     imap_client::{FakeImapClientFactory, IdleResult, SharedImapClientFactory},
-    Credentials, SyncError, SyncFolderState, SyncPhase, SyncStatusSnapshot,
+    Credentials, SyncError, SyncFolderState, SyncMessageObservation, SyncPhase,
+    SyncStatusSnapshot,
 };
 
 pub trait SyncEventEmitter: Send + Sync {
@@ -40,6 +41,8 @@ struct SyncWorkerHandle {
 pub struct SyncManager {
     account_repo: Arc<dyn AccountRepository>,
     folder_repo: Arc<dyn FolderRepository>,
+    thread_repo: Arc<dyn ThreadRepository>,
+    message_repo: Arc<dyn MessageRepository>,
     emitter: RwLock<Arc<dyn SyncEventEmitter>>,
     imap_factory: RwLock<SharedImapClientFactory>,
     workers: Arc<Mutex<HashMap<String, SyncWorkerHandle>>>,
@@ -47,10 +50,17 @@ pub struct SyncManager {
 }
 
 impl SyncManager {
-    pub fn new(account_repo: Arc<dyn AccountRepository>, folder_repo: Arc<dyn FolderRepository>) -> Self {
+    pub fn new(
+        account_repo: Arc<dyn AccountRepository>,
+        folder_repo: Arc<dyn FolderRepository>,
+        thread_repo: Arc<dyn ThreadRepository>,
+        message_repo: Arc<dyn MessageRepository>,
+    ) -> Self {
         Self {
             account_repo,
             folder_repo,
+            thread_repo,
+            message_repo,
             emitter: RwLock::new(Arc::new(NoopSyncEventEmitter)),
             imap_factory: RwLock::new(Arc::new(FakeImapClientFactory)),
             workers: Arc::new(Mutex::new(HashMap::new())),
@@ -78,14 +88,16 @@ impl SyncManager {
 
         let account_id = account.id.clone();
         let (stop_tx, mut stop_rx) = watch::channel(false);
-        let worker = SyncWorker::new(
+        let worker = SyncWorker {
             account,
-            self.account_repo.clone(),
-            self.folder_repo.clone(),
-            self.statuses.clone(),
-            self.current_emitter(),
-            self.current_imap_factory(),
-        );
+            account_repo: self.account_repo.clone(),
+            folder_repo: self.folder_repo.clone(),
+            thread_repo: self.thread_repo.clone(),
+            message_repo: self.message_repo.clone(),
+            statuses: self.statuses.clone(),
+            emitter: self.current_emitter(),
+            imap_factory: self.current_imap_factory(),
+        };
 
         let join_handle = tokio::spawn(async move {
             worker.run(&mut stop_rx).await;
@@ -240,30 +252,14 @@ struct SyncWorker {
     account: Account,
     account_repo: Arc<dyn AccountRepository>,
     folder_repo: Arc<dyn FolderRepository>,
+    thread_repo: Arc<dyn ThreadRepository>,
+    message_repo: Arc<dyn MessageRepository>,
     statuses: Arc<Mutex<HashMap<String, SyncStatusSnapshot>>>,
     emitter: Arc<dyn SyncEventEmitter>,
     imap_factory: SharedImapClientFactory,
 }
 
 impl SyncWorker {
-    fn new(
-        account: Account,
-        account_repo: Arc<dyn AccountRepository>,
-        folder_repo: Arc<dyn FolderRepository>,
-        statuses: Arc<Mutex<HashMap<String, SyncStatusSnapshot>>>,
-        emitter: Arc<dyn SyncEventEmitter>,
-        imap_factory: SharedImapClientFactory,
-    ) -> Self {
-        Self {
-            account,
-            account_repo,
-            folder_repo,
-            statuses,
-            emitter,
-            imap_factory,
-        }
-    }
-
     async fn run(mut self, stop_rx: &mut watch::Receiver<bool>) {
         update_sync_status(
             &self.account_repo,
@@ -383,8 +379,23 @@ impl SyncWorker {
         .await;
 
         let idle_result = client.idle(Duration::from_millis(25)).await?;
+        let observed_messages = match idle_result {
+            IdleResult::NewMessages { .. } => {
+                let observations = client.fetch_message_observations().await?;
+                apply_message_observations(
+                    &self.message_repo,
+                    &self.thread_repo,
+                    &self.folder_repo,
+                    &*self.emitter,
+                    &self.account.id,
+                    observations,
+                )
+                .await?
+            }
+            IdleResult::Timeout | IdleResult::Disconnected => Vec::new(),
+        };
         let messages_observed = match idle_result {
-            IdleResult::NewMessages { count } => count,
+            IdleResult::NewMessages { .. } => observed_messages.len() as u32,
             IdleResult::Timeout | IdleResult::Disconnected => 0,
         };
         update_sync_status(
@@ -463,6 +474,99 @@ async fn reconcile_folder_state(
     Ok(())
 }
 
+async fn apply_message_observations(
+    message_repo: &Arc<dyn MessageRepository>,
+    thread_repo: &Arc<dyn ThreadRepository>,
+    folder_repo: &Arc<dyn FolderRepository>,
+    emitter: &dyn SyncEventEmitter,
+    account_id: &str,
+    observations: Vec<SyncMessageObservation>,
+) -> Result<Vec<String>, SyncError> {
+    let persisted_folders = folder_repo
+        .find_by_account(account_id)
+        .await
+        .map_err(|error| SyncError::Operation(error.to_string()))?;
+    let mut changed_message_ids = Vec::new();
+    let mut changed_thread_ids = Vec::new();
+
+    for observation in observations {
+        let Some(mut message) = message_repo
+            .find_by_id(&observation.message_id)
+            .await
+            .map_err(|error| SyncError::Operation(error.to_string()))?
+        else {
+            continue;
+        };
+
+        if message.account_id != account_id {
+            continue;
+        }
+
+        let folder_id = persisted_folders
+            .iter()
+            .find(|folder| folder.path.eq_ignore_ascii_case(&observation.folder_path))
+            .map(|folder| folder.id.clone())
+            .unwrap_or_else(|| message.folder_id.clone());
+
+        message.folder_id = folder_id;
+        message.subject = observation.subject.clone();
+        message.snippet = observation.snippet.clone();
+        message.body = format!("<p>{}</p>", observation.plain_text.as_deref().unwrap_or(&observation.snippet));
+        message.plain_text = observation.plain_text.clone();
+        message.is_unread = observation.is_unread;
+        message.date = observation.observed_at;
+        message.updated_at = observation.observed_at;
+        for (key, value) in observation.headers {
+            message.headers.insert(key, value);
+        }
+
+        message_repo
+            .save(&message)
+            .await
+            .map_err(|error| SyncError::Operation(error.to_string()))?;
+        changed_message_ids.push(message.id.clone());
+
+        let Some(mut thread) = thread_repo
+            .find_by_id(&observation.thread_id)
+            .await
+            .map_err(|error| SyncError::Operation(error.to_string()))?
+        else {
+            continue;
+        };
+
+        let thread_messages = message_repo
+            .find_by_thread(&thread.id)
+            .await
+            .map_err(|error| SyncError::Operation(error.to_string()))?;
+        thread.update_from_messages(&thread_messages);
+        thread.updated_at = Utc::now();
+        thread_repo
+            .save(&thread)
+            .await
+            .map_err(|error| SyncError::Operation(error.to_string()))?;
+
+        if !changed_thread_ids.contains(&thread.id) {
+            changed_thread_ids.push(thread.id.clone());
+        }
+    }
+
+    if !changed_message_ids.is_empty() {
+        emitter.emit(&DomainEvent::MessagesChanged {
+            account_id: account_id.to_string(),
+            message_ids: changed_message_ids.clone(),
+        });
+    }
+
+    if !changed_thread_ids.is_empty() {
+        emitter.emit(&DomainEvent::ThreadsChanged {
+            account_id: account_id.to_string(),
+            thread_ids: changed_thread_ids,
+        });
+    }
+
+    Ok(changed_message_ids)
+}
+
 async fn current_started_at(
     statuses: &Mutex<HashMap<String, SyncStatusSnapshot>>,
     account_id: &str,
@@ -507,13 +611,23 @@ mod tests {
             models::account::{
                 Account, AccountProvider, ConnectionSettings, SecurityType, SyncState,
             },
+            models::{
+                attachment::Attachment,
+                contact::Contact,
+                message::Message,
+                thread::Thread,
+            },
             models::folder::{Folder, FolderRole},
-            repositories::{AccountRepository, FolderRepository},
+            repositories::{
+                AccountRepository, FolderRepository, MessageRepository, ThreadRepository,
+            },
         },
         infrastructure::database::{
             repositories::{
                 account_repository::SqliteAccountRepository,
                 folder_repository::SqliteFolderRepository,
+                message_repository::SqliteMessageRepository,
+                thread_repository::SqliteThreadRepository,
             },
             Database,
         },
@@ -587,10 +701,161 @@ mod tests {
         ]
     }
 
+    fn sample_contact(
+        id: &str,
+        account_id: &str,
+        name: &str,
+        email: &str,
+        is_me: bool,
+    ) -> Contact {
+        let timestamp = chrono::DateTime::parse_from_rfc3339("2026-03-13T10:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        Contact {
+            id: id.into(),
+            account_id: account_id.into(),
+            name: Some(name.into()),
+            email: email.into(),
+            is_me,
+            created_at: timestamp,
+            updated_at: timestamp,
+        }
+    }
+
+    fn sample_threads() -> Vec<Thread> {
+        let timestamp = chrono::DateTime::parse_from_rfc3339("2026-03-13T10:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        vec![
+            Thread {
+                id: "thr_1".into(),
+                account_id: "acc_sync".into(),
+                subject: "Premium motion system approved".into(),
+                snippet: "Original snippet".into(),
+                message_count: 1,
+                participant_ids: vec!["atlas@example.com".into()],
+                folder_ids: vec!["fld_inbox".into()],
+                label_ids: vec![],
+                has_attachments: true,
+                is_unread: true,
+                is_starred: false,
+                last_message_at: timestamp,
+                last_message_sent_at: Some(timestamp),
+                created_at: timestamp,
+                updated_at: timestamp,
+            },
+            Thread {
+                id: "thr_2".into(),
+                account_id: "acc_sync".into(),
+                subject: "Rust health-check online".into(),
+                snippet: "Original sync snippet".into(),
+                message_count: 1,
+                participant_ids: vec!["infra@example.com".into()],
+                folder_ids: vec!["fld_archive".into()],
+                label_ids: vec![],
+                has_attachments: false,
+                is_unread: false,
+                is_starred: true,
+                last_message_at: timestamp,
+                last_message_sent_at: Some(timestamp),
+                created_at: timestamp,
+                updated_at: timestamp,
+            },
+        ]
+    }
+
+    fn sample_messages() -> Vec<Message> {
+        let timestamp = chrono::DateTime::parse_from_rfc3339("2026-03-13T10:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        vec![
+            Message {
+                id: "msg_1".into(),
+                account_id: "acc_sync".into(),
+                thread_id: "thr_1".into(),
+                from: vec![sample_contact(
+                    "ct_atlas",
+                    "acc_sync",
+                    "Atlas Design",
+                    "atlas@example.com",
+                    false,
+                )],
+                to: vec![],
+                cc: vec![],
+                bcc: vec![],
+                reply_to: vec![],
+                subject: "Premium motion system approved".into(),
+                snippet: "Original snippet".into(),
+                body: "<p>Original snippet</p>".into(),
+                plain_text: Some("Original snippet".into()),
+                message_id_header: "<msg_1@openmail.dev>".into(),
+                in_reply_to: None,
+                references: vec![],
+                folder_id: "fld_inbox".into(),
+                label_ids: vec![],
+                is_unread: true,
+                is_starred: false,
+                is_draft: false,
+                date: timestamp,
+                attachments: vec![Attachment {
+                    id: "att_1".into(),
+                    message_id: "msg_1".into(),
+                    filename: "motion-notes.pdf".into(),
+                    content_type: "application/pdf".into(),
+                    size: 2048,
+                    content_id: None,
+                    is_inline: false,
+                    local_path: None,
+                }],
+                headers: std::collections::HashMap::new(),
+                created_at: timestamp,
+                updated_at: timestamp,
+            },
+            Message {
+                id: "msg_2".into(),
+                account_id: "acc_sync".into(),
+                thread_id: "thr_2".into(),
+                from: vec![sample_contact(
+                    "ct_infra",
+                    "acc_sync",
+                    "Infra Sync",
+                    "infra@example.com",
+                    false,
+                )],
+                to: vec![],
+                cc: vec![],
+                bcc: vec![],
+                reply_to: vec![],
+                subject: "Rust health-check online".into(),
+                snippet: "Original sync snippet".into(),
+                body: "<p>Original sync snippet</p>".into(),
+                plain_text: Some("Original sync snippet".into()),
+                message_id_header: "<msg_2@openmail.dev>".into(),
+                in_reply_to: None,
+                references: vec![],
+                folder_id: "fld_archive".into(),
+                label_ids: vec![],
+                is_unread: false,
+                is_starred: true,
+                is_draft: false,
+                date: timestamp,
+                attachments: vec![],
+                headers: std::collections::HashMap::new(),
+                created_at: timestamp,
+                updated_at: timestamp,
+            },
+        ]
+    }
+
     async fn build_manager() -> (
         SyncManager,
         Arc<dyn AccountRepository>,
         Arc<dyn FolderRepository>,
+        Arc<dyn ThreadRepository>,
+        Arc<dyn MessageRepository>,
         Arc<RecordingEmitter>,
     ) {
         let unique_suffix = SystemTime::now()
@@ -606,19 +871,31 @@ mod tests {
             Arc::new(SqliteAccountRepository::new(db.clone()));
         let folder_repo: Arc<dyn FolderRepository> =
             Arc::new(SqliteFolderRepository::new(db.clone()));
+        let thread_repo: Arc<dyn ThreadRepository> =
+            Arc::new(SqliteThreadRepository::new(db.clone()));
+        let message_repo: Arc<dyn MessageRepository> =
+            Arc::new(SqliteMessageRepository::new(db.clone()));
         account_repo.save(&sample_account()).await.unwrap();
         folder_repo.save_batch(&sample_folders()).await.unwrap();
+        thread_repo.save_batch(&sample_threads()).await.unwrap();
+        message_repo.save_batch(&sample_messages()).await.unwrap();
 
-        let manager = SyncManager::new(account_repo.clone(), folder_repo.clone());
+        let manager = SyncManager::new(
+            account_repo.clone(),
+            folder_repo.clone(),
+            thread_repo.clone(),
+            message_repo.clone(),
+        );
         let emitter = Arc::new(RecordingEmitter::default());
         manager.set_event_emitter(emitter.clone());
 
-        (manager, account_repo, folder_repo, emitter)
+        (manager, account_repo, folder_repo, thread_repo, message_repo, emitter)
     }
 
     #[tokio::test]
     async fn start_sync_updates_account_state_and_emits_events() {
-        let (manager, account_repo, folder_repo, emitter) = build_manager().await;
+        let (manager, account_repo, folder_repo, thread_repo, message_repo, emitter) =
+            build_manager().await;
         let account = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
 
         manager.start_sync(account).await.unwrap();
@@ -626,6 +903,8 @@ mod tests {
 
         let persisted = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
         let synced_folders = folder_repo.find_by_account("acc_sync").await.unwrap();
+        let synced_thread = thread_repo.find_by_id("thr_1").await.unwrap().unwrap();
+        let synced_message = message_repo.find_by_id("msg_1").await.unwrap().unwrap();
         let statuses = manager.status_snapshot().await;
 
         assert_eq!(persisted.sync_state, SyncState::Sleeping);
@@ -637,6 +916,8 @@ mod tests {
                 .map(|folder| (folder.unread_count, folder.total_count)),
             Some((2, 12))
         );
+        assert!(synced_thread.snippet.contains("Sync confirmado"));
+        assert!(synced_message.headers.contains_key("x-open-mail-sync"));
         assert!(emitter.events.lock().unwrap().iter().any(|event| matches!(
             event,
             DomainEvent::SyncStatusChanged { account_id, state }
@@ -646,11 +927,21 @@ mod tests {
             event,
             DomainEvent::FoldersChanged { account_id } if account_id == "acc_sync"
         )));
+        assert!(emitter.events.lock().unwrap().iter().any(|event| matches!(
+            event,
+            DomainEvent::MessagesChanged { account_id, message_ids }
+                if account_id == "acc_sync" && message_ids.contains(&"msg_1".to_string())
+        )));
+        assert!(emitter.events.lock().unwrap().iter().any(|event| matches!(
+            event,
+            DomainEvent::ThreadsChanged { account_id, thread_ids }
+                if account_id == "acc_sync" && thread_ids.contains(&"thr_1".to_string())
+        )));
     }
 
     #[tokio::test]
     async fn stop_sync_cleans_up_worker_and_keeps_sleeping_state() {
-        let (manager, account_repo, _, _) = build_manager().await;
+        let (manager, account_repo, _, _, _, _) = build_manager().await;
         let account = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
 
         manager.start_sync(account).await.unwrap();
@@ -663,7 +954,7 @@ mod tests {
 
     #[tokio::test]
     async fn force_sync_restarts_worker_and_preserves_sleeping_state() {
-        let (manager, account_repo, _, _) = build_manager().await;
+        let (manager, account_repo, _, _, _, _) = build_manager().await;
         let account = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
 
         manager.start_sync(account).await.unwrap();

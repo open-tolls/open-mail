@@ -579,7 +579,12 @@ mod tests {
             Arc::new(SqliteThreadRepository::new(db.clone()));
         let message_repo: Arc<dyn MessageRepository> =
             Arc::new(SqliteMessageRepository::new(db.clone()));
-        let sync_manager = Arc::new(SyncManager::new(account_repo.clone(), folder_repo.clone()));
+        let sync_manager = Arc::new(SyncManager::new(
+            account_repo.clone(),
+            folder_repo.clone(),
+            thread_repo.clone(),
+            message_repo.clone(),
+        ));
 
         AppState {
             db,
@@ -689,7 +694,7 @@ mod tests {
             Some(crate::infrastructure::sync::SyncPhase::Idling)
         ));
         assert_eq!(status.folders_synced, 2);
-        assert_eq!(status.messages_observed, 3);
+        assert_eq!(status.messages_observed, 2);
         assert_eq!(status.folders.len(), 2);
         assert!(status.last_sync_started_at.is_some());
         assert!(status.last_sync_finished_at.is_some());
