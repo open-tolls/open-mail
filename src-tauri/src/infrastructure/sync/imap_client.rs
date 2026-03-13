@@ -3,7 +3,10 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::domain::models::account::{Account, ConnectionSettings};
+use crate::domain::models::{
+    account::{Account, ConnectionSettings},
+    sync_cursor::SyncCursor,
+};
 
 use super::{Credentials, SyncError, SyncMessageObservation};
 
@@ -36,7 +39,10 @@ pub trait ImapClient: Send + Sync {
     ) -> Result<(), SyncError>;
     async fn list_folders(&mut self) -> Result<Vec<ImapFolder>, SyncError>;
     async fn fetch_folder_statuses(&mut self) -> Result<Vec<ImapFolderStatus>, SyncError>;
-    async fn fetch_message_observations(&mut self) -> Result<Vec<SyncMessageObservation>, SyncError>;
+    async fn fetch_message_observations(
+        &mut self,
+        cursors: &[SyncCursor],
+    ) -> Result<Vec<SyncMessageObservation>, SyncError>;
     async fn idle(&mut self, timeout: Duration) -> Result<IdleResult, SyncError>;
 }
 
@@ -111,7 +117,10 @@ impl ImapClient for FakeImapClient {
         ])
     }
 
-    async fn fetch_message_observations(&mut self) -> Result<Vec<SyncMessageObservation>, SyncError> {
+    async fn fetch_message_observations(
+        &mut self,
+        cursors: &[SyncCursor],
+    ) -> Result<Vec<SyncMessageObservation>, SyncError> {
         if !self.connected {
             return Err(SyncError::Connection("client is not connected".into()));
         }
@@ -120,7 +129,7 @@ impl ImapClient for FakeImapClient {
             .map(|timestamp| timestamp.with_timezone(&Utc))
             .map_err(|error| SyncError::Operation(error.to_string()))?;
 
-        Ok(vec![
+        let observations = vec![
             SyncMessageObservation {
                 message_id: "msg_1".into(),
                 thread_id: "thr_1".into(),
@@ -151,7 +160,18 @@ impl ImapClient for FakeImapClient {
                 is_unread: false,
                 headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
             },
-        ])
+        ];
+
+        Ok(observations
+            .into_iter()
+            .filter(|observation| {
+                !cursors.iter().any(|cursor| {
+                    cursor.folder_path.eq_ignore_ascii_case(&observation.folder_path)
+                        && cursor.last_message_id.as_deref() == Some(observation.message_id.as_str())
+                        && cursor.last_thread_id.as_deref() == Some(observation.thread_id.as_str())
+                })
+            })
+            .collect())
     }
 
     async fn idle(&mut self, timeout: Duration) -> Result<IdleResult, SyncError> {
@@ -163,7 +183,7 @@ impl ImapClient for FakeImapClient {
         self.idle_cycles += 1;
 
         if self.idle_cycles == 1 {
-            return Ok(IdleResult::NewMessages { count: 3 });
+            return Ok(IdleResult::NewMessages { count: 2 });
         }
 
         Ok(IdleResult::Timeout)

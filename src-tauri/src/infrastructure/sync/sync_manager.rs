@@ -393,7 +393,12 @@ impl SyncWorker {
         let idle_result = client.idle(Duration::from_millis(25)).await?;
         let observed_messages = match idle_result {
             IdleResult::NewMessages { .. } => {
-                let observations = client.fetch_message_observations().await?;
+                let cursors = self
+                    .sync_cursor_repo
+                    .find_by_account(&self.account.id)
+                    .await
+                    .map_err(|error| SyncError::Operation(error.to_string()))?;
+                let observations = client.fetch_message_observations(&cursors).await?;
                 let context = SyncObservationContext {
                     message_repo: &self.message_repo,
                     thread_repo: &self.thread_repo,
@@ -1033,15 +1038,45 @@ mod tests {
 
     #[tokio::test]
     async fn force_sync_restarts_worker_and_preserves_sleeping_state() {
-        let (manager, account_repo, _, _, _, _, _) = build_manager().await;
+        let (manager, account_repo, _, _, _, sync_cursor_repo, emitter) = build_manager().await;
         let account = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
 
         manager.start_sync(account).await.unwrap();
         tokio::time::sleep(Duration::from_millis(60)).await;
+        let initial_message_events = emitter
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| matches!(event, DomainEvent::MessagesChanged { .. }))
+            .count();
+        let initial_cursor = sync_cursor_repo
+            .find_by_folder("acc_sync", "fld_inbox")
+            .await
+            .unwrap()
+            .unwrap();
         manager.force_sync("acc_sync").await.unwrap();
         tokio::time::sleep(Duration::from_millis(60)).await;
 
         let statuses = manager.status_snapshot().await;
+        let final_message_events = emitter
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|event| matches!(event, DomainEvent::MessagesChanged { .. }))
+            .count();
+        let final_cursor = sync_cursor_repo
+            .find_by_folder("acc_sync", "fld_inbox")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(statuses.get("acc_sync"), Some(&SyncState::Sleeping));
+        assert_eq!(initial_message_events, final_message_events);
+        assert_eq!(initial_cursor.last_message_id, final_cursor.last_message_id);
+        assert_eq!(
+            initial_cursor.observed_message_count,
+            final_cursor.observed_message_count
+        );
     }
 }
