@@ -9,6 +9,7 @@ use rusqlite::Connection;
 use crate::domain::errors::DomainError;
 
 const INITIAL_MIGRATION: &str = include_str!("migrations/001_initial_schema.sql");
+const SYNC_CURSOR_MIGRATION: &str = include_str!("migrations/002_sync_cursors.sql");
 
 pub mod repositories;
 
@@ -40,6 +41,9 @@ impl Database {
         let connection = self.connection()?;
         connection
             .execute_batch(INITIAL_MIGRATION)
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+        connection
+            .execute_batch(SYNC_CURSOR_MIGRATION)
             .map_err(|error| DomainError::Database(error.to_string()))?;
 
         Ok(())
@@ -74,6 +78,7 @@ mod tests {
             account_repository::SqliteAccountRepository,
             folder_repository::SqliteFolderRepository,
             message_repository::SqliteMessageRepository,
+            sync_cursor_repository::SqliteSyncCursorRepository,
             thread_repository::SqliteThreadRepository,
         },
         Database,
@@ -84,10 +89,12 @@ mod tests {
         models::contact::Contact,
         models::folder::{Folder, FolderRole},
         models::message::Message,
+        models::sync_cursor::SyncCursor,
         models::thread::Thread,
         repositories::AccountRepository,
         repositories::FolderRepository,
         repositories::MessageRepository,
+        repositories::SyncCursorRepository,
         repositories::ThreadRepository,
     };
 
@@ -409,5 +416,49 @@ mod tests {
         assert!(thread_repo.find_by_id("thr_1").await.unwrap().is_none());
         assert!(message_repo.find_by_id("msg_1").await.unwrap().is_none());
         assert!(folder_repo.find_by_account("acc_1").await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn persists_sync_cursors_by_account_and_folder() {
+        let database_path = unique_database_path("open-mail-sync-cursor");
+        let database = Database::new(&database_path).unwrap();
+        database.run_migrations().unwrap();
+
+        let account_repo = SqliteAccountRepository::new(database.clone());
+        let folder_repo = SqliteFolderRepository::new(database.clone());
+        let sync_cursor_repo = SqliteSyncCursorRepository::new(database.clone());
+
+        account_repo.save(&sample_account()).await.unwrap();
+        folder_repo
+            .save(&sample_folder("fld_inbox", FolderRole::Inbox))
+            .await
+            .unwrap();
+
+        let cursor = SyncCursor {
+            account_id: "acc_1".into(),
+            folder_id: "fld_inbox".into(),
+            folder_path: "INBOX".into(),
+            last_message_id: Some("msg_2".into()),
+            last_message_observed_at: Some(sample_timestamp()),
+            last_thread_id: Some("thr_1".into()),
+            observed_message_count: 2,
+            last_sync_started_at: Some(sample_timestamp()),
+            last_sync_finished_at: Some(sample_timestamp()),
+            updated_at: sample_timestamp(),
+        };
+
+        sync_cursor_repo.save(&cursor).await.unwrap();
+
+        let persisted = sync_cursor_repo
+            .find_by_folder("acc_1", "fld_inbox")
+            .await
+            .unwrap()
+            .unwrap();
+        let by_account = sync_cursor_repo.find_by_account("acc_1").await.unwrap();
+
+        assert_eq!(persisted.folder_path, "INBOX");
+        assert_eq!(persisted.last_message_id.as_deref(), Some("msg_2"));
+        assert_eq!(persisted.observed_message_count, 2);
+        assert_eq!(by_account.len(), 1);
     }
 }

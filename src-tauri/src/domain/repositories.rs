@@ -7,6 +7,7 @@ use crate::domain::{
         contact::Contact,
         folder::{Folder, FolderRole},
         message::Message,
+        sync_cursor::SyncCursor,
         thread::Thread,
     },
 };
@@ -74,4 +75,15 @@ pub trait ContactRepository: Send + Sync {
     async fn search(&self, query: &str, limit: u32) -> Result<Vec<Contact>, DomainError>;
     async fn save(&self, contact: &Contact) -> Result<(), DomainError>;
     async fn save_batch(&self, contacts: &[Contact]) -> Result<(), DomainError>;
+}
+
+#[async_trait]
+pub trait SyncCursorRepository: Send + Sync {
+    async fn find_by_account(&self, account_id: &str) -> Result<Vec<SyncCursor>, DomainError>;
+    async fn find_by_folder(
+        &self,
+        account_id: &str,
+        folder_id: &str,
+    ) -> Result<Option<SyncCursor>, DomainError>;
+    async fn save(&self, cursor: &SyncCursor) -> Result<(), DomainError>;
 }

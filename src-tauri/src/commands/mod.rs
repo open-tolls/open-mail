@@ -532,6 +532,7 @@ pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
 mod tests {
     use std::{
         sync::Arc,
+        sync::atomic::{AtomicU64, Ordering},
         time::{SystemTime, UNIX_EPOCH},
     };
 
@@ -544,7 +545,8 @@ mod tests {
     use crate::{
         domain::models::account::SyncState,
         domain::repositories::{
-            AccountRepository, FolderRepository, MessageRepository, ThreadRepository,
+            AccountRepository, FolderRepository, MessageRepository, SyncCursorRepository,
+            ThreadRepository,
         },
         infrastructure::{
             database::{
@@ -552,6 +554,7 @@ mod tests {
                     account_repository::SqliteAccountRepository,
                     folder_repository::SqliteFolderRepository,
                     message_repository::SqliteMessageRepository,
+                    sync_cursor_repository::SqliteSyncCursorRepository,
                     thread_repository::SqliteThreadRepository,
                 },
                 Database,
@@ -562,12 +565,17 @@ mod tests {
     };
 
     fn build_test_state() -> AppState {
+        static NEXT_DB_ID: AtomicU64 = AtomicU64::new(1);
         let unique_suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
+        let counter = NEXT_DB_ID.fetch_add(1, Ordering::Relaxed);
         let database_path =
-            std::env::temp_dir().join(format!("open-mail-commands-{unique_suffix}.db"));
+            std::env::temp_dir().join(format!(
+                "open-mail-commands-{}-{unique_suffix}-{counter}.db",
+                std::process::id()
+            ));
         let db = Database::new(&database_path).unwrap();
         db.run_migrations().unwrap();
 
@@ -579,11 +587,14 @@ mod tests {
             Arc::new(SqliteThreadRepository::new(db.clone()));
         let message_repo: Arc<dyn MessageRepository> =
             Arc::new(SqliteMessageRepository::new(db.clone()));
+        let sync_cursor_repo: Arc<dyn SyncCursorRepository> =
+            Arc::new(SqliteSyncCursorRepository::new(db.clone()));
         let sync_manager = Arc::new(SyncManager::new(
             account_repo.clone(),
             folder_repo.clone(),
             thread_repo.clone(),
             message_repo.clone(),
+            sync_cursor_repo.clone(),
         ));
 
         AppState {
@@ -592,6 +603,7 @@ mod tests {
             folder_repo,
             thread_repo,
             message_repo,
+            sync_cursor_repo,
             sync_manager,
         }
     }

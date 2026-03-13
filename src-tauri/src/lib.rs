@@ -12,13 +12,15 @@ use commands::{
 };
 use domain::events::DomainEvent;
 use domain::repositories::{
-    AccountRepository, FolderRepository, MessageRepository, ThreadRepository,
+    AccountRepository, FolderRepository, MessageRepository, SyncCursorRepository, ThreadRepository,
 };
 use infrastructure::{
     database::{
         repositories::{
             account_repository::SqliteAccountRepository, folder_repository::SqliteFolderRepository,
-            message_repository::SqliteMessageRepository, thread_repository::SqliteThreadRepository,
+            message_repository::SqliteMessageRepository,
+            sync_cursor_repository::SqliteSyncCursorRepository,
+            thread_repository::SqliteThreadRepository,
         },
         Database,
     },
@@ -32,6 +34,7 @@ pub struct AppState {
     pub folder_repo: Arc<dyn FolderRepository>,
     pub thread_repo: Arc<dyn ThreadRepository>,
     pub message_repo: Arc<dyn MessageRepository>,
+    pub sync_cursor_repo: Arc<dyn SyncCursorRepository>,
     pub sync_manager: Arc<SyncManager>,
 }
 
@@ -96,11 +99,14 @@ fn build_app_state() -> Result<AppState, String> {
     let thread_repo: Arc<dyn ThreadRepository> = Arc::new(SqliteThreadRepository::new(db.clone()));
     let message_repo: Arc<dyn MessageRepository> =
         Arc::new(SqliteMessageRepository::new(db.clone()));
+    let sync_cursor_repo: Arc<dyn SyncCursorRepository> =
+        Arc::new(SqliteSyncCursorRepository::new(db.clone()));
     let sync_manager = Arc::new(SyncManager::new(
         account_repo.clone(),
         folder_repo.clone(),
         thread_repo.clone(),
         message_repo.clone(),
+        sync_cursor_repo.clone(),
     ));
 
     Ok(AppState {
@@ -109,6 +115,7 @@ fn build_app_state() -> Result<AppState, String> {
         folder_repo,
         thread_repo,
         message_repo,
+        sync_cursor_repo,
         sync_manager,
     })
 }
