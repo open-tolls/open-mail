@@ -579,7 +579,7 @@ mod tests {
             Arc::new(SqliteThreadRepository::new(db.clone()));
         let message_repo: Arc<dyn MessageRepository> =
             Arc::new(SqliteMessageRepository::new(db.clone()));
-        let sync_manager = Arc::new(SyncManager::new(account_repo.clone()));
+        let sync_manager = Arc::new(SyncManager::new(account_repo.clone(), folder_repo.clone()));
 
         AppState {
             db,
@@ -633,7 +633,8 @@ mod tests {
         seed_demo_data(&state).await.unwrap();
 
         let thread_messages = list_messages_for_state(&state, "thr_1").await.unwrap();
-        let message = get_message_for_state(&state, "msg_1").await.unwrap().unwrap();
+        let message_id = thread_messages[0].id.clone();
+        let message = get_message_for_state(&state, &message_id).await.unwrap().unwrap();
 
         assert_eq!(thread_messages.len(), 1);
         assert_eq!(message.id, "msg_1");

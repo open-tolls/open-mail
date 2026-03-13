@@ -11,6 +11,7 @@ describe('query event invalidation', () => {
 
     expect(keys).toEqual([
       ['mailbox-overview'],
+      ['sync-status-detail'],
       ['folder-threads'],
       ['search-threads'],
       ['thread-messages'],
@@ -25,6 +26,20 @@ describe('query event invalidation', () => {
       state: { kind: 'running' }
     });
 
-    expect(keys).toEqual([['mailbox-overview']]);
+    expect(keys).toEqual([['mailbox-overview'], ['sync-status-detail']]);
+  });
+
+  it('invalidates folder-derived queries when sync updates folders', () => {
+    const keys = getInvalidationKeysForDomainEvent({
+      type: 'folders-changed',
+      accountId: 'acc_1'
+    });
+
+    expect(keys).toEqual([
+      ['mailbox-overview'],
+      ['sync-status-detail'],
+      ['folder-threads'],
+      ['search-threads']
+    ]);
   });
 });

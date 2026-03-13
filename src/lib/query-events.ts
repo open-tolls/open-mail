@@ -1,7 +1,7 @@
 import type { QueryKey } from '@tanstack/react-query';
 import type { DomainEvent } from '@lib/contracts';
 
-const mailboxKeys: QueryKey[] = [['mailbox-overview']];
+const mailboxKeys: QueryKey[] = [['mailbox-overview'], ['sync-status-detail']];
 const threadKeys: QueryKey[] = [['folder-threads'], ['search-threads']];
 const messageKeys: QueryKey[] = [['thread-messages'], ['message-detail']];
 

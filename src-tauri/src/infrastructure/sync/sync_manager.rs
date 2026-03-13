@@ -12,8 +12,8 @@ use tokio::{
 
 use crate::domain::{
     events::DomainEvent,
-    models::account::{Account, SyncState},
-    repositories::AccountRepository,
+    models::{account::{Account, SyncState}, folder::Folder},
+    repositories::{AccountRepository, FolderRepository},
 };
 
 use super::{
@@ -39,6 +39,7 @@ struct SyncWorkerHandle {
 
 pub struct SyncManager {
     account_repo: Arc<dyn AccountRepository>,
+    folder_repo: Arc<dyn FolderRepository>,
     emitter: RwLock<Arc<dyn SyncEventEmitter>>,
     imap_factory: RwLock<SharedImapClientFactory>,
     workers: Arc<Mutex<HashMap<String, SyncWorkerHandle>>>,
@@ -46,9 +47,10 @@ pub struct SyncManager {
 }
 
 impl SyncManager {
-    pub fn new(account_repo: Arc<dyn AccountRepository>) -> Self {
+    pub fn new(account_repo: Arc<dyn AccountRepository>, folder_repo: Arc<dyn FolderRepository>) -> Self {
         Self {
             account_repo,
+            folder_repo,
             emitter: RwLock::new(Arc::new(NoopSyncEventEmitter)),
             imap_factory: RwLock::new(Arc::new(FakeImapClientFactory)),
             workers: Arc::new(Mutex::new(HashMap::new())),
@@ -79,6 +81,7 @@ impl SyncManager {
         let worker = SyncWorker::new(
             account,
             self.account_repo.clone(),
+            self.folder_repo.clone(),
             self.statuses.clone(),
             self.current_emitter(),
             self.current_imap_factory(),
@@ -236,6 +239,7 @@ impl SyncManager {
 struct SyncWorker {
     account: Account,
     account_repo: Arc<dyn AccountRepository>,
+    folder_repo: Arc<dyn FolderRepository>,
     statuses: Arc<Mutex<HashMap<String, SyncStatusSnapshot>>>,
     emitter: Arc<dyn SyncEventEmitter>,
     imap_factory: SharedImapClientFactory,
@@ -245,6 +249,7 @@ impl SyncWorker {
     fn new(
         account: Account,
         account_repo: Arc<dyn AccountRepository>,
+        folder_repo: Arc<dyn FolderRepository>,
         statuses: Arc<Mutex<HashMap<String, SyncStatusSnapshot>>>,
         emitter: Arc<dyn SyncEventEmitter>,
         imap_factory: SharedImapClientFactory,
@@ -252,6 +257,7 @@ impl SyncWorker {
         Self {
             account,
             account_repo,
+            folder_repo,
             statuses,
             emitter,
             imap_factory,
@@ -342,6 +348,13 @@ impl SyncWorker {
         .await;
 
         let folder_statuses = client.fetch_folder_statuses().await?;
+        reconcile_folder_state(
+            &self.folder_repo,
+            &*self.emitter,
+            &self.account.id,
+            &folder_statuses,
+        )
+        .await?;
         let folders_synced = folder_statuses.len() as u32;
         update_sync_status(
             &self.account_repo,
@@ -404,6 +417,52 @@ impl SyncWorker {
     }
 }
 
+async fn reconcile_folder_state(
+    folder_repo: &Arc<dyn FolderRepository>,
+    emitter: &dyn SyncEventEmitter,
+    account_id: &str,
+    observed_folders: &[crate::infrastructure::sync::ImapFolderStatus],
+) -> Result<(), SyncError> {
+    let persisted_folders = folder_repo
+        .find_by_account(account_id)
+        .await
+        .map_err(|error| SyncError::Operation(error.to_string()))?;
+    let mut changed_folders = Vec::new();
+
+    for observed_folder in observed_folders {
+        let Some(existing_folder) = persisted_folders
+            .iter()
+            .find(|folder| folder.path.eq_ignore_ascii_case(&observed_folder.folder.path))
+        else {
+            continue;
+        };
+
+        if existing_folder.unread_count == observed_folder.unread_count
+            && existing_folder.total_count == observed_folder.total_count
+        {
+            continue;
+        }
+
+        let mut updated_folder: Folder = existing_folder.clone();
+        updated_folder.unread_count = observed_folder.unread_count;
+        updated_folder.total_count = observed_folder.total_count;
+        updated_folder.updated_at = Utc::now();
+        folder_repo
+            .save(&updated_folder)
+            .await
+            .map_err(|error| SyncError::Operation(error.to_string()))?;
+        changed_folders.push(updated_folder.id);
+    }
+
+    if !changed_folders.is_empty() {
+        emitter.emit(&DomainEvent::FoldersChanged {
+            account_id: account_id.to_string(),
+        });
+    }
+
+    Ok(())
+}
+
 async fn current_started_at(
     statuses: &Mutex<HashMap<String, SyncStatusSnapshot>>,
     account_id: &str,
@@ -448,10 +507,15 @@ mod tests {
             models::account::{
                 Account, AccountProvider, ConnectionSettings, SecurityType, SyncState,
             },
-            repositories::AccountRepository,
+            models::folder::{Folder, FolderRole},
+            repositories::{AccountRepository, FolderRepository},
         },
         infrastructure::database::{
-            repositories::account_repository::SqliteAccountRepository, Database,
+            repositories::{
+                account_repository::SqliteAccountRepository,
+                folder_repository::SqliteFolderRepository,
+            },
+            Database,
         },
     };
 
@@ -492,7 +556,43 @@ mod tests {
         }
     }
 
-    async fn build_manager() -> (SyncManager, Arc<dyn AccountRepository>, Arc<RecordingEmitter>) {
+    fn sample_folders() -> Vec<Folder> {
+        let timestamp = chrono::DateTime::parse_from_rfc3339("2026-03-13T10:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        vec![
+            Folder {
+                id: "fld_inbox".into(),
+                account_id: "acc_sync".into(),
+                name: "Inbox".into(),
+                path: "INBOX".into(),
+                role: Some(FolderRole::Inbox),
+                unread_count: 0,
+                total_count: 0,
+                created_at: timestamp,
+                updated_at: timestamp,
+            },
+            Folder {
+                id: "fld_archive".into(),
+                account_id: "acc_sync".into(),
+                name: "Archive".into(),
+                path: "Archive".into(),
+                role: Some(FolderRole::Archive),
+                unread_count: 0,
+                total_count: 0,
+                created_at: timestamp,
+                updated_at: timestamp,
+            },
+        ]
+    }
+
+    async fn build_manager() -> (
+        SyncManager,
+        Arc<dyn AccountRepository>,
+        Arc<dyn FolderRepository>,
+        Arc<RecordingEmitter>,
+    ) {
         let unique_suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -504,38 +604,53 @@ mod tests {
 
         let account_repo: Arc<dyn AccountRepository> =
             Arc::new(SqliteAccountRepository::new(db.clone()));
+        let folder_repo: Arc<dyn FolderRepository> =
+            Arc::new(SqliteFolderRepository::new(db.clone()));
         account_repo.save(&sample_account()).await.unwrap();
+        folder_repo.save_batch(&sample_folders()).await.unwrap();
 
-        let manager = SyncManager::new(account_repo.clone());
+        let manager = SyncManager::new(account_repo.clone(), folder_repo.clone());
         let emitter = Arc::new(RecordingEmitter::default());
         manager.set_event_emitter(emitter.clone());
 
-        (manager, account_repo, emitter)
+        (manager, account_repo, folder_repo, emitter)
     }
 
     #[tokio::test]
     async fn start_sync_updates_account_state_and_emits_events() {
-        let (manager, account_repo, emitter) = build_manager().await;
+        let (manager, account_repo, folder_repo, emitter) = build_manager().await;
         let account = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
 
         manager.start_sync(account).await.unwrap();
         tokio::time::sleep(Duration::from_millis(60)).await;
 
         let persisted = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
+        let synced_folders = folder_repo.find_by_account("acc_sync").await.unwrap();
         let statuses = manager.status_snapshot().await;
 
         assert_eq!(persisted.sync_state, SyncState::Sleeping);
         assert_eq!(statuses.get("acc_sync"), Some(&SyncState::Sleeping));
+        assert_eq!(
+            synced_folders
+                .iter()
+                .find(|folder| folder.id == "fld_inbox")
+                .map(|folder| (folder.unread_count, folder.total_count)),
+            Some((2, 12))
+        );
         assert!(emitter.events.lock().unwrap().iter().any(|event| matches!(
             event,
             DomainEvent::SyncStatusChanged { account_id, state }
                 if account_id == "acc_sync" && *state == SyncState::Running
         )));
+        assert!(emitter.events.lock().unwrap().iter().any(|event| matches!(
+            event,
+            DomainEvent::FoldersChanged { account_id } if account_id == "acc_sync"
+        )));
     }
 
     #[tokio::test]
     async fn stop_sync_cleans_up_worker_and_keeps_sleeping_state() {
-        let (manager, account_repo, _) = build_manager().await;
+        let (manager, account_repo, _, _) = build_manager().await;
         let account = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
 
         manager.start_sync(account).await.unwrap();
@@ -548,7 +663,7 @@ mod tests {
 
     #[tokio::test]
     async fn force_sync_restarts_worker_and_preserves_sleeping_state() {
-        let (manager, account_repo, _) = build_manager().await;
+        let (manager, account_repo, _, _) = build_manager().await;
         let account = account_repo.find_by_id("acc_sync").await.unwrap().unwrap();
 
         manager.start_sync(account).await.unwrap();
