@@ -10,6 +10,8 @@ use crate::domain::errors::DomainError;
 
 const INITIAL_MIGRATION: &str = include_str!("migrations/001_initial_schema.sql");
 
+pub mod repositories;
+
 #[derive(Debug, Clone)]
 pub struct Database {
     path: PathBuf,
@@ -62,7 +64,13 @@ pub fn subsystem_name() -> &'static str {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::Database;
+    use chrono::{DateTime, Utc};
+
+    use super::{repositories::account_repository::SqliteAccountRepository, Database};
+    use crate::domain::{
+        models::account::{Account, AccountProvider, ConnectionSettings, SecurityType, SyncState},
+        repositories::AccountRepository,
+    };
 
     #[test]
     fn creates_database_and_runs_migrations() {
@@ -82,5 +90,44 @@ mod tests {
         let mut rows = statement.query([]).unwrap();
 
         assert!(rows.next().unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn persists_and_reads_accounts() {
+        let unique_suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let database_path =
+            std::env::temp_dir().join(format!("open-mail-account-{unique_suffix}.db"));
+        let database = Database::new(&database_path).unwrap();
+        database.run_migrations().unwrap();
+        let repository = SqliteAccountRepository::new(database.clone());
+        let timestamp = DateTime::parse_from_rfc3339("2026-03-13T10:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let account = Account {
+            id: "acc_1".into(),
+            name: "Personal".into(),
+            email_address: "leco@example.com".into(),
+            provider: AccountProvider::Imap,
+            connection_settings: ConnectionSettings {
+                imap_host: "imap.example.com".into(),
+                imap_port: 993,
+                imap_security: SecurityType::Ssl,
+                smtp_host: "smtp.example.com".into(),
+                smtp_port: 587,
+                smtp_security: SecurityType::StartTls,
+            },
+            sync_state: SyncState::Running,
+            created_at: timestamp,
+            updated_at: timestamp,
+        };
+
+        repository.save(&account).await.unwrap();
+
+        let persisted = repository.find_by_id("acc_1").await.unwrap().unwrap();
+        assert_eq!(persisted.email_address, "leco@example.com");
     }
 }

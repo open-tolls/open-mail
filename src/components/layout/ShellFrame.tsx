@@ -1,53 +1,45 @@
 import {
   BellDot,
   Command,
-  Inbox,
   PencilLine,
   Search,
-  Send,
   Sparkles,
+  Archive,
+  Inbox,
+  Send,
   Star,
   Trash2
 } from 'lucide-react';
 import { StatusBadge } from '@components/ui/StatusBadge';
-
-const folders = [
-  { label: 'Inbox', count: 24, icon: Inbox, active: true },
-  { label: 'Starred', count: 8, icon: Star },
-  { label: 'Sent', count: 412, icon: Send },
-  { label: 'Archive', count: 1280, icon: BellDot },
-  { label: 'Trash', count: 3, icon: Trash2 }
-];
-
-const threads = [
-  {
-    sender: 'Atlas Design',
-    subject: 'Premium motion system approved',
-    preview: 'Vamos fechar a base visual do composer e da thread list hoje.',
-    time: '09:24',
-    unread: true
-  },
-  {
-    sender: 'Infra Sync',
-    subject: 'Rust health-check online',
-    preview: 'IPC inicial respondeu sem erro e o shell já consegue refletir o estado.',
-    time: '08:52',
-    unread: false
-  },
-  {
-    sender: 'Product',
-    subject: 'Roadmap fase 0 consolidado',
-    preview: 'CI, lint, testes canário e estrutura Tauri alinhados com o plano.',
-    time: 'Ontem',
-    unread: false
-  }
-];
+import type { FolderRecord, ThreadSummary } from '@lib/contracts';
 
 type ShellFrameProps = {
   backendStatus: string;
+  folders: FolderRecord[];
+  threads: ThreadSummary[];
 };
 
-export const ShellFrame = ({ backendStatus }: ShellFrameProps) => {
+const folderIconMap = {
+  inbox: Inbox,
+  starred: Star,
+  sent: Send,
+  archive: Archive,
+  trash: Trash2
+} as const;
+
+const formatThreadTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Agora';
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+};
+
+export const ShellFrame = ({ backendStatus, folders, threads }: ShellFrameProps) => {
   return (
     <div className="shell-root">
       <div className="shell-backdrop" aria-hidden="true" />
@@ -69,18 +61,18 @@ export const ShellFrame = ({ backendStatus }: ShellFrameProps) => {
 
         <nav className="folder-nav" aria-label="Mailbox folders">
           {folders.map((folder) => {
-            const Icon = folder.icon;
+            const Icon = folder.role ? folderIconMap[folder.role as keyof typeof folderIconMap] ?? BellDot : BellDot;
             return (
               <button
-                className={folder.active ? 'folder-link folder-link-active' : 'folder-link'}
-                key={folder.label}
+                className={folder.role === 'inbox' ? 'folder-link folder-link-active' : 'folder-link'}
+                key={folder.id}
                 type="button"
               >
                 <span className="folder-link-main">
                   <Icon size={16} />
-                  {folder.label}
+                  {folder.name}
                 </span>
-                <span className="folder-count">{folder.count}</span>
+                <span className="folder-count">{folder.unread_count}</span>
               </button>
             );
           })}
@@ -146,14 +138,14 @@ export const ShellFrame = ({ backendStatus }: ShellFrameProps) => {
 
             <div className="thread-list">
               {threads.map((thread) => (
-                <article className="thread-card" key={`${thread.sender}-${thread.subject}`}>
+                <article className="thread-card" key={thread.id}>
                   <div className="thread-card-row">
-                    <h4>{thread.sender}</h4>
-                    <span>{thread.time}</span>
+                    <h4>{thread.participants[0] ?? 'Open Mail'}</h4>
+                    <span>{formatThreadTime(thread.lastMessageAt)}</span>
                   </div>
                   <p className="thread-subject">{thread.subject}</p>
-                  <p className="thread-preview">{thread.preview}</p>
-                  {thread.unread ? <span className="thread-dot" aria-label="Unread thread" /> : null}
+                  <p className="thread-preview">{thread.snippet}</p>
+                  {thread.isUnread ? <span className="thread-dot" aria-label="Unread thread" /> : null}
                 </article>
               ))}
             </div>
@@ -178,4 +170,3 @@ export const ShellFrame = ({ backendStatus }: ShellFrameProps) => {
     </div>
   );
 };
-

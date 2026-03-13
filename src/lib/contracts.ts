@@ -24,9 +24,47 @@ export type ThreadSummary = {
   lastMessageAt: string;
 };
 
+export type FolderRecord = {
+  id: string;
+  account_id: string;
+  name: string;
+  path: string;
+  role: string | null;
+  unread_count: number;
+  total_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ThreadRecord = {
+  id: string;
+  account_id: string;
+  subject: string;
+  snippet: string;
+  message_count: number;
+  participant_ids: string[];
+  folder_ids: string[];
+  label_ids: string[];
+  has_attachments: boolean;
+  is_unread: boolean;
+  is_starred: boolean;
+  last_message_at: string;
+  last_message_sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MailboxReadModel = {
   activeFolder: string;
   syncState: SyncState;
+  folders: FolderRecord[];
   threads: ThreadSummary[];
+};
+
+export type MailboxOverview = {
+  account_id: string;
+  folders: FolderRecord[];
+  threads: ThreadRecord[];
+  sync_state: SyncState;
 };
 

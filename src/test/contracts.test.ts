@@ -6,6 +6,7 @@ describe('contracts', () => {
     const mailbox: MailboxReadModel = {
       activeFolder: 'Inbox',
       syncState: { kind: 'running' },
+      folders: [],
       threads: [
         {
           id: 'thr_1',
