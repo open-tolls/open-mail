@@ -10,6 +10,8 @@ const toThreadSummary = (threads: ThreadRecord[]): ThreadSummary[] =>
     participants: thread.participant_ids,
     isUnread: thread.is_unread,
     isStarred: thread.is_starred,
+    hasAttachments: thread.has_attachments,
+    messageCount: thread.message_count,
     lastMessageAt: thread.last_message_at
   }));
 
@@ -32,7 +34,6 @@ export const useFolderThreads = (
         );
       }
 
-      const threads = await api.mailbox.listThreads(accountId, folderId);
-      return toThreadSummary(threads);
+      return api.mailbox.listThreads(accountId, folderId);
     }
   });

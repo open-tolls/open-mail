@@ -1,10 +1,77 @@
 import { useQuery } from '@tanstack/react-query';
-import type { MailboxReadModel, MailboxOverview, ThreadSummary } from '@lib/contracts';
+import type { MailboxReadModel, MailboxOverview, ThreadRecord, ThreadSummary } from '@lib/contracts';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 
+const fallbackThreadRecords: ThreadRecord[] = [
+  {
+    id: 'thr_1',
+    account_id: 'acc_demo',
+    subject: 'Premium motion system approved',
+    snippet: 'Vamos fechar a base visual do composer e da thread list hoje.',
+    message_count: 3,
+    participant_ids: ['atlas@example.com'],
+    folder_ids: ['fld_inbox'],
+    label_ids: [],
+    has_attachments: true,
+    is_unread: true,
+    is_starred: false,
+    last_message_at: '2026-03-13T10:00:00Z',
+    last_message_sent_at: '2026-03-13T10:00:00Z',
+    created_at: '2026-03-13T10:00:00Z',
+    updated_at: '2026-03-13T10:00:00Z'
+  },
+  {
+    id: 'thr_2',
+    account_id: 'acc_demo',
+    subject: 'Rust health-check online',
+    snippet: 'IPC inicial respondeu sem erro e o shell já consegue refletir o estado.',
+    message_count: 2,
+    participant_ids: ['infra@example.com'],
+    folder_ids: ['fld_inbox', 'fld_starred'],
+    label_ids: [],
+    has_attachments: false,
+    is_unread: false,
+    is_starred: true,
+    last_message_at: '2026-03-13T09:28:00Z',
+    last_message_sent_at: '2026-03-13T09:28:00Z',
+    created_at: '2026-03-13T10:00:00Z',
+    updated_at: '2026-03-13T10:00:00Z'
+  },
+  {
+    id: 'thr_3',
+    account_id: 'acc_demo',
+    subject: 'Ship notes for desktop alpha',
+    snippet: 'Build desktop alpha aprovado, agora seguimos com pacote de release.',
+    message_count: 1,
+    participant_ids: ['release@example.com'],
+    folder_ids: ['fld_sent'],
+    label_ids: [],
+    has_attachments: false,
+    is_unread: false,
+    is_starred: false,
+    last_message_at: '2026-03-13T07:00:00Z',
+    last_message_sent_at: '2026-03-13T07:00:00Z',
+    created_at: '2026-03-13T10:00:00Z',
+    updated_at: '2026-03-13T10:00:00Z'
+  }
+];
+
+const fallbackThreads: ThreadSummary[] = fallbackThreadRecords.map((thread) => ({
+  id: thread.id,
+  subject: thread.subject,
+  snippet: thread.snippet,
+  participants: thread.participant_ids,
+  isUnread: thread.is_unread,
+  isStarred: thread.is_starred,
+  hasAttachments: thread.has_attachments,
+  messageCount: thread.message_count,
+  lastMessageAt: thread.last_message_at
+}));
+
 const fallbackOverview: MailboxOverview = {
-  account_id: 'acc_demo',
-  sync_state: { kind: 'running' },
+  accountId: 'acc_demo',
+  activeFolderId: 'fld_inbox',
+  syncState: { kind: 'running' },
   folders: [
     {
       id: 'fld_inbox',
@@ -51,80 +118,16 @@ const fallbackOverview: MailboxOverview = {
       updated_at: '2026-03-13T10:00:00Z'
     }
   ],
-  threads: [
-    {
-      id: 'thr_1',
-      account_id: 'acc_demo',
-      subject: 'Premium motion system approved',
-      snippet: 'Vamos fechar a base visual do composer e da thread list hoje.',
-      message_count: 3,
-      participant_ids: ['atlas@example.com'],
-      folder_ids: ['fld_inbox'],
-      label_ids: [],
-      has_attachments: true,
-      is_unread: true,
-      is_starred: false,
-      last_message_at: '2026-03-13T10:00:00Z',
-      last_message_sent_at: '2026-03-13T10:00:00Z',
-      created_at: '2026-03-13T10:00:00Z',
-      updated_at: '2026-03-13T10:00:00Z'
-    },
-    {
-      id: 'thr_2',
-      account_id: 'acc_demo',
-      subject: 'Rust health-check online',
-      snippet: 'IPC inicial respondeu sem erro e o shell já consegue refletir o estado.',
-      message_count: 2,
-      participant_ids: ['infra@example.com'],
-      folder_ids: ['fld_inbox', 'fld_starred'],
-      label_ids: [],
-      has_attachments: false,
-      is_unread: false,
-      is_starred: true,
-      last_message_at: '2026-03-13T09:28:00Z',
-      last_message_sent_at: '2026-03-13T09:28:00Z',
-      created_at: '2026-03-13T10:00:00Z',
-      updated_at: '2026-03-13T10:00:00Z'
-    },
-    {
-      id: 'thr_3',
-      account_id: 'acc_demo',
-      subject: 'Ship notes for desktop alpha',
-      snippet: 'Build desktop alpha aprovado, agora seguimos com pacote de release.',
-      message_count: 1,
-      participant_ids: ['release@example.com'],
-      folder_ids: ['fld_sent'],
-      label_ids: [],
-      has_attachments: false,
-      is_unread: false,
-      is_starred: false,
-      last_message_at: '2026-03-13T07:00:00Z',
-      last_message_sent_at: '2026-03-13T07:00:00Z',
-      created_at: '2026-03-13T10:00:00Z',
-      updated_at: '2026-03-13T10:00:00Z'
-    }
-  ]
+  threads: fallbackThreads
 };
 
-const toThreadSummary = (overview: MailboxOverview): ThreadSummary[] =>
-  overview.threads.map((thread) => ({
-    id: thread.id,
-    subject: thread.subject,
-    snippet: thread.snippet,
-    participants: thread.participant_ids,
-    isUnread: thread.is_unread,
-    isStarred: thread.is_starred,
-    lastMessageAt: thread.last_message_at
-  }));
-
 const toMailboxReadModel = (overview: MailboxOverview): MailboxReadModel => ({
-  accountId: overview.account_id,
-  activeFolder:
-    overview.folders.find((folder) => folder.role === 'inbox')?.id ?? overview.folders[0]?.id ?? 'fld_inbox',
-  syncState: overview.sync_state,
+  accountId: overview.accountId,
+  activeFolder: overview.activeFolderId,
+  syncState: overview.syncState,
   folders: overview.folders,
-  threads: toThreadSummary(overview),
-  allThreads: overview.threads
+  threads: overview.threads,
+  allThreads: tauriRuntime.isAvailable() ? [] : fallbackThreadRecords
 });
 
 export const useMailboxOverview = () =>

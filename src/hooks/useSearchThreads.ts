@@ -10,6 +10,8 @@ const toThreadSummary = (threads: ThreadRecord[]): ThreadSummary[] =>
     participants: thread.participant_ids,
     isUnread: thread.is_unread,
     isStarred: thread.is_starred,
+    hasAttachments: thread.has_attachments,
+    messageCount: thread.message_count,
     lastMessageAt: thread.last_message_at
   }));
 
@@ -42,7 +44,6 @@ export const useSearchThreads = (
         return toThreadSummary(fallbackThreads.filter((thread) => includesQuery(thread, trimmedQuery)));
       }
 
-      const threads = await api.mailbox.searchThreads(accountId, trimmedQuery);
-      return toThreadSummary(threads);
+      return api.mailbox.searchThreads(accountId, trimmedQuery);
     }
   });

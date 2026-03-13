@@ -21,6 +21,8 @@ export type ThreadSummary = {
   participants: string[];
   isUnread: boolean;
   isStarred: boolean;
+  hasAttachments: boolean;
+  messageCount: number;
   lastMessageAt: string;
 };
 
@@ -113,8 +115,9 @@ export type MailboxReadModel = {
 };
 
 export type MailboxOverview = {
-  account_id: string;
+  accountId: string;
+  activeFolderId: string;
   folders: FolderRecord[];
-  threads: ThreadRecord[];
-  sync_state: SyncState;
+  threads: ThreadSummary[];
+  syncState: SyncState;
 };

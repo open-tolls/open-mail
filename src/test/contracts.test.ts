@@ -17,6 +17,8 @@ describe('contracts', () => {
           participants: ['hello@example.com'],
           isUnread: true,
           isStarred: false,
+          hasAttachments: false,
+          messageCount: 1,
           lastMessageAt: '2026-03-13T10:00:00Z'
         }
       ]

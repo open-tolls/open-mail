@@ -1,4 +1,3 @@
-use serde::Serialize;
 use tauri::State;
 
 use crate::{
@@ -8,16 +7,9 @@ use crate::{
         message::Message,
         thread::Thread,
     },
+    domain::read_models::{MailboxOverview, ThreadSummary},
     AppState,
 };
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MailboxOverview {
-    pub account_id: String,
-    pub folders: Vec<Folder>,
-    pub threads: Vec<Thread>,
-    pub sync_state: SyncState,
-}
 
 #[tauri::command]
 pub async fn health_check() -> Result<String, String> {
@@ -52,11 +44,12 @@ pub async fn list_threads(
     folder_id: String,
     offset: u32,
     limit: u32,
-) -> Result<Vec<Thread>, String> {
+) -> Result<Vec<ThreadSummary>, String> {
     state
         .thread_repo
         .find_by_folder(&account_id, &folder_id, offset, limit)
         .await
+        .map(|threads| threads.into_iter().map(ThreadSummary::from).collect())
         .map_err(|error| error.to_string())
 }
 
@@ -65,7 +58,7 @@ pub async fn search_threads(
     state: State<'_, AppState>,
     account_id: String,
     query: String,
-) -> Result<Vec<Thread>, String> {
+) -> Result<Vec<ThreadSummary>, String> {
     let trimmed_query = query.trim();
     if trimmed_query.is_empty() {
         return Ok(Vec::new());
@@ -75,6 +68,7 @@ pub async fn search_threads(
         .thread_repo
         .search(&account_id, trimmed_query)
         .await
+        .map(|threads| threads.into_iter().map(ThreadSummary::from).collect())
         .map_err(|error| error.to_string())
 }
 
@@ -133,8 +127,9 @@ pub async fn mailbox_overview(state: State<'_, AppState>) -> Result<MailboxOverv
 
     Ok(MailboxOverview {
         account_id: account.id,
+        active_folder_id: default_folder.id.clone(),
         folders,
-        threads,
+        threads: threads.into_iter().map(ThreadSummary::from).collect(),
         sync_state: account.sync_state,
     })
 }
