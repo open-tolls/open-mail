@@ -6,19 +6,22 @@ pub mod plugins;
 use std::{path::PathBuf, sync::Arc};
 
 use commands::{
-    get_message, health_check, list_accounts, list_folders, list_messages, list_threads,
-    mailbox_overview, search_threads,
+    get_message, get_sync_status, health_check, list_accounts, list_folders, list_messages,
+    list_threads, mailbox_overview, search_threads, start_sync, stop_sync,
 };
 use domain::events::DomainEvent;
 use domain::repositories::{
     AccountRepository, FolderRepository, MessageRepository, ThreadRepository,
 };
-use infrastructure::database::{
-    repositories::{
-        account_repository::SqliteAccountRepository, folder_repository::SqliteFolderRepository,
-        message_repository::SqliteMessageRepository, thread_repository::SqliteThreadRepository,
+use infrastructure::{
+    database::{
+        repositories::{
+            account_repository::SqliteAccountRepository, folder_repository::SqliteFolderRepository,
+            message_repository::SqliteMessageRepository, thread_repository::SqliteThreadRepository,
+        },
+        Database,
     },
-    Database,
+    sync::{SyncEventEmitter, SyncManager},
 };
 use tauri::Emitter;
 
@@ -28,6 +31,17 @@ pub struct AppState {
     pub folder_repo: Arc<dyn FolderRepository>,
     pub thread_repo: Arc<dyn ThreadRepository>,
     pub message_repo: Arc<dyn MessageRepository>,
+    pub sync_manager: Arc<SyncManager>,
+}
+
+struct TauriSyncEventEmitter {
+    app_handle: tauri::AppHandle,
+}
+
+impl SyncEventEmitter for TauriSyncEventEmitter {
+    fn emit(&self, event: &DomainEvent) {
+        let _ = self.app_handle.emit("domain:event", event);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,12 +49,20 @@ pub fn run() {
     let state = build_app_state().expect("failed to initialize application state");
     tauri::async_runtime::block_on(commands::seed_demo_data(&state))
         .expect("failed to seed demo data");
+    let sync_manager = state.sync_manager.clone();
 
     tauri::Builder::default()
         .manage(state)
-        .setup(|app| {
+        .setup(move |app| {
+            sync_manager.set_event_emitter(Arc::new(TauriSyncEventEmitter {
+                app_handle: app.handle().clone(),
+            }));
             app.emit("domain:event", DomainEvent::ApplicationStarted)
                 .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
+            let sync_manager = sync_manager.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = sync_manager.bootstrap_accounts().await;
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -51,7 +73,10 @@ pub fn run() {
             search_threads,
             list_messages,
             get_message,
-            mailbox_overview
+            mailbox_overview,
+            start_sync,
+            stop_sync,
+            get_sync_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running Open Mail");
@@ -68,6 +93,7 @@ fn build_app_state() -> Result<AppState, String> {
     let thread_repo: Arc<dyn ThreadRepository> = Arc::new(SqliteThreadRepository::new(db.clone()));
     let message_repo: Arc<dyn MessageRepository> =
         Arc::new(SqliteMessageRepository::new(db.clone()));
+    let sync_manager = Arc::new(SyncManager::new(account_repo.clone()));
 
     Ok(AppState {
         db,
@@ -75,6 +101,7 @@ fn build_app_state() -> Result<AppState, String> {
         folder_repo,
         thread_repo,
         message_repo,
+        sync_manager,
     })
 }
 

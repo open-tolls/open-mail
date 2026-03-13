@@ -8,6 +8,7 @@ use crate::{
         thread::Thread,
     },
     domain::read_models::{MailboxOverview, ThreadSummary},
+    infrastructure::sync::SyncError,
     AppState,
 };
 
@@ -77,6 +78,33 @@ async fn get_message_for_state(
         .find_by_id(message_id)
         .await
         .map_err(|error| error.to_string())
+}
+
+async fn start_sync_for_state(state: &AppState, account_id: &str) -> Result<(), String> {
+    let account = state
+        .account_repo
+        .find_by_id(account_id)
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| SyncError::AccountNotFound(account_id.to_string()).to_string())?;
+
+    state
+        .sync_manager
+        .start_sync(account)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn stop_sync_for_state(state: &AppState, account_id: &str) -> Result<(), String> {
+    state
+        .sync_manager
+        .stop_sync(account_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn get_sync_status_for_state(state: &AppState) -> Result<std::collections::HashMap<String, SyncState>, String> {
+    Ok(state.sync_manager.status_snapshot().await)
 }
 
 async fn mailbox_overview_for_state(state: &AppState) -> Result<MailboxOverview, String> {
@@ -164,6 +192,23 @@ pub async fn mailbox_overview(state: State<'_, AppState>) -> Result<MailboxOverv
     mailbox_overview_for_state(&state).await
 }
 
+#[tauri::command]
+pub async fn start_sync(state: State<'_, AppState>, account_id: String) -> Result<(), String> {
+    start_sync_for_state(&state, &account_id).await
+}
+
+#[tauri::command]
+pub async fn stop_sync(state: State<'_, AppState>, account_id: String) -> Result<(), String> {
+    stop_sync_for_state(&state, &account_id).await
+}
+
+#[tauri::command]
+pub async fn get_sync_status(
+    state: State<'_, AppState>,
+) -> Result<std::collections::HashMap<String, SyncState>, String> {
+    get_sync_status_for_state(&state).await
+}
+
 pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
     if !state
         .account_repo
@@ -192,7 +237,7 @@ pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
             smtp_port: 587,
             smtp_security: SecurityType::StartTls,
         },
-        sync_state: SyncState::Running,
+        sync_state: SyncState::NotStarted,
         created_at: timestamp,
         updated_at: timestamp,
     };
@@ -465,21 +510,26 @@ mod tests {
     };
 
     use super::{
-        get_message_for_state, list_messages_for_state, list_threads_for_state,
-        mailbox_overview_for_state, search_threads_for_state, seed_demo_data,
+        get_message_for_state, get_sync_status_for_state, list_messages_for_state,
+        list_threads_for_state, mailbox_overview_for_state, search_threads_for_state,
+        seed_demo_data, start_sync_for_state, stop_sync_for_state,
     };
     use crate::{
+        domain::models::account::SyncState,
         domain::repositories::{
             AccountRepository, FolderRepository, MessageRepository, ThreadRepository,
         },
-        infrastructure::database::{
-            repositories::{
-                account_repository::SqliteAccountRepository,
-                folder_repository::SqliteFolderRepository,
-                message_repository::SqliteMessageRepository,
-                thread_repository::SqliteThreadRepository,
+        infrastructure::{
+            database::{
+                repositories::{
+                    account_repository::SqliteAccountRepository,
+                    folder_repository::SqliteFolderRepository,
+                    message_repository::SqliteMessageRepository,
+                    thread_repository::SqliteThreadRepository,
+                },
+                Database,
             },
-            Database,
+            sync::SyncManager,
         },
         AppState,
     };
@@ -502,6 +552,7 @@ mod tests {
             Arc::new(SqliteThreadRepository::new(db.clone()));
         let message_repo: Arc<dyn MessageRepository> =
             Arc::new(SqliteMessageRepository::new(db.clone()));
+        let sync_manager = Arc::new(SyncManager::new(account_repo.clone()));
 
         AppState {
             db,
@@ -509,6 +560,7 @@ mod tests {
             folder_repo,
             thread_repo,
             message_repo,
+            sync_manager,
         }
     }
 
@@ -560,5 +612,21 @@ mod tests {
         assert_eq!(message.id, "msg_1");
         assert_eq!(message.attachments.len(), 1);
         assert_eq!(message.subject, "Premium motion system approved");
+    }
+
+    #[tokio::test]
+    async fn sync_commands_start_and_stop_account_workers() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        start_sync_for_state(&state, "acc_demo").await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+
+        let running_statuses = get_sync_status_for_state(&state).await.unwrap();
+        assert_eq!(running_statuses.get("acc_demo"), Some(&SyncState::Sleeping));
+
+        stop_sync_for_state(&state, "acc_demo").await.unwrap();
+        let stopped_statuses = get_sync_status_for_state(&state).await.unwrap();
+        assert_eq!(stopped_statuses.get("acc_demo"), Some(&SyncState::Sleeping));
     }
 }
