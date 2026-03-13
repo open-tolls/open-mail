@@ -103,6 +103,14 @@ async fn stop_sync_for_state(state: &AppState, account_id: &str) -> Result<(), S
         .map_err(|error| error.to_string())
 }
 
+async fn force_sync_for_state(state: &AppState, account_id: &str) -> Result<(), String> {
+    state
+        .sync_manager
+        .force_sync(account_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
 async fn get_sync_status_for_state(state: &AppState) -> Result<std::collections::HashMap<String, SyncState>, String> {
     Ok(state.sync_manager.status_snapshot().await)
 }
@@ -200,6 +208,11 @@ pub async fn start_sync(state: State<'_, AppState>, account_id: String) -> Resul
 #[tauri::command]
 pub async fn stop_sync(state: State<'_, AppState>, account_id: String) -> Result<(), String> {
     stop_sync_for_state(&state, &account_id).await
+}
+
+#[tauri::command]
+pub async fn force_sync(state: State<'_, AppState>, account_id: String) -> Result<(), String> {
+    force_sync_for_state(&state, &account_id).await
 }
 
 #[tauri::command]
@@ -510,7 +523,7 @@ mod tests {
     };
 
     use super::{
-        get_message_for_state, get_sync_status_for_state, list_messages_for_state,
+        force_sync_for_state, get_message_for_state, get_sync_status_for_state, list_messages_for_state,
         list_threads_for_state, mailbox_overview_for_state, search_threads_for_state,
         seed_demo_data, start_sync_for_state, stop_sync_for_state,
     };
@@ -628,5 +641,19 @@ mod tests {
         stop_sync_for_state(&state, "acc_demo").await.unwrap();
         let stopped_statuses = get_sync_status_for_state(&state).await.unwrap();
         assert_eq!(stopped_statuses.get("acc_demo"), Some(&SyncState::Sleeping));
+    }
+
+    #[tokio::test]
+    async fn force_sync_command_restarts_account_worker() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        start_sync_for_state(&state, "acc_demo").await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+        force_sync_for_state(&state, "acc_demo").await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+
+        let statuses = get_sync_status_for_state(&state).await.unwrap();
+        assert_eq!(statuses.get("acc_demo"), Some(&SyncState::Sleeping));
     }
 }

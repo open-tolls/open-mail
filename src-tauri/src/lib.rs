@@ -6,8 +6,8 @@ pub mod plugins;
 use std::{path::PathBuf, sync::Arc};
 
 use commands::{
-    get_message, get_sync_status, health_check, list_accounts, list_folders, list_messages,
-    list_threads, mailbox_overview, search_threads, start_sync, stop_sync,
+    force_sync, get_message, get_sync_status, health_check, list_accounts, list_folders,
+    list_messages, list_threads, mailbox_overview, search_threads, start_sync, stop_sync,
 };
 use domain::events::DomainEvent;
 use domain::repositories::{
@@ -76,6 +76,7 @@ pub fn run() {
             mailbox_overview,
             start_sync,
             stop_sync,
+            force_sync,
             get_sync_status
         ])
         .run(tauri::generate_context!())
