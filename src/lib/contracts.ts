@@ -54,6 +54,55 @@ export type ThreadRecord = {
   updated_at: string;
 };
 
+export type ContactRecord = {
+  id: string;
+  account_id: string;
+  name: string | null;
+  email: string;
+  is_me: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AttachmentRecord = {
+  id: string;
+  message_id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  content_id: string | null;
+  is_inline: boolean;
+  local_path: string | null;
+};
+
+export type MessageRecord = {
+  id: string;
+  account_id: string;
+  thread_id: string;
+  from: ContactRecord[];
+  to: ContactRecord[];
+  cc: ContactRecord[];
+  bcc: ContactRecord[];
+  reply_to: ContactRecord[];
+  subject: string;
+  snippet: string;
+  body: string;
+  plain_text: string | null;
+  message_id_header: string;
+  in_reply_to: string | null;
+  references: string[];
+  folder_id: string;
+  label_ids: string[];
+  is_unread: boolean;
+  is_starred: boolean;
+  is_draft: boolean;
+  date: string;
+  attachments: AttachmentRecord[];
+  headers: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MailboxReadModel = {
   activeFolder: string;
   syncState: SyncState;
@@ -67,4 +116,3 @@ export type MailboxOverview = {
   threads: ThreadRecord[];
   sync_state: SyncState;
 };
-

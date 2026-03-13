@@ -4,7 +4,9 @@ use rusqlite::{params, OptionalExtension, Row};
 
 use crate::{
     domain::{errors::DomainError, models::thread::Thread, repositories::ThreadRepository},
-    infrastructure::database::Database,
+    infrastructure::database::{
+        repositories::message_repository::SqliteMessageRepository, Database,
+    },
 };
 
 #[derive(Clone)]
@@ -16,13 +18,64 @@ impl SqliteThreadRepository {
     pub fn new(db: Database) -> Self {
         Self { db }
     }
+
+    fn hydrate_thread(&self, mut thread: Thread) -> Result<Thread, DomainError> {
+        let connection = self.db.connection()?;
+        thread.folder_ids =
+            fetch_related_ids(&connection, "thread_folders", "folder_id", &thread.id)?;
+        thread.label_ids = fetch_related_ids(&connection, "thread_labels", "label_id", &thread.id)?;
+        drop(connection);
+
+        let message_repository = SqliteMessageRepository::new(self.db.clone());
+        let messages = message_repository.find_by_thread_sync(&thread.id)?;
+        thread.participant_ids = collect_unique(messages.iter().flat_map(|message| {
+            message
+                .from
+                .iter()
+                .chain(message.to.iter())
+                .chain(message.cc.iter())
+                .chain(message.bcc.iter())
+                .map(|contact| contact.email.clone())
+        }));
+
+        Ok(thread)
+    }
+
+    fn hydrate_threads(&self, threads: Vec<Thread>) -> Result<Vec<Thread>, DomainError> {
+        threads
+            .into_iter()
+            .map(|thread| self.hydrate_thread(thread))
+            .collect()
+    }
+
+    async fn find_by_flag(
+        &self,
+        account_id: &str,
+        column: &str,
+    ) -> Result<Vec<Thread>, DomainError> {
+        let query = format!(
+            "SELECT id, account_id, subject, snippet, message_count, has_attachments, is_unread, is_starred, last_message_at, last_message_sent_at, created_at, updated_at
+             FROM threads WHERE account_id = ?1 AND {column} = 1 ORDER BY last_message_at DESC"
+        );
+        let connection = self.db.connection()?;
+        let mut statement = connection
+            .prepare(&query)
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+        let threads = statement
+            .query_map(params![account_id], map_thread)
+            .map_err(|error| DomainError::Database(error.to_string()))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+
+        self.hydrate_threads(threads)
+    }
 }
 
 #[async_trait]
 impl ThreadRepository for SqliteThreadRepository {
     async fn find_by_id(&self, id: &str) -> Result<Option<Thread>, DomainError> {
         let connection = self.db.connection()?;
-        connection
+        let thread = connection
             .query_row(
                 "SELECT id, account_id, subject, snippet, message_count, has_attachments, is_unread, is_starred, last_message_at, last_message_sent_at, created_at, updated_at
                  FROM threads WHERE id = ?1",
@@ -30,7 +83,12 @@ impl ThreadRepository for SqliteThreadRepository {
                 map_thread,
             )
             .optional()
-            .map_err(|error| DomainError::Database(error.to_string()))
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+
+        match thread {
+            Some(thread) => self.hydrate_thread(thread).map(Some),
+            None => Ok(None),
+        }
     }
 
     async fn find_by_folder(
@@ -58,7 +116,7 @@ impl ThreadRepository for SqliteThreadRepository {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| DomainError::Database(error.to_string()))?;
 
-        Ok(threads)
+        self.hydrate_threads(threads)
     }
 
     async fn find_unread(&self, account_id: &str) -> Result<Vec<Thread>, DomainError> {
@@ -87,7 +145,7 @@ impl ThreadRepository for SqliteThreadRepository {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| DomainError::Database(error.to_string()))?;
 
-        Ok(threads)
+        self.hydrate_threads(threads)
     }
 
     async fn save(&self, thread: &Thread) -> Result<(), DomainError> {
@@ -215,28 +273,37 @@ impl ThreadRepository for SqliteThreadRepository {
     }
 }
 
-impl SqliteThreadRepository {
-    async fn find_by_flag(
-        &self,
-        account_id: &str,
-        column: &str,
-    ) -> Result<Vec<Thread>, DomainError> {
-        let query = format!(
-            "SELECT id, account_id, subject, snippet, message_count, has_attachments, is_unread, is_starred, last_message_at, last_message_sent_at, created_at, updated_at
-             FROM threads WHERE account_id = ?1 AND {column} = 1 ORDER BY last_message_at DESC"
-        );
-        let connection = self.db.connection()?;
-        let mut statement = connection
-            .prepare(&query)
-            .map_err(|error| DomainError::Database(error.to_string()))?;
-        let threads = statement
-            .query_map(params![account_id], map_thread)
-            .map_err(|error| DomainError::Database(error.to_string()))?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| DomainError::Database(error.to_string()))?;
+fn fetch_related_ids(
+    connection: &rusqlite::Connection,
+    table: &str,
+    value_column: &str,
+    thread_id: &str,
+) -> Result<Vec<String>, DomainError> {
+    let query = format!(
+        "SELECT {value_column} FROM {table} WHERE thread_id = ?1 ORDER BY {value_column} ASC"
+    );
+    let mut statement = connection
+        .prepare(&query)
+        .map_err(|error| DomainError::Database(error.to_string()))?;
+    let ids = statement
+        .query_map(params![thread_id], |row| row.get::<_, String>(0))
+        .map_err(|error| DomainError::Database(error.to_string()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| DomainError::Database(error.to_string()))?;
 
-        Ok(threads)
+    Ok(ids)
+}
+
+fn collect_unique(values: impl Iterator<Item = String>) -> Vec<String> {
+    let mut unique_values = Vec::new();
+
+    for value in values {
+        if !unique_values.contains(&value) {
+            unique_values.push(value);
+        }
     }
+
+    unique_values
 }
 
 fn map_thread(row: &Row<'_>) -> rusqlite::Result<Thread> {

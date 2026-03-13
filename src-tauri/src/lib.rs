@@ -5,12 +5,17 @@ pub mod plugins;
 
 use std::{path::PathBuf, sync::Arc};
 
-use commands::{health_check, list_accounts, list_folders, list_threads, mailbox_overview};
-use domain::repositories::{AccountRepository, FolderRepository, ThreadRepository};
+use commands::{
+    get_message, health_check, list_accounts, list_folders, list_messages, list_threads,
+    mailbox_overview,
+};
+use domain::repositories::{
+    AccountRepository, FolderRepository, MessageRepository, ThreadRepository,
+};
 use infrastructure::database::{
     repositories::{
         account_repository::SqliteAccountRepository, folder_repository::SqliteFolderRepository,
-        thread_repository::SqliteThreadRepository,
+        message_repository::SqliteMessageRepository, thread_repository::SqliteThreadRepository,
     },
     Database,
 };
@@ -20,6 +25,7 @@ pub struct AppState {
     pub account_repo: Arc<dyn AccountRepository>,
     pub folder_repo: Arc<dyn FolderRepository>,
     pub thread_repo: Arc<dyn ThreadRepository>,
+    pub message_repo: Arc<dyn MessageRepository>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,6 +41,8 @@ pub fn run() {
             list_accounts,
             list_folders,
             list_threads,
+            list_messages,
+            get_message,
             mailbox_overview
         ])
         .run(tauri::generate_context!())
@@ -50,12 +58,15 @@ fn build_app_state() -> Result<AppState, String> {
         Arc::new(SqliteAccountRepository::new(db.clone()));
     let folder_repo: Arc<dyn FolderRepository> = Arc::new(SqliteFolderRepository::new(db.clone()));
     let thread_repo: Arc<dyn ThreadRepository> = Arc::new(SqliteThreadRepository::new(db.clone()));
+    let message_repo: Arc<dyn MessageRepository> =
+        Arc::new(SqliteMessageRepository::new(db.clone()));
 
     Ok(AppState {
         db,
         account_repo,
         folder_repo,
         thread_repo,
+        message_repo,
     })
 }
 

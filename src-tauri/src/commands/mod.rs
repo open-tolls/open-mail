@@ -5,6 +5,7 @@ use crate::{
     domain::models::{
         account::{Account, AccountProvider, ConnectionSettings, SecurityType, SyncState},
         folder::{Folder, FolderRole},
+        message::Message,
         thread::Thread,
     },
     AppState,
@@ -55,6 +56,30 @@ pub async fn list_threads(
     state
         .thread_repo
         .find_by_folder(&account_id, &folder_id, offset, limit)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn list_messages(
+    state: State<'_, AppState>,
+    thread_id: String,
+) -> Result<Vec<Message>, String> {
+    state
+        .message_repo
+        .find_by_thread(&thread_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn get_message(
+    state: State<'_, AppState>,
+    message_id: String,
+) -> Result<Option<Message>, String> {
+    state
+        .message_repo
+        .find_by_id(&message_id)
         .await
         .map_err(|error| error.to_string())
 }
@@ -215,6 +240,99 @@ pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
     state
         .thread_repo
         .save_batch(&threads)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let messages = vec![
+        Message {
+            id: "msg_1".into(),
+            account_id: account.id.clone(),
+            thread_id: "thr_1".into(),
+            from: vec![crate::domain::models::contact::Contact {
+                id: "ct_atlas".into(),
+                account_id: account.id.clone(),
+                name: Some("Atlas Design".into()),
+                email: "atlas@example.com".into(),
+                is_me: false,
+                created_at: timestamp,
+                updated_at: timestamp,
+            }],
+            to: vec![],
+            cc: vec![],
+            bcc: vec![],
+            reply_to: vec![],
+            subject: "Premium motion system approved".into(),
+            snippet: "Vamos fechar a base visual do composer e da thread list hoje.".into(),
+            body: "<p>Vamos fechar a base visual do composer e da thread list hoje.</p>".into(),
+            plain_text: Some(
+                "Vamos fechar a base visual do composer e da thread list hoje.".into(),
+            ),
+            message_id_header: "<msg_1@openmail.dev>".into(),
+            in_reply_to: None,
+            references: vec![],
+            folder_id: "fld_inbox".into(),
+            label_ids: vec![],
+            is_unread: true,
+            is_starred: false,
+            is_draft: false,
+            date: timestamp,
+            attachments: vec![crate::domain::models::attachment::Attachment {
+                id: "att_1".into(),
+                message_id: "msg_1".into(),
+                filename: "motion-notes.pdf".into(),
+                content_type: "application/pdf".into(),
+                size: 2048,
+                content_id: None,
+                is_inline: false,
+                local_path: None,
+            }],
+            headers: std::collections::HashMap::new(),
+            created_at: timestamp,
+            updated_at: timestamp,
+        },
+        Message {
+            id: "msg_2".into(),
+            account_id: account.id.clone(),
+            thread_id: "thr_2".into(),
+            from: vec![crate::domain::models::contact::Contact {
+                id: "ct_infra".into(),
+                account_id: account.id.clone(),
+                name: Some("Infra Sync".into()),
+                email: "infra@example.com".into(),
+                is_me: false,
+                created_at: timestamp,
+                updated_at: timestamp,
+            }],
+            to: vec![],
+            cc: vec![],
+            bcc: vec![],
+            reply_to: vec![],
+            subject: "Rust health-check online".into(),
+            snippet: "IPC inicial respondeu sem erro e o shell já consegue refletir o estado."
+                .into(),
+            body: "<p>IPC inicial respondeu sem erro e o shell já consegue refletir o estado.</p>"
+                .into(),
+            plain_text: Some(
+                "IPC inicial respondeu sem erro e o shell já consegue refletir o estado.".into(),
+            ),
+            message_id_header: "<msg_2@openmail.dev>".into(),
+            in_reply_to: None,
+            references: vec![],
+            folder_id: "fld_inbox".into(),
+            label_ids: vec![],
+            is_unread: false,
+            is_starred: true,
+            is_draft: false,
+            date: timestamp - chrono::Duration::minutes(32),
+            attachments: vec![],
+            headers: std::collections::HashMap::new(),
+            created_at: timestamp,
+            updated_at: timestamp,
+        },
+    ];
+    state
+        .message_repo
+        .save_batch(&messages)
         .await
         .map_err(|error| error.to_string())?;
 
