@@ -4,6 +4,26 @@ export type SyncState =
   | { kind: 'sleeping' }
   | { kind: 'error'; message: string };
 
+export type SyncPhase = 'connecting' | 'discovering-folders' | 'syncing-folders' | 'idling';
+
+export type SyncFolderState = {
+  path: string;
+  displayName: string;
+  unreadCount: number;
+  totalCount: number;
+};
+
+export type SyncStatusDetail = {
+  state: SyncState;
+  phase: SyncPhase | null;
+  folders: SyncFolderState[];
+  foldersSynced: number;
+  messagesObserved: number;
+  lastSyncStartedAt: string | null;
+  lastSyncFinishedAt: string | null;
+  lastError: string | null;
+};
+
 export type DomainEvent =
   | { type: 'application-started' }
   | { type: 'threads-changed'; accountId: string; threadIds: string[] }

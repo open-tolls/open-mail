@@ -6,6 +6,7 @@ import { useDomainEvents } from '@hooks/useDomainEvents';
 import { useMessageDetail } from '@hooks/useMessageDetail';
 import { useMailboxOverview } from '@hooks/useMailboxOverview';
 import { useSearchThreads } from '@hooks/useSearchThreads';
+import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useThreadMessages } from '@hooks/useThreadMessages';
 
 const App = () => {
@@ -34,6 +35,7 @@ const App = () => {
   const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
   const messagesQuery = useThreadMessages(selectedThread?.id ?? null);
   const messageDetailQuery = useMessageDetail(selectedMessageId);
+  const syncStatusDetailQuery = useSyncStatusDetail(mailbox?.accountId ?? null);
 
   useEffect(() => {
     if (!mailbox?.folders.length) {
@@ -92,11 +94,13 @@ const App = () => {
       messages={messagesQuery.data ?? []}
       selectedMessageId={selectedMessageId}
       selectedMessage={messageDetailQuery.data ?? null}
+      syncStatusDetail={syncStatusDetailQuery.data ?? null}
       isMessagesLoading={
         folderThreadsQuery.isLoading ||
         searchThreadsQuery.isLoading ||
         messagesQuery.isLoading ||
-        messageDetailQuery.isLoading
+        messageDetailQuery.isLoading ||
+        syncStatusDetailQuery.isLoading
       }
       onSelectFolder={setSelectedFolderId}
       onSearchQueryChange={setSearchQuery}

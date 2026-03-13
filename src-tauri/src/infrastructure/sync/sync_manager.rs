@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use chrono::Utc;
 use tokio::{
     sync::{watch, Mutex},
     task::JoinHandle,
@@ -16,8 +17,8 @@ use crate::domain::{
 };
 
 use super::{
-    imap_client::{FakeImapClientFactory, SharedImapClientFactory},
-    Credentials, SyncError,
+    imap_client::{FakeImapClientFactory, IdleResult, SharedImapClientFactory},
+    Credentials, SyncError, SyncFolderState, SyncPhase, SyncStatusSnapshot,
 };
 
 pub trait SyncEventEmitter: Send + Sync {
@@ -41,7 +42,7 @@ pub struct SyncManager {
     emitter: RwLock<Arc<dyn SyncEventEmitter>>,
     imap_factory: RwLock<SharedImapClientFactory>,
     workers: Arc<Mutex<HashMap<String, SyncWorkerHandle>>>,
-    statuses: Arc<Mutex<HashMap<String, SyncState>>>,
+    statuses: Arc<Mutex<HashMap<String, SyncStatusSnapshot>>>,
 }
 
 impl SyncManager {
@@ -139,12 +140,28 @@ impl SyncManager {
             return Err(SyncError::AccountNotFound(account_id.to_string()));
         };
 
-        update_sync_state(
+        let snapshot = self
+            .statuses
+            .lock()
+            .await
+            .get(account_id)
+            .cloned()
+            .unwrap_or_else(|| SyncStatusSnapshot::from_state(SyncState::Sleeping));
+        update_sync_status(
             &self.account_repo,
             &self.statuses,
             &*self.current_emitter(),
             &mut account,
-            SyncState::Sleeping,
+            SyncStatusSnapshot {
+                state: SyncState::Sleeping,
+                phase: snapshot.phase,
+                folders: snapshot.folders,
+                folders_synced: snapshot.folders_synced,
+                messages_observed: snapshot.messages_observed,
+                last_sync_started_at: snapshot.last_sync_started_at,
+                last_sync_finished_at: Some(Utc::now()),
+                last_error: None,
+            },
         )
         .await;
 
@@ -175,6 +192,15 @@ impl SyncManager {
     }
 
     pub async fn status_snapshot(&self) -> HashMap<String, SyncState> {
+        self.statuses
+            .lock()
+            .await
+            .iter()
+            .map(|(account_id, status)| (account_id.clone(), status.state.clone()))
+            .collect()
+    }
+
+    pub async fn detailed_status_snapshot(&self) -> HashMap<String, SyncStatusSnapshot> {
         self.statuses.lock().await.clone()
     }
 
@@ -210,7 +236,7 @@ impl SyncManager {
 struct SyncWorker {
     account: Account,
     account_repo: Arc<dyn AccountRepository>,
-    statuses: Arc<Mutex<HashMap<String, SyncState>>>,
+    statuses: Arc<Mutex<HashMap<String, SyncStatusSnapshot>>>,
     emitter: Arc<dyn SyncEventEmitter>,
     imap_factory: SharedImapClientFactory,
 }
@@ -219,7 +245,7 @@ impl SyncWorker {
     fn new(
         account: Account,
         account_repo: Arc<dyn AccountRepository>,
-        statuses: Arc<Mutex<HashMap<String, SyncState>>>,
+        statuses: Arc<Mutex<HashMap<String, SyncStatusSnapshot>>>,
         emitter: Arc<dyn SyncEventEmitter>,
         imap_factory: SharedImapClientFactory,
     ) -> Self {
@@ -233,40 +259,50 @@ impl SyncWorker {
     }
 
     async fn run(mut self, stop_rx: &mut watch::Receiver<bool>) {
-        update_sync_state(
+        update_sync_status(
             &self.account_repo,
             &self.statuses,
             &*self.emitter,
             &mut self.account,
-            SyncState::Running,
+            SyncStatusSnapshot {
+                state: SyncState::Running,
+                phase: Some(SyncPhase::Connecting),
+                folders: Vec::new(),
+                folders_synced: 0,
+                messages_observed: 0,
+                last_sync_started_at: Some(Utc::now()),
+                last_sync_finished_at: None,
+                last_error: None,
+            },
         )
         .await;
 
-        if self.sync_cycle().await.is_err() {
-            update_sync_state(
+        if let Err(error) = self.sync_cycle().await {
+            let started_at = current_started_at(&self.statuses, &self.account.id).await;
+            update_sync_status(
                 &self.account_repo,
                 &self.statuses,
                 &*self.emitter,
                 &mut self.account,
-                SyncState::Error("sync cycle failed".into()),
+                SyncStatusSnapshot {
+                    state: SyncState::Error("sync cycle failed".into()),
+                    phase: None,
+                    folders: Vec::new(),
+                    folders_synced: 0,
+                    messages_observed: 0,
+                    last_sync_started_at: started_at,
+                    last_sync_finished_at: Some(Utc::now()),
+                    last_error: Some(error.to_string()),
+                },
             )
             .await;
             return;
         }
 
-        update_sync_state(
-            &self.account_repo,
-            &self.statuses,
-            &*self.emitter,
-            &mut self.account,
-            SyncState::Sleeping,
-        )
-        .await;
-
         let _ = stop_rx.changed().await;
     }
 
-    async fn sync_cycle(&self) -> Result<(), SyncError> {
+    async fn sync_cycle(&mut self) -> Result<(), SyncError> {
         let mut client = self.imap_factory.create(&self.account).await?;
         let credentials = Credentials::Password {
             username: self.account.email_address.clone(),
@@ -276,30 +312,126 @@ impl SyncWorker {
         client
             .connect(&self.account.connection_settings, &credentials)
             .await?;
-        let _folders = client.list_folders().await?;
-        let _ = client.idle(Duration::from_millis(25)).await?;
+
+        let started_at = current_started_at(&self.statuses, &self.account.id).await;
+        let folders = client.list_folders().await?;
+        update_sync_status(
+            &self.account_repo,
+            &self.statuses,
+            &*self.emitter,
+            &mut self.account,
+            SyncStatusSnapshot {
+                state: SyncState::Running,
+                phase: Some(SyncPhase::DiscoveringFolders),
+                folders: folders
+                    .into_iter()
+                    .map(|folder| SyncFolderState {
+                        path: folder.path,
+                        display_name: folder.display_name,
+                        unread_count: 0,
+                        total_count: 0,
+                    })
+                    .collect(),
+                folders_synced: 0,
+                messages_observed: 0,
+                last_sync_started_at: started_at,
+                last_sync_finished_at: None,
+                last_error: None,
+            },
+        )
+        .await;
+
+        let folder_statuses = client.fetch_folder_statuses().await?;
+        let folders_synced = folder_statuses.len() as u32;
+        update_sync_status(
+            &self.account_repo,
+            &self.statuses,
+            &*self.emitter,
+            &mut self.account,
+            SyncStatusSnapshot {
+                state: SyncState::Running,
+                phase: Some(SyncPhase::SyncingFolders),
+                folders: folder_statuses
+                    .iter()
+                    .map(|folder| SyncFolderState {
+                        path: folder.folder.path.clone(),
+                        display_name: folder.folder.display_name.clone(),
+                        unread_count: folder.unread_count,
+                        total_count: folder.total_count,
+                    })
+                    .collect(),
+                folders_synced,
+                messages_observed: 0,
+                last_sync_started_at: started_at,
+                last_sync_finished_at: None,
+                last_error: None,
+            },
+        )
+        .await;
+
+        let idle_result = client.idle(Duration::from_millis(25)).await?;
+        let messages_observed = match idle_result {
+            IdleResult::NewMessages { count } => count,
+            IdleResult::Timeout | IdleResult::Disconnected => 0,
+        };
+        update_sync_status(
+            &self.account_repo,
+            &self.statuses,
+            &*self.emitter,
+            &mut self.account,
+            SyncStatusSnapshot {
+                state: SyncState::Sleeping,
+                phase: Some(SyncPhase::Idling),
+                folders: folder_statuses
+                    .into_iter()
+                    .map(|folder| SyncFolderState {
+                        path: folder.folder.path,
+                        display_name: folder.folder.display_name,
+                        unread_count: folder.unread_count,
+                        total_count: folder.total_count,
+                    })
+                    .collect(),
+                folders_synced,
+                messages_observed,
+                last_sync_started_at: started_at,
+                last_sync_finished_at: Some(Utc::now()),
+                last_error: None,
+            },
+        )
+        .await;
 
         Ok(())
     }
 }
 
-async fn update_sync_state(
+async fn current_started_at(
+    statuses: &Mutex<HashMap<String, SyncStatusSnapshot>>,
+    account_id: &str,
+) -> Option<chrono::DateTime<Utc>> {
+    statuses
+        .lock()
+        .await
+        .get(account_id)
+        .and_then(|snapshot| snapshot.last_sync_started_at)
+}
+
+async fn update_sync_status(
     account_repo: &Arc<dyn AccountRepository>,
-    statuses: &Mutex<HashMap<String, SyncState>>,
+    statuses: &Mutex<HashMap<String, SyncStatusSnapshot>>,
     emitter: &dyn SyncEventEmitter,
     account: &mut Account,
-    next_state: SyncState,
+    next_status: SyncStatusSnapshot,
 ) {
-    account.sync_state = next_state.clone();
+    account.sync_state = next_status.state.clone();
 
     let _ = account_repo.save(account).await;
     statuses
         .lock()
         .await
-        .insert(account.id.clone(), next_state.clone());
+        .insert(account.id.clone(), next_status.clone());
     emitter.emit(&DomainEvent::SyncStatusChanged {
         account_id: account.id.clone(),
-        state: next_state,
+        state: next_status.state,
     });
 }
 

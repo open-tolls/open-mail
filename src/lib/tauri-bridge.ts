@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { MailboxOverview, MessageRecord, ThreadSummary } from '@lib/contracts';
+import type { MailboxOverview, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 
 const isTauriRuntimeAvailable = () =>
   typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
@@ -19,6 +19,9 @@ export const api = {
       invokeOrThrow<ThreadSummary[]>('list_threads', { accountId, folderId, offset, limit }),
     searchThreads: (accountId: string, query: string) =>
       invokeOrThrow<ThreadSummary[]>('search_threads', { accountId, query })
+  },
+  sync: {
+    statusDetail: () => invokeOrThrow<Record<string, SyncStatusDetail>>('get_sync_status_detail')
   },
   messages: {
     listByThread: (threadId: string) =>

@@ -13,8 +13,15 @@ pub struct ImapFolder {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImapFolderStatus {
+    pub folder: ImapFolder,
+    pub unread_count: u32,
+    pub total_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdleResult {
-    NewMessages,
+    NewMessages { count: u32 },
     Timeout,
     Disconnected,
 }
@@ -27,6 +34,7 @@ pub trait ImapClient: Send + Sync {
         credentials: &Credentials,
     ) -> Result<(), SyncError>;
     async fn list_folders(&mut self) -> Result<Vec<ImapFolder>, SyncError>;
+    async fn fetch_folder_statuses(&mut self) -> Result<Vec<ImapFolderStatus>, SyncError>;
     async fn idle(&mut self, timeout: Duration) -> Result<IdleResult, SyncError>;
 }
 
@@ -41,6 +49,7 @@ pub struct FakeImapClientFactory;
 struct FakeImapClient {
     account_id: String,
     connected: bool,
+    idle_cycles: u32,
 }
 
 #[async_trait]
@@ -75,12 +84,43 @@ impl ImapClient for FakeImapClient {
         ])
     }
 
+    async fn fetch_folder_statuses(&mut self) -> Result<Vec<ImapFolderStatus>, SyncError> {
+        if !self.connected {
+            return Err(SyncError::Connection("client is not connected".into()));
+        }
+
+        Ok(vec![
+            ImapFolderStatus {
+                folder: ImapFolder {
+                    path: "INBOX".into(),
+                    display_name: format!("{} Inbox", self.account_id),
+                },
+                unread_count: 2,
+                total_count: 12,
+            },
+            ImapFolderStatus {
+                folder: ImapFolder {
+                    path: "Archive".into(),
+                    display_name: "Archive".into(),
+                },
+                unread_count: 0,
+                total_count: 4,
+            },
+        ])
+    }
+
     async fn idle(&mut self, timeout: Duration) -> Result<IdleResult, SyncError> {
         if !self.connected {
             return Err(SyncError::Connection("client is not connected".into()));
         }
 
         tokio::time::sleep(timeout).await;
+        self.idle_cycles += 1;
+
+        if self.idle_cycles == 1 {
+            return Ok(IdleResult::NewMessages { count: 3 });
+        }
+
         Ok(IdleResult::Timeout)
     }
 }
@@ -91,6 +131,7 @@ impl ImapClientFactory for FakeImapClientFactory {
         Ok(Box::new(FakeImapClient {
             account_id: account.id.clone(),
             connected: false,
+            idle_cycles: 0,
         }))
     }
 }

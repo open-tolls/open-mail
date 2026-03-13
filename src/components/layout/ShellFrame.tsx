@@ -13,7 +13,7 @@ import {
   Reply
 } from 'lucide-react';
 import { StatusBadge } from '@components/ui/StatusBadge';
-import type { FolderRecord, MessageRecord, ThreadSummary } from '@lib/contracts';
+import type { FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 
 type ShellFrameProps = {
   backendStatus: string;
@@ -27,6 +27,7 @@ type ShellFrameProps = {
   messages: MessageRecord[];
   selectedMessageId: string | null;
   selectedMessage: MessageRecord | null;
+  syncStatusDetail: SyncStatusDetail | null;
   isMessagesLoading: boolean;
   onSelectFolder: (folderId: string) => void;
   onSearchQueryChange: (query: string) => void;
@@ -83,6 +84,7 @@ export const ShellFrame = ({
   messages,
   selectedMessageId,
   selectedMessage,
+  syncStatusDetail,
   isMessagesLoading,
   onSelectFolder,
   onSearchQueryChange,
@@ -93,6 +95,9 @@ export const ShellFrame = ({
   const selectedMessageParticipants = selectedMessage?.to.map((contact) => contact.email).join(', ') ?? '';
   const threadPanelTitle = isSearchActive ? `Search results for "${searchQuery.trim()}"` : activeFolder?.name ?? 'Message stream';
   const threadPanelCountLabel = isSearchActive ? `${threads.length} matches` : `${threads.length} threads`;
+  const syncPhaseLabel = syncStatusDetail?.phase ? syncStatusDetail.phase.replaceAll('-', ' ') : 'sync idle';
+  const syncFoldersLabel = syncStatusDetail ? `${syncStatusDetail.foldersSynced} folders` : '0 folders';
+  const syncMessagesLabel = syncStatusDetail ? `${syncStatusDetail.messagesObserved} observed` : '0 observed';
 
   return (
     <div className="shell-root">
@@ -171,16 +176,16 @@ export const ShellFrame = ({
 
           <div className="hero-metrics" aria-label="Project health">
             <article>
-              <span>IPC</span>
-              <strong>health_check</strong>
+              <span>Sync phase</span>
+              <strong>{syncPhaseLabel}</strong>
             </article>
             <article>
-              <span>State</span>
-              <strong>Zustand-ready</strong>
+              <span>Folders</span>
+              <strong>{syncFoldersLabel}</strong>
             </article>
             <article>
-              <span>UI</span>
-              <strong>Tailwind v4 tokens</strong>
+              <span>Messages</span>
+              <strong>{syncMessagesLabel}</strong>
             </article>
           </div>
         </section>

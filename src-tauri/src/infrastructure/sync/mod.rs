@@ -4,6 +4,7 @@ pub mod types;
 
 pub use imap_client::{
     FakeImapClientFactory, IdleResult, ImapClient, ImapClientFactory, ImapFolder,
+    ImapFolderStatus,
 };
 pub use sync_manager::{NoopSyncEventEmitter, SyncEventEmitter, SyncManager};
-pub use types::{Credentials, SyncError};
+pub use types::{Credentials, SyncError, SyncFolderState, SyncPhase, SyncStatusSnapshot};

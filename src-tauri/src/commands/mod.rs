@@ -8,7 +8,7 @@ use crate::{
         thread::Thread,
     },
     domain::read_models::{MailboxOverview, ThreadSummary},
-    infrastructure::sync::SyncError,
+    infrastructure::sync::{SyncError, SyncStatusSnapshot},
     AppState,
 };
 
@@ -113,6 +113,12 @@ async fn force_sync_for_state(state: &AppState, account_id: &str) -> Result<(), 
 
 async fn get_sync_status_for_state(state: &AppState) -> Result<std::collections::HashMap<String, SyncState>, String> {
     Ok(state.sync_manager.status_snapshot().await)
+}
+
+async fn get_sync_status_detail_for_state(
+    state: &AppState,
+) -> Result<std::collections::HashMap<String, SyncStatusSnapshot>, String> {
+    Ok(state.sync_manager.detailed_status_snapshot().await)
 }
 
 async fn mailbox_overview_for_state(state: &AppState) -> Result<MailboxOverview, String> {
@@ -220,6 +226,13 @@ pub async fn get_sync_status(
     state: State<'_, AppState>,
 ) -> Result<std::collections::HashMap<String, SyncState>, String> {
     get_sync_status_for_state(&state).await
+}
+
+#[tauri::command]
+pub async fn get_sync_status_detail(
+    state: State<'_, AppState>,
+) -> Result<std::collections::HashMap<String, SyncStatusSnapshot>, String> {
+    get_sync_status_detail_for_state(&state).await
 }
 
 pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
@@ -523,9 +536,10 @@ mod tests {
     };
 
     use super::{
-        force_sync_for_state, get_message_for_state, get_sync_status_for_state, list_messages_for_state,
-        list_threads_for_state, mailbox_overview_for_state, search_threads_for_state,
-        seed_demo_data, start_sync_for_state, stop_sync_for_state,
+        force_sync_for_state, get_message_for_state, get_sync_status_detail_for_state,
+        get_sync_status_for_state, list_messages_for_state, list_threads_for_state,
+        mailbox_overview_for_state, search_threads_for_state, seed_demo_data,
+        start_sync_for_state, stop_sync_for_state,
     };
     use crate::{
         domain::models::account::SyncState,
@@ -655,5 +669,28 @@ mod tests {
 
         let statuses = get_sync_status_for_state(&state).await.unwrap();
         assert_eq!(statuses.get("acc_demo"), Some(&SyncState::Sleeping));
+    }
+
+    #[tokio::test]
+    async fn sync_status_detail_command_returns_operational_snapshot() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        start_sync_for_state(&state, "acc_demo").await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+
+        let statuses = get_sync_status_detail_for_state(&state).await.unwrap();
+        let status = statuses.get("acc_demo").unwrap();
+
+        assert_eq!(status.state, SyncState::Sleeping);
+        assert!(matches!(
+            status.phase,
+            Some(crate::infrastructure::sync::SyncPhase::Idling)
+        ));
+        assert_eq!(status.folders_synced, 2);
+        assert_eq!(status.messages_observed, 3);
+        assert_eq!(status.folders.len(), 2);
+        assert!(status.last_sync_started_at.is_some());
+        assert!(status.last_sync_finished_at.is_some());
     }
 }
