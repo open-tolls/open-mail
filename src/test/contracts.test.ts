@@ -47,7 +47,9 @@ describe('contracts', () => {
           path: 'INBOX',
           displayName: 'Inbox',
           unreadCount: 2,
-          totalCount: 12
+          totalCount: 12,
+          envelopesDiscovered: 1,
+          messagesApplied: 1
         }
       ],
       foldersSynced: 1,
@@ -59,5 +61,6 @@ describe('contracts', () => {
 
     expect(status.phase).toBe('idling');
     expect(status.folders[0]?.displayName).toBe('Inbox');
+    expect(status.folders[0]?.messagesApplied).toBe(1);
   });
 });

@@ -11,6 +11,8 @@ export type SyncFolderState = {
   displayName: string;
   unreadCount: number;
   totalCount: number;
+  envelopesDiscovered: number;
+  messagesApplied: number;
 };
 
 export type SyncStatusDetail = {

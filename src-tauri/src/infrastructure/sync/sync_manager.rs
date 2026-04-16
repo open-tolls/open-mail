@@ -344,6 +344,8 @@ impl SyncWorker {
                         display_name: folder.display_name,
                         unread_count: 0,
                         total_count: 0,
+                        envelopes_discovered: 0,
+                        messages_applied: 0,
                     })
                     .collect(),
                 folders_synced: 0,
@@ -379,6 +381,8 @@ impl SyncWorker {
                         display_name: folder.folder.display_name.clone(),
                         unread_count: folder.unread_count,
                         total_count: folder.total_count,
+                        envelopes_discovered: 0,
+                        messages_applied: 0,
                     })
                     .collect(),
                 folders_synced,
@@ -391,6 +395,7 @@ impl SyncWorker {
         .await;
 
         let idle_result = client.idle(Duration::from_millis(25)).await?;
+        let mut folder_progress = HashMap::new();
         let observed_messages = match idle_result {
             IdleResult::NewMessages { .. } => {
                 let cursors = self
@@ -400,6 +405,7 @@ impl SyncWorker {
                     .map_err(|error| SyncError::Operation(error.to_string()))?;
                 let envelopes = client.fetch_new_envelopes(&cursors).await?;
                 let observations = client.fetch_message_observations(&envelopes).await?;
+                folder_progress = folder_progress_from_observations(&envelopes, &observations);
                 let context = SyncObservationContext {
                     message_repo: &self.message_repo,
                     thread_repo: &self.thread_repo,
@@ -427,11 +433,18 @@ impl SyncWorker {
                 phase: Some(SyncPhase::Idling),
                 folders: folder_statuses
                     .into_iter()
-                    .map(|folder| SyncFolderState {
-                        path: folder.folder.path,
-                        display_name: folder.folder.display_name,
-                        unread_count: folder.unread_count,
-                        total_count: folder.total_count,
+                    .map(|folder| {
+                        let path = folder.folder.path;
+                        let progress = folder_progress.get(&path).copied().unwrap_or_default();
+
+                        SyncFolderState {
+                            path,
+                            display_name: folder.folder.display_name,
+                            unread_count: folder.unread_count,
+                            total_count: folder.total_count,
+                            envelopes_discovered: progress.envelopes_discovered,
+                            messages_applied: progress.messages_applied,
+                        }
                     })
                     .collect(),
                 folders_synced,
@@ -445,6 +458,35 @@ impl SyncWorker {
 
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct FolderSyncProgress {
+    envelopes_discovered: u32,
+    messages_applied: u32,
+}
+
+fn folder_progress_from_observations(
+    envelopes: &[crate::infrastructure::sync::ImapEnvelope],
+    observations: &[SyncMessageObservation],
+) -> HashMap<String, FolderSyncProgress> {
+    let mut progress = HashMap::new();
+
+    for envelope in envelopes {
+        progress
+            .entry(envelope.folder_path.clone())
+            .or_insert_with(FolderSyncProgress::default)
+            .envelopes_discovered += 1;
+    }
+
+    for observation in observations {
+        progress
+            .entry(observation.folder_path.clone())
+            .or_insert_with(FolderSyncProgress::default)
+            .messages_applied += 1;
+    }
+
+    progress
 }
 
 async fn reconcile_folder_state(
@@ -993,6 +1035,16 @@ mod tests {
 
         assert_eq!(persisted.sync_state, SyncState::Sleeping);
         assert_eq!(statuses.get("acc_sync"), Some(&SyncState::Sleeping));
+        let detailed_statuses = manager.detailed_status_snapshot().await;
+        let inbox_progress = detailed_statuses
+            .get("acc_sync")
+            .unwrap()
+            .folders
+            .iter()
+            .find(|folder| folder.path == "INBOX")
+            .unwrap();
+        assert_eq!(inbox_progress.envelopes_discovered, 1);
+        assert_eq!(inbox_progress.messages_applied, 1);
         assert_eq!(
             synced_folders
                 .iter()

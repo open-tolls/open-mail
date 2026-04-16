@@ -35,6 +35,8 @@ pub struct SyncFolderState {
     pub display_name: String,
     pub unread_count: u32,
     pub total_count: u32,
+    pub envelopes_discovered: u32,
+    pub messages_applied: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

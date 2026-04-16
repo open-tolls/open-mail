@@ -10,13 +10,17 @@ const fallbackSyncStatus: SyncStatusDetail = {
       path: 'INBOX',
       displayName: 'Demo Inbox',
       unreadCount: 2,
-      totalCount: 12
+      totalCount: 12,
+      envelopesDiscovered: 1,
+      messagesApplied: 1
     },
     {
       path: 'Archive',
       displayName: 'Archive',
       unreadCount: 0,
-      totalCount: 4
+      totalCount: 4,
+      envelopesDiscovered: 0,
+      messagesApplied: 0
     }
   ],
   foldersSynced: 2,
