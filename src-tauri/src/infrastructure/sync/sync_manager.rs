@@ -398,7 +398,8 @@ impl SyncWorker {
                     .find_by_account(&self.account.id)
                     .await
                     .map_err(|error| SyncError::Operation(error.to_string()))?;
-                let observations = client.fetch_message_observations(&cursors).await?;
+                let envelopes = client.fetch_new_envelopes(&cursors).await?;
+                let observations = client.fetch_message_observations(&envelopes).await?;
                 let context = SyncObservationContext {
                     message_repo: &self.message_repo,
                     thread_repo: &self.thread_repo,

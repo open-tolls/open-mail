@@ -24,6 +24,18 @@ pub struct ImapFolderStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImapEnvelope {
+    pub folder_path: String,
+    pub uid: u64,
+    pub uid_validity: u64,
+    pub message_id: String,
+    pub thread_id: String,
+    pub subject: String,
+    pub observed_at: DateTime<Utc>,
+    pub is_seen: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdleResult {
     NewMessages { count: u32 },
     Timeout,
@@ -39,9 +51,13 @@ pub trait ImapClient: Send + Sync {
     ) -> Result<(), SyncError>;
     async fn list_folders(&mut self) -> Result<Vec<ImapFolder>, SyncError>;
     async fn fetch_folder_statuses(&mut self) -> Result<Vec<ImapFolderStatus>, SyncError>;
-    async fn fetch_message_observations(
+    async fn fetch_new_envelopes(
         &mut self,
         cursors: &[SyncCursor],
+    ) -> Result<Vec<ImapEnvelope>, SyncError>;
+    async fn fetch_message_observations(
+        &mut self,
+        envelopes: &[ImapEnvelope],
     ) -> Result<Vec<SyncMessageObservation>, SyncError>;
     async fn idle(&mut self, timeout: Duration) -> Result<IdleResult, SyncError>;
 }
@@ -60,44 +76,55 @@ struct FakeImapClient {
     idle_cycles: u32,
 }
 
-fn fake_observations(observed_at: DateTime<Utc>) -> Vec<SyncMessageObservation> {
+fn fake_envelopes(observed_at: DateTime<Utc>) -> Vec<ImapEnvelope> {
     vec![
-        SyncMessageObservation {
+        ImapEnvelope {
             uid: 101,
             uid_validity: 1,
             message_id: "msg_1".into(),
             thread_id: "thr_1".into(),
             folder_path: "INBOX".into(),
             subject: "Premium motion system approved".into(),
-            snippet: "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
-                .into(),
-            plain_text: Some(
-                "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
-                    .into(),
-            ),
             observed_at,
-            is_unread: true,
-            headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
+            is_seen: false,
         },
-        SyncMessageObservation {
+        ImapEnvelope {
             uid: 205,
             uid_validity: 1,
             message_id: "msg_2".into(),
             thread_id: "thr_2".into(),
             folder_path: "Starred".into(),
             subject: "Rust health-check online".into(),
-            snippet:
-                "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
-                    .into(),
-            plain_text: Some(
-                "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
-                    .into(),
-            ),
             observed_at,
-            is_unread: false,
-            headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
+            is_seen: true,
         },
     ]
+}
+
+fn fake_observation_from_envelope(envelope: &ImapEnvelope) -> SyncMessageObservation {
+    let snippet = match envelope.message_id.as_str() {
+        "msg_1" => {
+            "Vamos fechar a base visual do composer e da thread list hoje. Sync confirmado."
+        }
+        "msg_2" => {
+            "IPC inicial respondeu sem erro e o shell já consegue refletir o estado. Sync confirmado."
+        }
+        _ => "Sync confirmou uma nova mensagem.",
+    };
+
+    SyncMessageObservation {
+        uid: envelope.uid,
+        uid_validity: envelope.uid_validity,
+        message_id: envelope.message_id.clone(),
+        thread_id: envelope.thread_id.clone(),
+        folder_path: envelope.folder_path.clone(),
+        subject: envelope.subject.clone(),
+        snippet: snippet.into(),
+        plain_text: Some(snippet.into()),
+        observed_at: envelope.observed_at,
+        is_unread: !envelope.is_seen,
+        headers: HashMap::from([("x-open-mail-sync".into(), "confirmed".into())]),
+    }
 }
 
 #[async_trait]
@@ -157,10 +184,10 @@ impl ImapClient for FakeImapClient {
         ])
     }
 
-    async fn fetch_message_observations(
+    async fn fetch_new_envelopes(
         &mut self,
         cursors: &[SyncCursor],
-    ) -> Result<Vec<SyncMessageObservation>, SyncError> {
+    ) -> Result<Vec<ImapEnvelope>, SyncError> {
         if !self.connected {
             return Err(SyncError::Connection("client is not connected".into()));
         }
@@ -168,17 +195,33 @@ impl ImapClient for FakeImapClient {
         let observed_at = DateTime::parse_from_rfc3339("2026-03-13T10:05:00Z")
             .map(|timestamp| timestamp.with_timezone(&Utc))
             .map_err(|error| SyncError::Operation(error.to_string()))?;
-        let observations = fake_observations(observed_at);
+        let envelopes = fake_envelopes(observed_at);
 
-        Ok(observations
+        Ok(envelopes
             .into_iter()
-            .filter(|observation| {
+            .filter(|envelope| {
                 !cursors.iter().any(|cursor| {
-                    cursor.folder_path.eq_ignore_ascii_case(&observation.folder_path)
-                        && cursor.uid_validity == Some(observation.uid_validity)
-                        && cursor.last_seen_uid.is_some_and(|last_seen_uid| last_seen_uid >= observation.uid)
+                    cursor.folder_path.eq_ignore_ascii_case(&envelope.folder_path)
+                        && cursor.uid_validity == Some(envelope.uid_validity)
+                        && cursor
+                            .last_seen_uid
+                            .is_some_and(|last_seen_uid| last_seen_uid >= envelope.uid)
                 })
             })
+            .collect())
+    }
+
+    async fn fetch_message_observations(
+        &mut self,
+        envelopes: &[ImapEnvelope],
+    ) -> Result<Vec<SyncMessageObservation>, SyncError> {
+        if !self.connected {
+            return Err(SyncError::Connection("client is not connected".into()));
+        }
+
+        Ok(envelopes
+            .iter()
+            .map(fake_observation_from_envelope)
             .collect())
     }
 
@@ -210,3 +253,70 @@ impl ImapClientFactory for FakeImapClientFactory {
 }
 
 pub type SharedImapClientFactory = Arc<dyn ImapClientFactory>;
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+
+    use super::*;
+    use crate::domain::models::account::SecurityType;
+
+    fn settings() -> ConnectionSettings {
+        ConnectionSettings {
+            imap_host: "imap.example.com".into(),
+            imap_port: 993,
+            imap_security: SecurityType::Ssl,
+            smtp_host: "smtp.example.com".into(),
+            smtp_port: 587,
+            smtp_security: SecurityType::StartTls,
+        }
+    }
+
+    fn cursor(folder_path: &str, last_seen_uid: u64) -> SyncCursor {
+        SyncCursor {
+            account_id: "acc_1".into(),
+            folder_id: format!("fld_{}", folder_path.to_lowercase()),
+            folder_path: folder_path.into(),
+            uid_validity: Some(1),
+            last_seen_uid: Some(last_seen_uid),
+            last_message_id: None,
+            last_message_observed_at: None,
+            last_thread_id: None,
+            observed_message_count: 0,
+            last_sync_started_at: None,
+            last_sync_finished_at: None,
+            updated_at: Utc::now(),
+        }
+    }
+
+    #[tokio::test]
+    async fn fake_client_returns_only_envelopes_newer_than_cursor_uid() {
+        let mut client = FakeImapClient {
+            account_id: "acc_1".into(),
+            connected: false,
+            idle_cycles: 0,
+        };
+        client
+            .connect(
+                &settings(),
+                &Credentials::Password {
+                    username: "leco@example.com".into(),
+                    password: "demo".into(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let envelopes = client
+            .fetch_new_envelopes(&[cursor("INBOX", 101)])
+            .await
+            .unwrap();
+        let observations = client.fetch_message_observations(&envelopes).await.unwrap();
+
+        assert_eq!(envelopes.len(), 1);
+        assert_eq!(envelopes[0].folder_path, "Starred");
+        assert_eq!(observations[0].uid, envelopes[0].uid);
+        assert_eq!(observations[0].message_id, envelopes[0].message_id);
+        assert!(!observations[0].is_unread);
+    }
+}

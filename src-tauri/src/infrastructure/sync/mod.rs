@@ -3,7 +3,7 @@ pub mod sync_manager;
 pub mod types;
 
 pub use imap_client::{
-    FakeImapClientFactory, IdleResult, ImapClient, ImapClientFactory, ImapFolder,
+    FakeImapClientFactory, IdleResult, ImapClient, ImapClientFactory, ImapEnvelope, ImapFolder,
     ImapFolderStatus,
 };
 pub use sync_manager::{NoopSyncEventEmitter, SyncEventEmitter, SyncManager};
