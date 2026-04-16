@@ -7,3 +7,4 @@ test-results
 target
 src-tauri/target
 tsconfig.tsbuildinfo
+.idea
