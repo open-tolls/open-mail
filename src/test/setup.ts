@@ -19,6 +19,7 @@ if (!window.matchMedia) {
 }
 
 beforeEach(() => {
+  window.history.pushState({}, '', '/');
   window.localStorage.clear();
   useUIStore.setState({
     isSidebarCollapsed: false,

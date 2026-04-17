@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { ComponentGallery } from '@components/dev/ComponentGallery';
 import { ShellFrame } from '@components/layout/ShellFrame';
 import { useFolderThreads } from '@hooks/useFolderThreads';
 import { useBackendHealth } from '@hooks/useBackendHealth';
@@ -42,7 +43,23 @@ const parseRecipients = (value: string) =>
     .filter(Boolean)
     .map((email) => ({ name: null, email }));
 
-const App = () => {
+const useApplySelectedTheme = () => {
+  const themeId = useUIStore((state) => state.themeId);
+
+  useEffect(() => {
+    const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncTheme = () => applyTheme(themeId, colorSchemeQuery.matches);
+
+    syncTheme();
+    colorSchemeQuery.addEventListener('change', syncTheme);
+
+    return () => {
+      colorSchemeQuery.removeEventListener('change', syncTheme);
+    };
+  }, [themeId]);
+};
+
+const MailShell = () => {
   useDomainEvents();
   const { data, isLoading, isError } = useBackendHealth();
   const mailboxQuery = useMailboxOverview();
@@ -52,7 +69,6 @@ const App = () => {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
-  const themeId = useUIStore((state) => state.themeId);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const folderThreadsQuery = useFolderThreads(
     mailbox?.accountId ?? null,
@@ -118,18 +134,6 @@ const App = () => {
       return api.outbox.flush(accountId);
     }
   });
-
-  useEffect(() => {
-    const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const syncTheme = () => applyTheme(themeId, colorSchemeQuery.matches);
-
-    syncTheme();
-    colorSchemeQuery.addEventListener('change', syncTheme);
-
-    return () => {
-      colorSchemeQuery.removeEventListener('change', syncTheme);
-    };
-  }, [themeId]);
 
   useEffect(() => {
     if (!mailbox?.folders.length) {
@@ -218,6 +222,16 @@ const App = () => {
       onFlushOutbox={handleFlushOutbox}
     />
   );
+};
+
+const App = () => {
+  useApplySelectedTheme();
+
+  if (window.location.pathname === '/dev') {
+    return <ComponentGallery />;
+  }
+
+  return <MailShell />;
 };
 
 export default App;
