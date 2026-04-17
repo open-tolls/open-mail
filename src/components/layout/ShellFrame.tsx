@@ -205,7 +205,7 @@ export const ShellFrame = ({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', stopResize);
     };
-  }, [isResizingThreadPanel]);
+  }, [isResizingThreadPanel, setThreadPanelWidth]);
 
   return (
     <div className={isSidebarCollapsed ? 'shell-root shell-root-sidebar-collapsed' : 'shell-root'}>

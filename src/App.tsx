@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { ShellFrame } from '@components/layout/ShellFrame';
 import { useFolderThreads } from '@hooks/useFolderThreads';
@@ -65,8 +65,10 @@ const App = () => {
     mailbox?.allThreads ?? []
   );
   const isSearchActive = deferredSearchQuery.trim().length > 0;
-  const threads =
-    (isSearchActive ? searchThreadsQuery.data : folderThreadsQuery.data) ?? mailbox?.threads ?? [];
+  const threads = useMemo(
+    () => (isSearchActive ? searchThreadsQuery.data : folderThreadsQuery.data) ?? mailbox?.threads ?? [],
+    [folderThreadsQuery.data, isSearchActive, mailbox?.threads, searchThreadsQuery.data]
+  );
   const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
   const messagesQuery = useThreadMessages(selectedThread?.id ?? null);
   const messageDetailQuery = useMessageDetail(selectedMessageId);
