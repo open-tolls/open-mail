@@ -78,6 +78,28 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
   });
 
+  it('supports phase 3 mailbox number shortcuts', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: '2', metaKey: true });
+    expect(await screen.findByRole('heading', { name: 'Ship notes for desktop alpha' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Sent');
+
+    fireEvent.keyDown(window, { key: '3', metaKey: true });
+    expect(await screen.findByText('Drafts is clear')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Drafts');
+
+    fireEvent.keyDown(window, { key: '1', metaKey: true });
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Inbox');
+  });
+
   it('persists phase 3 layout mode through the toolbar toggle', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

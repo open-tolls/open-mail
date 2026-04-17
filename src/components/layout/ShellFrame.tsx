@@ -164,6 +164,12 @@ export const ShellFrame = ({
     const nextIndex = Math.min(threads.length - 1, Math.max(0, currentIndex + offset));
     onSelectThread(threads[nextIndex].id);
   };
+  const selectSystemFolder = (role: string) => {
+    const folder = folders.find((candidate) => candidate.role === role);
+    if (folder) {
+      onSelectFolder(folder.id);
+    }
+  };
   const workspaceStyle = {
     '--thread-panel-width': `${threadPanelWidth}%`
   } as CSSProperties;
@@ -174,6 +180,13 @@ export const ShellFrame = ({
       setSidebarCollapsed(false);
       setIsComposerOpen(true);
     },
+    'mod+shift+n': () => {
+      setSidebarCollapsed(false);
+      setIsComposerOpen(true);
+    },
+    'mod+1': () => selectSystemFolder('inbox'),
+    'mod+2': () => selectSystemFolder('sent'),
+    'mod+3': () => selectSystemFolder('drafts'),
     j: () => selectThreadByOffset(1),
     k: () => selectThreadByOffset(-1),
     escape: () => {

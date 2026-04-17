@@ -96,6 +96,28 @@ const fallbackOverview: MailboxOverview = {
       updated_at: '2026-03-13T10:00:00Z'
     },
     {
+      id: 'fld_important',
+      account_id: 'acc_demo',
+      name: 'Important',
+      path: 'Important',
+      role: 'important',
+      unread_count: 0,
+      total_count: 2,
+      created_at: '2026-03-13T10:00:00Z',
+      updated_at: '2026-03-13T10:00:00Z'
+    },
+    {
+      id: 'fld_drafts',
+      account_id: 'acc_demo',
+      name: 'Drafts',
+      path: 'Drafts',
+      role: 'drafts',
+      unread_count: 0,
+      total_count: 0,
+      created_at: '2026-03-13T10:00:00Z',
+      updated_at: '2026-03-13T10:00:00Z'
+    },
+    {
       id: 'fld_sent',
       account_id: 'acc_demo',
       name: 'Sent',
@@ -103,6 +125,28 @@ const fallbackOverview: MailboxOverview = {
       role: 'sent',
       unread_count: 0,
       total_count: 42,
+      created_at: '2026-03-13T10:00:00Z',
+      updated_at: '2026-03-13T10:00:00Z'
+    },
+    {
+      id: 'fld_spam',
+      account_id: 'acc_demo',
+      name: 'Spam',
+      path: 'Spam',
+      role: 'spam',
+      unread_count: 0,
+      total_count: 0,
+      created_at: '2026-03-13T10:00:00Z',
+      updated_at: '2026-03-13T10:00:00Z'
+    },
+    {
+      id: 'fld_trash',
+      account_id: 'acc_demo',
+      name: 'Trash',
+      path: 'Trash',
+      role: 'trash',
+      unread_count: 0,
+      total_count: 0,
       created_at: '2026-03-13T10:00:00Z',
       updated_at: '2026-03-13T10:00:00Z'
     },
