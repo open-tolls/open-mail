@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router';
 import { ComponentGallery } from '@components/dev/ComponentGallery';
 import { ShellFrame } from '@components/layout/ShellFrame';
 import { useFolderThreads } from '@hooks/useFolderThreads';
@@ -60,6 +61,7 @@ const useApplySelectedTheme = () => {
 };
 
 const MailShell = () => {
+  const { folderId, threadId } = useParams<{ folderId?: string; threadId?: string }>();
   useDomainEvents();
   const { data, isLoading, isError } = useBackendHealth();
   const mailboxQuery = useMailboxOverview();
@@ -81,6 +83,21 @@ const MailShell = () => {
     mailbox?.allThreads ?? []
   );
   const isSearchActive = deferredSearchQuery.trim().length > 0;
+  const routeFolderId = useMemo(() => {
+    if (!mailbox?.folders.length || !folderId) {
+      return null;
+    }
+
+    const normalizedFolderId = folderId.toLowerCase();
+    return (
+      mailbox.folders.find(
+        (folder) =>
+          folder.id === folderId ||
+          folder.role === normalizedFolderId ||
+          folder.name.toLowerCase() === normalizedFolderId
+      )?.id ?? null
+    );
+  }, [folderId, mailbox?.folders]);
   const threads = useMemo(
     () => (isSearchActive ? searchThreadsQuery.data : folderThreadsQuery.data) ?? mailbox?.threads ?? [],
     [folderThreadsQuery.data, isSearchActive, mailbox?.threads, searchThreadsQuery.data]
@@ -141,12 +158,16 @@ const MailShell = () => {
       return;
     }
 
-    setSelectedFolderId((currentFolderId) =>
-      currentFolderId && mailbox.folders.some((folder) => folder.id === currentFolderId)
+    setSelectedFolderId((currentFolderId) => {
+      if (routeFolderId) {
+        return routeFolderId;
+      }
+
+      return currentFolderId && mailbox.folders.some((folder) => folder.id === currentFolderId)
         ? currentFolderId
-        : mailbox.activeFolder
-    );
-  }, [mailbox]);
+        : mailbox.activeFolder;
+    });
+  }, [mailbox, routeFolderId]);
 
   useEffect(() => {
     if (!threads.length) {
@@ -155,12 +176,16 @@ const MailShell = () => {
       return;
     }
 
-    setSelectedThreadId((currentThreadId) =>
-      currentThreadId && threads.some((thread) => thread.id === currentThreadId)
+    setSelectedThreadId((currentThreadId) => {
+      if (threadId && threads.some((thread) => thread.id === threadId)) {
+        return threadId;
+      }
+
+      return currentThreadId && threads.some((thread) => thread.id === currentThreadId)
         ? currentThreadId
-        : threads[0].id
-    );
-  }, [threads]);
+        : threads[0].id;
+    });
+  }, [threadId, threads]);
 
   useEffect(() => {
     const messages = messagesQuery.data ?? [];
@@ -227,11 +252,19 @@ const MailShell = () => {
 const App = () => {
   useApplySelectedTheme();
 
-  if (window.location.pathname === '/dev') {
-    return <ComponentGallery />;
-  }
-
-  return <MailShell />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<MailShell />} path="/" />
+        <Route element={<MailShell />} path="/search" />
+        <Route element={<MailShell />} path="/compose" />
+        <Route element={<MailShell />} path="/:folderId" />
+        <Route element={<MailShell />} path="/:folderId/:threadId" />
+        <Route element={<ComponentGallery />} path="/dev" />
+        <Route element={<Navigate replace to="/" />} path="*" />
+      </Routes>
+    </BrowserRouter>
+  );
 };
 
 export default App;

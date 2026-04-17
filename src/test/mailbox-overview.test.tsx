@@ -100,6 +100,19 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Inbox');
   });
 
+  it('hydrates mailbox selection from route params', async () => {
+    window.history.pushState({}, '', '/sent/thr_3');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Ship notes for desktop alpha' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Sent');
+  });
+
   it('persists phase 3 layout mode through the toolbar toggle', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
