@@ -111,10 +111,12 @@ export const ShellFrame = ({
   const [isResizingThreadPanel, setIsResizingThreadPanel] = useState(false);
   const isSidebarCollapsed = useUIStore((state) => state.isSidebarCollapsed);
   const layoutMode = useUIStore((state) => state.layoutMode);
+  const themeId = useUIStore((state) => state.themeId);
   const threadPanelWidth = useUIStore((state) => state.threadPanelWidth);
   const setSidebarCollapsed = useUIStore((state) => state.setSidebarCollapsed);
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const toggleLayoutMode = useUIStore((state) => state.toggleLayoutMode);
+  const cycleTheme = useUIStore((state) => state.cycleTheme);
   const setThreadPanelWidth = useUIStore((state) => state.setThreadPanelWidth);
   const [draftTo, setDraftTo] = useState('team@example.com');
   const [draftSubject, setDraftSubject] = useState('Desktop alpha update');
@@ -341,6 +343,14 @@ export const ShellFrame = ({
           </label>
 
           <div className="status-row">
+            <button
+              aria-label={`Switch theme (${themeId})`}
+              className="theme-toggle"
+              onClick={cycleTheme}
+              type="button"
+            >
+              {themeId}
+            </button>
             <button
               aria-label={layoutMode === 'split' ? 'Switch to list layout' : 'Switch to split layout'}
               aria-pressed={layoutMode === 'list'}

@@ -1,16 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { nextThemeId, type ThemeId } from '@lib/themes';
 
 export type LayoutMode = 'split' | 'list';
 
 type UIState = {
   isSidebarCollapsed: boolean;
   layoutMode: LayoutMode;
+  themeId: ThemeId;
   threadPanelWidth: number;
   setSidebarCollapsed: (isCollapsed: boolean) => void;
   toggleSidebar: () => void;
   setLayoutMode: (mode: LayoutMode) => void;
   toggleLayoutMode: () => void;
+  setThemeId: (themeId: ThemeId) => void;
+  cycleTheme: () => void;
   setThreadPanelWidth: (width: number) => void;
 };
 
@@ -21,6 +25,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       isSidebarCollapsed: false,
       layoutMode: 'split',
+      themeId: 'system',
       threadPanelWidth: 58,
       setSidebarCollapsed: (isSidebarCollapsed) => set({ isSidebarCollapsed }),
       toggleSidebar: () =>
@@ -30,6 +35,8 @@ export const useUIStore = create<UIState>()(
         set((state) => ({
           layoutMode: state.layoutMode === 'split' ? 'list' : 'split'
         })),
+      setThemeId: (themeId) => set({ themeId }),
+      cycleTheme: () => set((state) => ({ themeId: nextThemeId(state.themeId) })),
       setThreadPanelWidth: (threadPanelWidth) =>
         set({ threadPanelWidth: clampThreadPanelWidth(threadPanelWidth) })
     }),

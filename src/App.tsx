@@ -10,7 +10,9 @@ import { useSearchThreads } from '@hooks/useSearchThreads';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useThreadMessages } from '@hooks/useThreadMessages';
 import type { EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport } from '@lib/contracts';
+import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
+import { useUIStore } from '@stores/useUIStore';
 
 type ComposeDraft = {
   to: string;
@@ -50,6 +52,7 @@ const App = () => {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
+  const themeId = useUIStore((state) => state.themeId);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const folderThreadsQuery = useFolderThreads(
     mailbox?.accountId ?? null,
@@ -113,6 +116,18 @@ const App = () => {
       return api.outbox.flush(accountId);
     }
   });
+
+  useEffect(() => {
+    const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncTheme = () => applyTheme(themeId, colorSchemeQuery.matches);
+
+    syncTheme();
+    colorSchemeQuery.addEventListener('change', syncTheme);
+
+    return () => {
+      colorSchemeQuery.removeEventListener('change', syncTheme);
+    };
+  }, [themeId]);
 
   useEffect(() => {
     if (!mailbox?.folders.length) {

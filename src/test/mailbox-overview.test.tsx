@@ -93,6 +93,20 @@ describe('mailbox overview integration', () => {
     expect(window.localStorage.getItem('open-mail-ui')).toContain('"layoutMode":"list"');
   });
 
+  it('cycles and persists phase 3 themes through the toolbar toggle', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /switch theme \(system\)/i }));
+
+    expect(await screen.findByRole('button', { name: /switch theme \(dark\)/i })).toBeInTheDocument();
+    expect(window.localStorage.getItem('open-mail-ui')).toContain('"themeId":"dark"');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+  });
+
   it('queues a composed message from the shell', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

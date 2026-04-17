@@ -7,6 +7,11 @@
   --bg: #08111f;
   --bg-elevated: rgba(10, 23, 39, 0.78);
   --bg-soft: rgba(15, 31, 53, 0.6);
+  --bg-page:
+    radial-gradient(circle at top left, rgba(240, 141, 73, 0.18), transparent 24%),
+    radial-gradient(circle at top right, rgba(132, 216, 199, 0.12), transparent 28%),
+    linear-gradient(180deg, #0c1625 0%, #07101d 100%);
+  --grid-line: rgba(255, 255, 255, 0.02);
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.16);
   --text: #f5f1e8;
@@ -29,10 +34,7 @@ body,
 }
 
 body {
-  background:
-    radial-gradient(circle at top left, rgba(240, 141, 73, 0.18), transparent 24%),
-    radial-gradient(circle at top right, rgba(132, 216, 199, 0.12), transparent 28%),
-    linear-gradient(180deg, #0c1625 0%, #07101d 100%);
+  background: var(--bg-page);
   color: var(--text);
   font-family: var(--font-body);
 }
@@ -43,8 +45,8 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: radial-gradient(circle at center, black, transparent 80%);
 }
@@ -768,7 +770,8 @@ textarea {
   justify-content: flex-end;
 }
 
-.layout-toggle {
+.layout-toggle,
+.theme-toggle {
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--line-strong);
@@ -778,10 +781,12 @@ textarea {
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
+  text-transform: capitalize;
 }
 
 .layout-toggle:hover,
-.layout-toggle[aria-pressed='true'] {
+.layout-toggle[aria-pressed='true'],
+.theme-toggle:hover {
   border-color: rgba(246, 182, 111, 0.28);
   color: var(--accent);
 }
