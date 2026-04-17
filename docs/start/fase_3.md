@@ -520,13 +520,13 @@ export function useTauriEvent<T>(event: string, handler: (payload: T) => void) {
 ```
 
 **Criterio de aceite:**
-- [ ] 8 stores Zustand implementados
+- [x] 8 stores Zustand implementados
 - [x] Stores persistidos onde necessario (UI state)
 - [x] Tauri events integrados (reatividade do backend)
 - [x] Hook `useTauriEvent` reutilizavel
 - [x] Sem re-renders desnecessarios (selectors)
 
-> Status: a Fase 3 usa stores focadas (`useUIStore`, `useShellStore`, `useShortcutStore`) em vez dos 8 stores finais. A expansao para stores por dominio deve acompanhar as fases de dados reais.
+> Status: a Fase 3 agora possui stores por dominio (`account`, `folder`, `thread`, `message`, `draft`, `sync`, `search`) mais `useUIStore`. A ligacao completa com dados reais deve acompanhar as fases seguintes.
 
 ---
 
@@ -707,7 +707,7 @@ export function App() {
 - [x] Sidebar com folders, labels, accounts
 - [x] Toolbar com search, sync status, toggles
 - [x] Status bar com unread count
-- [ ] 8 Zustand stores configurados
+- [x] 8 Zustand stores configurados
 - [x] Tauri event integration funcional
 - [x] Keyboard shortcuts mapeados
 - [x] 3 temas built-in
