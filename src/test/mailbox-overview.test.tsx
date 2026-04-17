@@ -15,9 +15,11 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /inbox/i })).toBeInTheDocument();
     expect(await screen.findByText('motion-notes.pdf')).toBeInTheDocument();
-    expect(await screen.findByText('design-review')).toBeInTheDocument();
+    expect((await screen.findAllByText('design-review')).length).toBeGreaterThan(0);
     expect(await screen.findByText('System folders')).toBeInTheDocument();
     expect(await screen.findByText('Custom folders')).toBeInTheDocument();
+    expect(await screen.findByText('Labels')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Label design-review' })).toBeInTheDocument();
     expect(await screen.findByText('Active account')).toBeInTheDocument();
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('2 unread');
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Inbox');
@@ -25,13 +27,13 @@ describe('mailbox overview integration', () => {
     fireEvent.click(await screen.findByRole('button', { name: /starred/i }));
     expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
     expect(screen.queryByText('motion-notes.pdf')).not.toBeInTheDocument();
-    expect(await screen.findByText('tauri-health')).toBeInTheDocument();
+    expect((await screen.findAllByText('tauri-health')).length).toBeGreaterThan(0);
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Starred');
 
     fireEvent.click(await screen.findByRole('button', { name: /sent/i }));
     expect(await screen.findByRole('heading', { name: 'Ship notes for desktop alpha' })).toBeInTheDocument();
     expect(await screen.findByText('release@example.com')).toBeInTheDocument();
-    expect(await screen.findByText('desktop-alpha')).toBeInTheDocument();
+    expect((await screen.findAllByText('desktop-alpha')).length).toBeGreaterThan(0);
     expect(window.location.pathname).toBe('/sent');
 
     fireEvent.click(await screen.findByRole('button', { name: /archive/i }));

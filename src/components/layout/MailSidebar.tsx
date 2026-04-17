@@ -43,6 +43,12 @@ const folderIconMap = {
   trash: Trash2
 } as const;
 
+const labelPreviews = [
+  { id: 'lbl_design', name: 'design-review', color: '#84d8c7' },
+  { id: 'lbl_release', name: 'desktop-alpha', color: '#f6b66f' },
+  { id: 'lbl_infra', name: 'tauri-health', color: '#9eb7ff' }
+];
+
 export const MailSidebar = ({
   activeFolderId,
   folders,
@@ -210,6 +216,18 @@ export const MailSidebar = ({
             ) : (
               <p className="folder-empty-note">No custom folders yet</p>
             )}
+          </details>
+        ) : null}
+
+        {!isCollapsed ? (
+          <details className="folder-group" open>
+            <summary className="folder-group-title">Labels</summary>
+            {labelPreviews.map((label) => (
+              <button aria-label={`Label ${label.name}`} className="label-link" key={label.id} type="button">
+                <span className="label-color" style={{ backgroundColor: label.color }} />
+                <span>{label.name}</span>
+              </button>
+            ))}
           </details>
         ) : null}
       </nav>
