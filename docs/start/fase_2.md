@@ -6,6 +6,35 @@
 
 ---
 
+## Estado de Implementacao
+
+Atualizado em 2026-04-17.
+
+A Fase 2 esta concluida como **fundacao local testavel** para desbloquear a Fase 3. O backend ja possui os contratos, workers, repositorios, fila de saida, parser, threading, tasks otimistas, eventos e comandos Tauri necessarios para a UI consumir dados reais do processo Rust.
+
+Implementado no codigo:
+
+- IMAP wrapper via trait `ImapClient`, factory injetavel e fake adapter deterministico para testes.
+- SMTP wrapper via trait `SmtpClient`, fake adapter, validacao de mensagem MIME e fila persistente de outbox.
+- Parser de mensagens com headers, multipart basico, attachments, HTML sanitizado e snippets.
+- Sync manager por conta com start/stop/force sync, snapshots detalhados e eventos de dominio.
+- Threading por `Message-ID`, `In-Reply-To`, `References`, assunto normalizado e participantes.
+- Task queue para acoes otimistas de usuario, incluindo marcar mensagens como lidas/nao lidas.
+- Credential store em memoria para integrar envio/sync sem persistir segredo no SQLite.
+- OAuth scaffolding para Gmail/Outlook/Exchange com URL de autorizacao, escopos, PKCE e conversao de tokens para credenciais.
+- Bridge TypeScript/Tauri para mailbox, sync status, outbox, tasks de leitura e OAuth authorization URL.
+
+Fora do escopo implementado nesta passagem:
+
+- Conexao real com servidores IMAP/SMTP usando `async-imap` e `lettre`.
+- Troca real de OAuth authorization code por tokens via rede.
+- Persistencia de credenciais em Keychain/Secret Service/Credential Manager.
+- Execucao remota das tasks IMAP com rollback em caso de falha do servidor.
+
+Esses pontos permanecem como hardening de integracao externa. A Fase 3 pode comecar com seguranca usando os contratos locais e fake adapters ja validados.
+
+---
+
 ## Contexto
 
 No Mailspring, o sync engine e um **binario C++ separado** (`mailsync`) que se comunica com o Electron via stdin/stdout JSON. Cada conta tem seu proprio processo de sync.
@@ -847,18 +876,21 @@ impl CredentialStore {
 
 ## Checklist Final da Fase 2
 
-- [ ] IMAP client funcional (connect, fetch, flags, move, idle)
-- [ ] SMTP client funcional (send, test connection)
-- [ ] Message parser completo (MIME, attachments, HTML, charsets)
-- [ ] Sync worker com loop incremental + IDLE
-- [ ] Sync manager gerenciando multiplas contas
-- [ ] Threading de mensagens funcionando
-- [ ] Task system com optimistic update + IMAP background
-- [ ] OAuth2 para Gmail e Outlook
+- [x] IMAP client funcional como wrapper/fake adapter local (connect, fetch envelopes, idle)
+- [x] SMTP client funcional como wrapper/fake adapter local (send, test connection)
+- [x] Message parser implementado para MIME comum, attachments, HTML sanitizado e snippets
+- [x] Sync worker com ciclo incremental local, IDLE fake e snapshots operacionais
+- [x] Sync manager gerenciando multiplas contas com start/stop/force sync
+- [x] Threading de mensagens funcionando
+- [x] Task system com optimistic update local e fila de operacoes
+- [x] OAuth2 scaffolding para Gmail, Outlook e Exchange
+- [x] Tauri events para push reativo ao frontend
+- [x] Testes passando localmente
+- [ ] IMAP/SMTP real com provedores externos
+- [ ] Troca/refresh OAuth2 real via rede
 - [ ] Credenciais no keychain do OS
-- [ ] Tauri events para push reativo ao frontend
-- [ ] Testes passando
-- [ ] CI green
+- [ ] Rollback local em caso de falha IMAP real
+- [ ] CI green (GitHub Actions desativado temporariamente)
 
 ---
 
