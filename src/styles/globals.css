@@ -762,6 +762,352 @@ textarea {
   color: var(--text);
 }
 
+.ui-button,
+.ui-icon-button,
+.ui-input,
+.ui-dropdown summary,
+.ui-context-menu,
+.ui-switch-track {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+}
+
+.ui-button,
+.ui-icon-button,
+.ui-input,
+.ui-badge,
+.ui-dropdown summary,
+.ui-context-menu,
+.ui-kbd {
+  border-radius: 999px;
+}
+
+.ui-button,
+.ui-icon-button,
+.ui-dropdown summary,
+.ui-switch {
+  cursor: pointer;
+}
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 700;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.ui-button:hover,
+.ui-icon-button:hover,
+.ui-dropdown summary:hover {
+  transform: translateY(-1px);
+  border-color: rgba(246, 182, 111, 0.3);
+}
+
+.ui-button-sm {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.84rem;
+}
+
+.ui-button-md {
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.ui-button-lg {
+  min-height: 50px;
+  padding: 0 20px;
+}
+
+.ui-button-primary {
+  border: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #1f1208;
+}
+
+.ui-button-secondary {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ui-button-ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.ui-button-danger {
+  border-color: rgba(255, 116, 116, 0.25);
+  color: #ffb3b3;
+}
+
+.ui-button:disabled,
+.ui-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.ui-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+}
+
+.ui-field {
+  display: grid;
+  gap: 8px;
+}
+
+.ui-field-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.ui-input {
+  min-height: 42px;
+  width: 100%;
+  padding: 0 14px;
+  outline: none;
+}
+
+.ui-input:focus {
+  border-color: rgba(246, 182, 111, 0.42);
+  box-shadow: 0 0 0 4px rgba(246, 182, 111, 0.08);
+}
+
+.ui-field-hint {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ui-badge-neutral {
+  color: var(--text);
+}
+
+.ui-badge-success {
+  color: var(--success);
+}
+
+.ui-badge-accent {
+  color: var(--accent);
+}
+
+.ui-badge-danger {
+  color: #ffb3b3;
+}
+
+.ui-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(246, 182, 111, 0.2), rgba(132, 216, 199, 0.16));
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.ui-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ui-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.ui-tooltip::after {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 10;
+  min-width: max-content;
+  max-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0b1422;
+  color: var(--text);
+  content: attr(data-tooltip);
+  font-size: 0.78rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.ui-tooltip:hover::after,
+.ui-tooltip:focus-within::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.ui-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.ui-dropdown summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  list-style: none;
+}
+
+.ui-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.ui-dropdown-content,
+.ui-context-menu {
+  min-width: 180px;
+  padding: 8px;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.ui-dropdown-content {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  border: 1px solid var(--line);
+  background: rgba(8, 17, 31, 0.96);
+}
+
+.ui-context-menu {
+  display: grid;
+  gap: 4px;
+}
+
+.ui-scroll-area {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: rgba(246, 182, 111, 0.4) transparent;
+}
+
+.ui-separator {
+  border: 0;
+  background: var(--line);
+}
+
+.ui-separator-horizontal {
+  width: 100%;
+  height: 1px;
+}
+
+.ui-separator-vertical {
+  width: 1px;
+  min-height: 100%;
+}
+
+.ui-skeleton {
+  min-height: 1rem;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  background-size: 220% 100%;
+  animation: ui-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.ui-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ui-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-switch-track {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+}
+
+.ui-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--muted);
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.ui-switch input:checked + .ui-switch-track .ui-switch-thumb {
+  background: var(--accent);
+  transform: translateX(18px);
+}
+
+.ui-switch input:focus-visible + .ui-switch-track {
+  box-shadow: 0 0 0 4px rgba(246, 182, 111, 0.12);
+}
+
+.ui-kbd {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-family: ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+  font-size: 0.75rem;
+}
+
+.ui-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  animation: ui-spinner-spin 700ms linear infinite;
+}
+
+@keyframes ui-skeleton-shimmer {
+  to {
+    background-position-x: -220%;
+  }
+}
+
+@keyframes ui-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 1100px) {
   .shell-root,
   .hero-card,
