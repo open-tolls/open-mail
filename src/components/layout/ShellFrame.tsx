@@ -6,11 +6,16 @@ import {
   PencilLine,
   Search,
   Sparkles,
+  AlertCircle,
   Archive,
+  FileEdit,
+  Folder,
   Inbox,
   PanelLeftClose,
   PanelLeftOpen,
   Send,
+  Settings,
+  ShieldAlert,
   Star,
   Trash2,
   Paperclip,
@@ -46,9 +51,12 @@ type ShellFrameProps = {
 };
 
 const folderIconMap = {
+  important: AlertCircle,
   inbox: Inbox,
   starred: Star,
+  drafts: FileEdit,
   sent: Send,
+  spam: ShieldAlert,
   archive: Archive,
   trash: Trash2
 } as const;
@@ -134,6 +142,9 @@ export const ShellFrame = ({
   const syncStatusLabel = syncStatusDetail?.phase
     ? `Sync ${syncStatusDetail.phase.replaceAll('-', ' ')}`
     : backendStatus;
+  const accountId = folders[0]?.account_id ?? 'acc_demo';
+  const systemFolders = folders.filter((folder) => folder.role);
+  const customFolders = folders.filter((folder) => !folder.role);
   const selectedThreadIndex = threads.findIndex((thread) => thread.id === selectedThreadId);
   const submitDraft = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -290,38 +301,69 @@ export const ShellFrame = ({
           </div>
         ) : null}
 
-        <nav
-          className={isSidebarCollapsed ? 'folder-nav folder-nav-rail' : 'folder-nav'}
-          aria-label="Mailbox folders"
-        >
-          {folders.map((folder) => {
-            const Icon = folder.role ? folderIconMap[folder.role as keyof typeof folderIconMap] ?? BellDot : BellDot;
-            return (
-              <button
-                aria-label={isSidebarCollapsed ? folder.name : undefined}
-                className={folder.id === activeFolderId ? 'folder-link folder-link-active' : 'folder-link'}
-                key={folder.id}
-                onClick={() => onSelectFolder(folder.id)}
-                type="button"
-              >
-                <span className="folder-link-main">
-                  <Icon size={16} />
-                  {!isSidebarCollapsed ? <span className="folder-link-label">{folder.name}</span> : null}
-                </span>
-                {!isSidebarCollapsed ? (
-                  <span className="folder-count">{folder.unread_count}</span>
-                ) : folder.unread_count ? (
-                  <span className="folder-rail-dot" aria-hidden="true" />
-                ) : null}
-              </button>
-            );
-          })}
+        <nav className={isSidebarCollapsed ? 'folder-nav folder-nav-rail' : 'folder-nav'} aria-label="Mailbox folders">
+          <div className="folder-group">
+            {!isSidebarCollapsed ? <p className="folder-group-title">System folders</p> : null}
+            {systemFolders.map((folder) => {
+              const Icon = folder.role
+                ? folderIconMap[folder.role as keyof typeof folderIconMap] ?? BellDot
+                : Folder;
+              return (
+                <button
+                  aria-label={isSidebarCollapsed ? folder.name : undefined}
+                  className={folder.id === activeFolderId ? 'folder-link folder-link-active' : 'folder-link'}
+                  key={folder.id}
+                  onClick={() => onSelectFolder(folder.id)}
+                  type="button"
+                >
+                  <span className="folder-link-main">
+                    <Icon size={16} />
+                    {!isSidebarCollapsed ? <span className="folder-link-label">{folder.name}</span> : null}
+                  </span>
+                  {!isSidebarCollapsed ? (
+                    <span className="folder-count">{folder.unread_count}</span>
+                  ) : folder.unread_count ? (
+                    <span className="folder-rail-dot" aria-hidden="true" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {!isSidebarCollapsed ? (
+            <details className="folder-group" open>
+              <summary className="folder-group-title">Custom folders</summary>
+              {customFolders.length ? (
+                customFolders.map((folder) => (
+                  <button
+                    className={folder.id === activeFolderId ? 'folder-link folder-link-active' : 'folder-link'}
+                    key={folder.id}
+                    onClick={() => onSelectFolder(folder.id)}
+                    type="button"
+                  >
+                    <span className="folder-link-main">
+                      <Folder size={16} />
+                      <span className="folder-link-label">{folder.name}</span>
+                    </span>
+                    <span className="folder-count">{folder.unread_count}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="folder-empty-note">No custom folders yet</p>
+              )}
+            </details>
+          ) : null}
         </nav>
 
         {!isSidebarCollapsed ? (
-          <div className="sidebar-footer">
-            <StatusBadge label="Foundation" tone="accent" />
-            <p>Arquitetura inicial pronta para evoluir as próximas fases do roadmap.</p>
+          <div className="account-switcher">
+            <div>
+              <span>Active account</span>
+              <strong>{accountId}</strong>
+            </div>
+            <button aria-label="Open account settings" type="button">
+              <Settings size={15} />
+            </button>
           </div>
         ) : null}
       </aside>

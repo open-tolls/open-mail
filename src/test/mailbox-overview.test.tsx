@@ -15,6 +15,9 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByRole('button', { name: /inbox/i })).toBeInTheDocument();
     expect(await screen.findByText('motion-notes.pdf')).toBeInTheDocument();
     expect(await screen.findByText('design-review')).toBeInTheDocument();
+    expect(await screen.findByText('System folders')).toBeInTheDocument();
+    expect(await screen.findByText('Custom folders')).toBeInTheDocument();
+    expect(await screen.findByText('Active account')).toBeInTheDocument();
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('2 unread');
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Inbox');
 
