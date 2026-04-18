@@ -715,6 +715,8 @@ export function App() {
 - [x] Testes passando
 - [ ] CI green
 
+> Status CI: nao ha workflows em `.github/workflows` no workspace atual, entao os commits novos nao disparam GitHub Actions. Validacao local da Fase 3: `npm run typecheck`, `npm run test` e `npm run lint` passam.
+
 ---
 
 **Fase anterior:** [Fase 2 — Sync Engine](./fase_2.md)
