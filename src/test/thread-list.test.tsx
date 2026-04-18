@@ -81,6 +81,31 @@ describe('ThreadList', () => {
     expect(onAction).toHaveBeenCalledWith('archive', ['thr_0']);
   });
 
+  it('requests more threads when scrolled near the bottom', () => {
+    const onLoadMore = vi.fn();
+    const threads = Array.from({ length: 20 }, (_, index) => makeThread(index));
+
+    render(
+      <ThreadList
+        activeFolderName="Inbox"
+        hasMore
+        isSearchActive={false}
+        onLoadMore={onLoadMore}
+        onSelectThread={vi.fn()}
+        selectedThreadId="thr_0"
+        threads={threads}
+      />
+    );
+
+    const viewport = screen.getByLabelText('Thread list');
+    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 420 });
+    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 900 });
+
+    fireEvent.scroll(viewport, { target: { scrollTop: 520 } });
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
   it('filters threads by unread, starred, and attachments', () => {
     const threads = [
       makeThread(1, { isUnread: true, isStarred: false, hasAttachments: false }),

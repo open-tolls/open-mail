@@ -17,6 +17,7 @@ type ShellFrameProps = {
   activeFolderId: string | null;
   searchQuery: string;
   isSearchActive: boolean;
+  hasMoreThreads?: boolean;
   selectedThreadId: string | null;
   selectedThread: ThreadSummary | null;
   messages: MessageRecord[];
@@ -26,7 +27,9 @@ type ShellFrameProps = {
   outboxStatus: string;
   isOutboxBusy: boolean;
   isMessagesLoading: boolean;
+  isThreadsLoading?: boolean;
   onSelectFolder: (folderId: string) => void;
+  onLoadMoreThreads?: () => Promise<void> | void;
   onSearchQueryChange: (query: string) => void;
   onSelectThread: (threadId: string) => void;
   onSelectMessage: (messageId: string) => void;
@@ -41,6 +44,7 @@ export const ShellFrame = ({
   activeFolderId,
   searchQuery,
   isSearchActive,
+  hasMoreThreads = false,
   selectedThreadId,
   selectedThread,
   messages,
@@ -50,7 +54,9 @@ export const ShellFrame = ({
   outboxStatus,
   isOutboxBusy,
   isMessagesLoading,
+  isThreadsLoading = false,
   onSelectFolder,
+  onLoadMoreThreads,
   onSearchQueryChange,
   onSelectThread,
   onSelectMessage,
@@ -248,7 +254,10 @@ export const ShellFrame = ({
         >
           <ThreadListPanel
             activeFolderName={activeFolder?.name ?? null}
+            hasMore={hasMoreThreads}
             isSearchActive={isSearchActive}
+            isLoading={isThreadsLoading}
+            onLoadMore={onLoadMoreThreads}
             searchQuery={searchQuery}
             selectedThreadId={selectedThreadId}
             threads={threads}

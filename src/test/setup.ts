@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach } from 'vitest';
 import { defaultShortcutBindings, useShortcutStore } from '@stores/useShortcutStore';
+import { useThreadStore } from '@stores/useThreadStore';
 import { useUIStore } from '@stores/useUIStore';
 
 if (!window.matchMedia) {
@@ -30,5 +31,18 @@ beforeEach(() => {
   });
   useShortcutStore.setState({
     bindings: defaultShortcutBindings
+  });
+  useThreadStore.setState({
+    activeFolderKey: null,
+    hasMore: false,
+    hasMoreByFolderKey: {},
+    isLoading: false,
+    offset: 0,
+    offsetByFolderKey: {},
+    threadRecords: [],
+    threads: [],
+    threadsByFolderKey: {},
+    threadSummaries: [],
+    selectedThreadId: null
   });
 });

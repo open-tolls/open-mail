@@ -131,7 +131,7 @@ Cada item mostra:
 
 **Criterio de aceite:**
 - [x] Lista virtualizada renderiza 10.000+ threads sem lag
-- [ ] Infinite scroll carrega mais threads ao rolar
+- [x] Infinite scroll carrega mais threads ao rolar
 - [x] Item exibe todas as informacoes (sender, subject, snippet, date, flags)
 - [x] Selecao simples e multipla funciona
 - [x] Quick actions on hover funcionam
@@ -140,7 +140,7 @@ Cada item mostra:
 - [x] Estado vazio e loading exibidos corretamente
 - [x] Unread threads em bold
 
-> Status: thread list inicial implementada em `src/components/thread-list/` com windowing local, filtros, toolbar contextual e testes de 10.000 threads. Infinite scroll e context menu ficam para o proximo corte.
+> Status: thread list inicial implementada em `src/components/thread-list/` com windowing local, filtros, toolbar contextual, scroll infinito integrado e testes de 10.000 threads. Context menu fica para o proximo corte.
 
 ---
 
@@ -630,7 +630,7 @@ npm install -D @types/dompurify
 
 - [x] Thread list virtualizada e performatica
 - [x] Thread list item com todas as informacoes visuais
-- [ ] Infinite scroll funcional
+- [x] Infinite scroll funcional
 - [x] Selecao simples e multipla
 - [x] Quick actions on hover
 - [ ] Context menu

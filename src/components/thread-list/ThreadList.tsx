@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { ThreadSummary } from '@lib/contracts';
 import { ThreadListEmpty } from '@components/thread-list/ThreadListEmpty';
 import { ThreadListItem, type ThreadSelectEvent } from '@components/thread-list/ThreadListItem';
@@ -8,11 +8,13 @@ import { THREAD_ROW_HEIGHT } from '@components/thread-list/threadListUtils';
 
 type ThreadListProps = {
   activeFolderName: string | null;
+  hasMore?: boolean;
   isLoading?: boolean;
   isSearchActive: boolean;
   selectedThreadId: string | null;
   threads: ThreadSummary[];
   onAction?: (action: ThreadAction, threadIds: string[]) => void;
+  onLoadMore?: () => Promise<void> | void;
   onSelectThread: (threadId: string) => void;
 };
 
@@ -26,11 +28,13 @@ const getVisibleWindow = (scrollTop: number, viewportHeight: number, itemCount: 
 
 export const ThreadList = ({
   activeFolderName,
+  hasMore = false,
   isLoading = false,
   isSearchActive,
   selectedThreadId,
   threads,
   onAction,
+  onLoadMore,
   onSelectThread
 }: ThreadListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -97,7 +101,16 @@ export const ThreadList = ({
     onAction?.(action, actionIds);
   };
 
-  if (isLoading) {
+  const handleScroll = (event: UIEvent<HTMLDivElement>) => {
+    const element = event.currentTarget;
+    setScrollTop(element.scrollTop);
+
+    if (hasMore && !isLoading && element.scrollTop + element.clientHeight >= element.scrollHeight - 240) {
+      void onLoadMore?.();
+    }
+  };
+
+  if (isLoading && !threads.length) {
     return <ThreadListLoading />;
   }
 
@@ -111,7 +124,7 @@ export const ThreadList = ({
       <div
         aria-label="Thread list"
         className="thread-list-viewport"
-        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        onScroll={handleScroll}
         ref={parentRef}
         role="listbox"
       >
@@ -138,6 +151,7 @@ export const ThreadList = ({
           })}
         </div>
       </div>
+      {isLoading && threads.length ? <p className="thread-loading-more">Loading more threads...</p> : null}
     </div>
   );
 };

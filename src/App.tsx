@@ -4,7 +4,6 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from '
 import { ComponentGallery } from '@components/dev/ComponentGallery';
 import { ShellFrame } from '@components/layout/ShellFrame';
 import { OnboardingView } from '@components/onboarding/OnboardingView';
-import { useFolderThreads } from '@hooks/useFolderThreads';
 import { useBackendHealth } from '@hooks/useBackendHealth';
 import { useDomainEvents } from '@hooks/useDomainEvents';
 import { useMessageDetail } from '@hooks/useMessageDetail';
@@ -12,6 +11,7 @@ import { useMailboxOverview } from '@hooks/useMailboxOverview';
 import { useSearchThreads } from '@hooks/useSearchThreads';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useThreadMessages } from '@hooks/useThreadMessages';
+import { useThreads } from '@hooks/useThreads';
 import type { EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport } from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
@@ -74,11 +74,11 @@ const MailShell = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const folderThreadsQuery = useFolderThreads(
-    mailbox?.accountId ?? null,
-    selectedFolderId,
-    mailbox?.allThreads ?? []
-  );
+  const folderThreadsQuery = useThreads({
+    accountId: mailbox?.accountId ?? null,
+    folderId: selectedFolderId,
+    fallbackThreads: mailbox?.allThreads ?? []
+  });
   const searchThreadsQuery = useSearchThreads(
     mailbox?.accountId ?? null,
     deferredSearchQuery,
@@ -101,8 +101,8 @@ const MailShell = () => {
     );
   }, [folderId, mailbox?.folders]);
   const threads = useMemo(
-    () => (isSearchActive ? searchThreadsQuery.data : folderThreadsQuery.data) ?? mailbox?.threads ?? [],
-    [folderThreadsQuery.data, isSearchActive, mailbox?.threads, searchThreadsQuery.data]
+    () => (isSearchActive ? searchThreadsQuery.data : folderThreadsQuery.threads) ?? mailbox?.threads ?? [],
+    [folderThreadsQuery.threads, isSearchActive, mailbox?.threads, searchThreadsQuery.data]
   );
   const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
   const messagesQuery = useThreadMessages(selectedThread?.id ?? null);
@@ -248,12 +248,14 @@ const MailShell = () => {
       outboxStatus={outboxStatus}
       isOutboxBusy={enqueueOutboxMutation.isPending || flushOutboxMutation.isPending}
       isMessagesLoading={
-        folderThreadsQuery.isLoading ||
         searchThreadsQuery.isLoading ||
         messagesQuery.isLoading ||
         messageDetailQuery.isLoading ||
         syncStatusDetailQuery.isLoading
       }
+      isThreadsLoading={folderThreadsQuery.isLoading || searchThreadsQuery.isLoading}
+      hasMoreThreads={!isSearchActive && folderThreadsQuery.hasMore}
+      onLoadMoreThreads={folderThreadsQuery.loadMore}
       onSelectFolder={handleSelectFolder}
       onSearchQueryChange={setSearchQuery}
       onSelectThread={handleSelectThread}
