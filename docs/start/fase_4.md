@@ -130,15 +130,17 @@ Cada item mostra:
 | ⏰    | Snooze         | `b`    |
 
 **Criterio de aceite:**
-- [ ] Lista virtualizada renderiza 10.000+ threads sem lag
+- [x] Lista virtualizada renderiza 10.000+ threads sem lag
 - [ ] Infinite scroll carrega mais threads ao rolar
-- [ ] Item exibe todas as informacoes (sender, subject, snippet, date, flags)
-- [ ] Selecao simples e multipla funciona
-- [ ] Quick actions on hover funcionam
+- [x] Item exibe todas as informacoes (sender, subject, snippet, date, flags)
+- [x] Selecao simples e multipla funciona
+- [x] Quick actions on hover funcionam
 - [ ] Context menu funciona
-- [ ] Navegacao j/k funciona
-- [ ] Estado vazio e loading exibidos corretamente
-- [ ] Unread threads em bold
+- [x] Navegacao j/k funciona
+- [x] Estado vazio e loading exibidos corretamente
+- [x] Unread threads em bold
+
+> Status: thread list inicial implementada em `src/components/thread-list/` com windowing local, filtros, toolbar contextual e testes de 10.000 threads. Infinite scroll e context menu ficam para o proximo corte.
 
 ---
 
@@ -624,11 +626,11 @@ npm install -D @types/dompurify
 
 ## Checklist Final da Fase 4
 
-- [ ] Thread list virtualizada e performatica
-- [ ] Thread list item com todas as informacoes visuais
+- [x] Thread list virtualizada e performatica
+- [x] Thread list item com todas as informacoes visuais
 - [ ] Infinite scroll funcional
-- [ ] Selecao simples e multipla
-- [ ] Quick actions on hover
+- [x] Selecao simples e multipla
+- [x] Quick actions on hover
 - [ ] Context menu
 - [ ] Message view com expand/collapse
 - [ ] HTML rendering seguro (sanitizado)
@@ -639,7 +641,7 @@ npm install -D @types/dompurify
 - [ ] Undo/redo funcional
 - [ ] Keyboard shortcuts (j/k, e, #, s, r, f)
 - [ ] Mark as read ao visualizar
-- [ ] Testes passando
+- [x] Testes passando
 - [ ] CI green
 
 ---

@@ -1,4 +1,9 @@
+import { useMemo, useState } from 'react';
 import { StatusBadge } from '@components/ui/StatusBadge';
+import { ThreadList } from '@components/thread-list/ThreadList';
+import { ThreadListFilters } from '@components/thread-list/ThreadListFilters';
+import type { ThreadAction } from '@components/thread-list/ThreadListToolbar';
+import { filterThreads, type ThreadFilter } from '@components/thread-list/threadListUtils';
 import type { ThreadSummary } from '@lib/contracts';
 
 type ThreadListPanelProps = {
@@ -10,18 +15,6 @@ type ThreadListPanelProps = {
   onSelectThread: (threadId: string) => void;
 };
 
-const formatThreadTime = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Agora';
-  }
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date);
-};
-
 export const ThreadListPanel = ({
   activeFolderName,
   isSearchActive,
@@ -30,8 +23,15 @@ export const ThreadListPanel = ({
   threads,
   onSelectThread
 }: ThreadListPanelProps) => {
+  const [activeFilter, setActiveFilter] = useState<ThreadFilter>('all');
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const filteredThreads = useMemo(() => filterThreads(threads, activeFilter), [activeFilter, threads]);
   const title = isSearchActive ? `Search results for "${searchQuery.trim()}"` : activeFolderName ?? 'Message stream';
-  const countLabel = isSearchActive ? `${threads.length} matches` : `${threads.length} threads`;
+  const countLabel = isSearchActive ? `${filteredThreads.length} matches` : `${filteredThreads.length} threads`;
+  const handleThreadAction = (action: ThreadAction, threadIds: string[]) => {
+    const actionLabel = action.replace('-', ' ');
+    setActionStatus(`${actionLabel} queued for ${threadIds.length} thread${threadIds.length === 1 ? '' : 's'}`);
+  };
 
   return (
     <div className="thread-panel">
@@ -40,40 +40,18 @@ export const ThreadListPanel = ({
           <p className="eyebrow">Prototype inbox</p>
           <h3>{title}</h3>
         </div>
-        <StatusBadge label={countLabel} tone="neutral" />
+        <StatusBadge label={actionStatus ?? countLabel} tone="neutral" />
       </div>
 
-      {!threads.length ? (
-        <div className="thread-empty-state">
-          <p className="thread-empty-title">
-            {isSearchActive ? 'No results found' : `${activeFolderName ?? 'Folder'} is clear`}
-          </p>
-          <p className="thread-empty-copy">
-            {isSearchActive
-              ? 'Tente outro termo para localizar conversas por assunto, snippet ou participante.'
-              : 'Nenhuma thread encontrada nesta pasta no momento. Quando houver atividade, ela aparece aqui.'}
-          </p>
-        </div>
-      ) : null}
-
-      <div className="thread-list">
-        {threads.map((thread) => (
-          <button
-            className={thread.id === selectedThreadId ? 'thread-card thread-card-active' : 'thread-card'}
-            key={thread.id}
-            onClick={() => onSelectThread(thread.id)}
-            type="button"
-          >
-            <div className="thread-card-row">
-              <h4>{thread.participants[0] ?? 'Open Mail'}</h4>
-              <span>{formatThreadTime(thread.lastMessageAt)}</span>
-            </div>
-            <p className="thread-subject">{thread.subject}</p>
-            <p className="thread-preview">{thread.snippet}</p>
-            {thread.isUnread ? <span className="thread-dot" aria-label="Unread thread" /> : null}
-          </button>
-        ))}
-      </div>
+      <ThreadListFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+      <ThreadList
+        activeFolderName={activeFolderName}
+        isSearchActive={isSearchActive}
+        onAction={handleThreadAction}
+        onSelectThread={onSelectThread}
+        selectedThreadId={selectedThreadId}
+        threads={filteredThreads}
+      />
     </div>
   );
 };

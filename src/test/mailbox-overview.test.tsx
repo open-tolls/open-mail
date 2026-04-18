@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '@/App';
 import { useShortcutStore } from '@stores/useShortcutStore';
@@ -24,7 +24,8 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('2 unread');
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Inbox');
 
-    fireEvent.click(await screen.findByRole('button', { name: /starred/i }));
+    const folderNav = await screen.findByLabelText('Mailbox folders');
+    fireEvent.click(within(folderNav).getByRole('button', { name: /starred/i }));
     expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
     expect(screen.queryByText('motion-notes.pdf')).not.toBeInTheDocument();
     expect((await screen.findAllByText('tauri-health')).length).toBeGreaterThan(0);
@@ -36,7 +37,7 @@ describe('mailbox overview integration', () => {
     expect((await screen.findAllByText('desktop-alpha')).length).toBeGreaterThan(0);
     expect(window.location.pathname).toBe('/sent');
 
-    fireEvent.click(await screen.findByRole('button', { name: /archive/i }));
+    fireEvent.click(within(folderNav).getByRole('button', { name: /archive/i }));
     expect(await screen.findByText('Archive is clear')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/archive');
   });

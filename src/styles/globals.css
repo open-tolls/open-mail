@@ -611,9 +611,123 @@ summary.folder-group-title::-webkit-details-marker {
   margin-bottom: 18px;
 }
 
-.thread-list {
+.thread-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.thread-filter {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.thread-filter:hover,
+.thread-filter-active {
+  border-color: rgba(132, 216, 199, 0.32);
+  color: var(--text);
+}
+
+.thread-list-shell {
   display: grid;
   gap: 12px;
+  min-height: 0;
+}
+
+.thread-list-viewport {
+  position: relative;
+  min-height: 420px;
+  max-height: 58vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.thread-list-virtual-space {
+  position: relative;
+  min-height: 100%;
+}
+
+.thread-list-loading {
+  display: grid;
+  gap: 12px;
+}
+
+.thread-loading-row {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: center;
+  min-height: 88px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.thread-loading-avatar,
+.thread-loading-copy {
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+  background-size: 220% 100%;
+  animation: ui-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.thread-loading-avatar {
+  width: 42px;
+  height: 42px;
+}
+
+.thread-loading-copy {
+  width: 82%;
+  height: 52px;
+  border-radius: 16px;
+}
+
+.thread-selection-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(132, 216, 199, 0.22);
+  border-radius: 18px;
+  background: rgba(132, 216, 199, 0.07);
+}
+
+.thread-selection-toolbar strong {
+  margin-right: auto;
+}
+
+.thread-selection-toolbar button,
+.thread-quick-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.thread-selection-toolbar button {
+  padding: 0 10px;
+}
+
+.thread-selection-toolbar button:hover,
+.thread-quick-actions button:hover {
+  border-color: rgba(246, 182, 111, 0.32);
+  color: var(--accent);
 }
 
 .thread-empty-state {
@@ -641,9 +755,12 @@ summary.folder-group-title::-webkit-details-marker {
 
 .thread-card {
   position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
   width: 100%;
-  padding: 18px;
+  overflow: hidden;
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--bg-soft);
@@ -657,10 +774,36 @@ summary.folder-group-title::-webkit-details-marker {
 }
 
 .thread-card:hover,
-.thread-card-active {
+.thread-card-active,
+.thread-card-multi-selected {
   transform: translateY(-1px);
   border-color: rgba(246, 182, 111, 0.28);
   background: rgba(255, 255, 255, 0.07);
+}
+
+.thread-card-unread .thread-sender,
+.thread-card-unread .thread-subject {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.thread-avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(132, 216, 199, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(132, 216, 199, 0.14), rgba(246, 182, 111, 0.08));
+  color: var(--success);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.thread-card-content {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
 }
 
 .thread-card-row {
@@ -670,26 +813,97 @@ summary.folder-group-title::-webkit-details-marker {
   align-items: baseline;
 }
 
-.thread-card h4,
-.thread-subject,
+.thread-sender,
+.thread-subject-row,
 .thread-preview {
   margin: 0;
+  min-width: 0;
+}
+
+.thread-date {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.thread-subject-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thread-subject,
+.thread-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thread-subject {
-  margin-top: 8px;
-  margin-bottom: 6px;
   font-weight: 600;
 }
 
 .thread-preview {
+  color: var(--muted);
   line-height: 1.6;
+}
+
+.thread-label-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.thread-label-chip {
+  max-width: 128px;
+  overflow: hidden;
+  padding: 4px 8px;
+  border: 1px solid rgba(132, 216, 199, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-flag-star {
+  color: var(--accent);
+}
+
+.thread-quick-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: linear-gradient(90deg, transparent, rgba(8, 17, 31, 0.92) 32%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.thread-card:hover .thread-quick-actions,
+.thread-card:focus-within .thread-quick-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.thread-quick-action-row {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.thread-quick-actions button {
+  width: 32px;
+  justify-content: center;
+  padding: 0;
 }
 
 .thread-dot {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 14px;
+  right: 14px;
   width: 10px;
   height: 10px;
   border-radius: 999px;
