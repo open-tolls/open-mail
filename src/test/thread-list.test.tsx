@@ -106,6 +106,29 @@ describe('ThreadList', () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
+  it('opens a context menu for a thread and runs actions', () => {
+    const onAction = vi.fn();
+
+    render(
+      <ThreadList
+        activeFolderName="Inbox"
+        isSearchActive={false}
+        onAction={onAction}
+        onSelectThread={vi.fn()}
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText('Thread 0'), { clientX: 120, clientY: 180 });
+    expect(screen.getByRole('menu', { name: 'Thread context menu' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move to trash' }));
+
+    expect(onAction).toHaveBeenCalledWith('trash', ['thr_0']);
+    expect(screen.queryByRole('menu', { name: 'Thread context menu' })).not.toBeInTheDocument();
+  });
+
   it('filters threads by unread, starred, and attachments', () => {
     const threads = [
       makeThread(1, { isUnread: true, isStarred: false, hasAttachments: false }),

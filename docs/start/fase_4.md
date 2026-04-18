@@ -135,12 +135,12 @@ Cada item mostra:
 - [x] Item exibe todas as informacoes (sender, subject, snippet, date, flags)
 - [x] Selecao simples e multipla funciona
 - [x] Quick actions on hover funcionam
-- [ ] Context menu funciona
+- [x] Context menu funciona
 - [x] Navegacao j/k funciona
 - [x] Estado vazio e loading exibidos corretamente
 - [x] Unread threads em bold
 
-> Status: thread list inicial implementada em `src/components/thread-list/` com windowing local, filtros, toolbar contextual, scroll infinito integrado e testes de 10.000 threads. Context menu fica para o proximo corte.
+> Status: thread list implementada em `src/components/thread-list/` com windowing local, filtros, toolbar contextual, scroll infinito, context menu e testes de 10.000 threads.
 
 ---
 
@@ -633,7 +633,7 @@ npm install -D @types/dompurify
 - [x] Infinite scroll funcional
 - [x] Selecao simples e multipla
 - [x] Quick actions on hover
-- [ ] Context menu
+- [x] Context menu
 - [ ] Message view com expand/collapse
 - [ ] HTML rendering seguro (sanitizado)
 - [ ] Imagens remotas bloqueadas por padrao

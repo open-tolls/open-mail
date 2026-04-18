@@ -1,10 +1,12 @@
-import { type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type MouseEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Archive, MailOpen, Star, Trash2 } from 'lucide-react';
 import type { ThreadSummary } from '@lib/contracts';
 import { ThreadListEmpty } from '@components/thread-list/ThreadListEmpty';
 import { ThreadListItem, type ThreadSelectEvent } from '@components/thread-list/ThreadListItem';
 import { ThreadListLoading } from '@components/thread-list/ThreadListLoading';
 import { type ThreadAction, ThreadListToolbar } from '@components/thread-list/ThreadListToolbar';
 import { THREAD_ROW_HEIGHT } from '@components/thread-list/threadListUtils';
+import { ContextMenu } from '@components/ui';
 
 type ThreadListProps = {
   activeFolderName: string | null;
@@ -26,6 +28,23 @@ const getVisibleWindow = (scrollTop: number, viewportHeight: number, itemCount: 
   return { startIndex, endIndex };
 };
 
+type ThreadContextMenuState = {
+  threadId: string;
+  x: number;
+  y: number;
+} | null;
+
+const threadContextActions: Array<{
+  action: ThreadAction;
+  label: string;
+  icon: typeof Archive;
+}> = [
+  { action: 'archive', label: 'Archive', icon: Archive },
+  { action: 'trash', label: 'Move to trash', icon: Trash2 },
+  { action: 'toggle-read', label: 'Mark read/unread', icon: MailOpen },
+  { action: 'star', label: 'Star', icon: Star }
+];
+
 export const ThreadList = ({
   activeFolderName,
   hasMore = false,
@@ -41,6 +60,7 @@ export const ThreadList = ({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(640);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const [contextMenu, setContextMenu] = useState<ThreadContextMenuState>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const { startIndex, endIndex } = getVisibleWindow(scrollTop, viewportHeight, threads.length);
   const visibleThreads = useMemo(
@@ -67,6 +87,27 @@ export const ThreadList = ({
       return new Set([...current].filter((threadId) => validThreadIds.has(threadId)));
     });
   }, [threads]);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return;
+    }
+
+    const closeContextMenu = () => setContextMenu(null);
+    const closeContextMenuOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeContextMenu();
+      }
+    };
+
+    window.addEventListener('click', closeContextMenu);
+    window.addEventListener('keydown', closeContextMenuOnEscape);
+
+    return () => {
+      window.removeEventListener('click', closeContextMenu);
+      window.removeEventListener('keydown', closeContextMenuOnEscape);
+    };
+  }, [contextMenu]);
 
   const handleSelect = (threadId: string, event: ThreadSelectEvent) => {
     const threadIndex = threads.findIndex((thread) => thread.id === threadId);
@@ -99,11 +140,25 @@ export const ThreadList = ({
   const handleAction = (action: ThreadAction, threadId?: string) => {
     const actionIds = threadId ? [threadId] : [...selectedIds];
     onAction?.(action, actionIds);
+    setContextMenu(null);
+  };
+
+  const handleContextMenu = (threadId: string, event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setSelectedIds(new Set([threadId]));
+    setLastSelectedIndex(threads.findIndex((thread) => thread.id === threadId));
+    onSelectThread(threadId);
+    setContextMenu({
+      threadId,
+      x: event.clientX,
+      y: event.clientY
+    });
   };
 
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
     setScrollTop(element.scrollTop);
+    setContextMenu(null);
 
     if (hasMore && !isLoading && element.scrollTop + element.clientHeight >= element.scrollHeight - 240) {
       void onLoadMore?.();
@@ -138,6 +193,7 @@ export const ThreadList = ({
                 isSelected={thread.id === selectedThreadId}
                 key={thread.id}
                 onAction={(action, actionThreadId) => handleAction(action, actionThreadId)}
+                onContextMenu={handleContextMenu}
                 onSelect={handleSelect}
                 style={{
                   height: THREAD_ROW_HEIGHT - 10,
@@ -151,6 +207,27 @@ export const ThreadList = ({
           })}
         </div>
       </div>
+      {contextMenu ? (
+        <ContextMenu
+          aria-label="Thread context menu"
+          className="thread-context-menu"
+          onClick={(event) => event.stopPropagation()}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          {threadContextActions.map(({ action, icon: Icon, label }) => (
+            <button
+              className={action === 'trash' ? 'thread-context-menu-danger' : undefined}
+              key={action}
+              onClick={() => handleAction(action, contextMenu.threadId)}
+              role="menuitem"
+              type="button"
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </ContextMenu>
+      ) : null}
       {isLoading && threads.length ? <p className="thread-loading-more">Loading more threads...</p> : null}
     </div>
   );

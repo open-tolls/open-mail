@@ -12,6 +12,7 @@ type ThreadListItemProps = {
   style?: CSSProperties;
   thread: ThreadSummary;
   onAction: (action: ThreadAction, threadId: string) => void;
+  onContextMenu: (threadId: string, event: MouseEvent<HTMLDivElement>) => void;
   onSelect: (threadId: string, event: ThreadSelectEvent) => void;
 };
 
@@ -21,6 +22,7 @@ export const ThreadListItem = ({
   style,
   thread,
   onAction,
+  onContextMenu,
   onSelect
 }: ThreadListItemProps) => {
   const labels = getThreadLabels(thread);
@@ -51,6 +53,7 @@ export const ThreadListItem = ({
         .join(' ')}
       data-thread-id={thread.id}
       onClick={(event) => onSelect(thread.id, event)}
+      onContextMenu={(event) => onContextMenu(thread.id, event)}
       onKeyDown={handleKeyDown}
       role="option"
       style={style}
