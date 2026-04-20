@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MessageList } from '@components/message-list/MessageList';
-import type { ContactRecord, MessageRecord } from '@lib/contracts';
+import type { AttachmentRecord, ContactRecord, MessageRecord } from '@lib/contracts';
 
 const contact = (id: string, email: string, name: string | null = null): ContactRecord => ({
   id,
@@ -39,6 +39,18 @@ const makeMessage = (overrides: Partial<MessageRecord>): MessageRecord => ({
   headers: {},
   created_at: '2026-03-13T10:00:00Z',
   updated_at: '2026-03-13T10:00:00Z',
+  ...overrides
+});
+
+const makeAttachment = (overrides: Partial<AttachmentRecord>): AttachmentRecord => ({
+  id: overrides.id ?? 'att_inline_logo',
+  message_id: overrides.message_id ?? 'msg_1',
+  filename: overrides.filename ?? 'logo.png',
+  content_type: overrides.content_type ?? 'image/png',
+  size: overrides.size ?? 2048,
+  content_id: overrides.content_id ?? 'logo@openmail.dev',
+  is_inline: overrides.is_inline ?? true,
+  local_path: overrides.local_path ?? '/tmp/open-mail/logo.png',
   ...overrides
 });
 
@@ -117,5 +129,36 @@ describe('MessageList', () => {
       'https://cdn.example.com/chart.png'
     );
     expect(screen.queryByRole('img', { name: 'tracking pixel' })).not.toBeInTheDocument();
+  });
+
+  it('renders inline CID images from matching inline attachments', () => {
+    const messages = [
+      makeMessage({
+        id: 'msg_with_inline_image',
+        body: '<p>Brand asset</p><img src="cid:logo@openmail.dev" alt="Open Mail logo" />',
+        attachments: [
+          makeAttachment({
+            message_id: 'msg_with_inline_image',
+            content_id: '<logo@openmail.dev>',
+            local_path: '/tmp/open-mail/inline-logo.png'
+          })
+        ]
+      })
+    ];
+
+    render(
+      <MessageList
+        messages={messages}
+        selectedMessageId="msg_with_inline_image"
+        threadSubject="Thread subject"
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('img', { name: 'Open Mail logo' })).toHaveAttribute(
+      'src',
+      '/tmp/open-mail/inline-logo.png'
+    );
+    expect(screen.queryByRole('button', { name: /load remote images/i })).not.toBeInTheDocument();
   });
 });

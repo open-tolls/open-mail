@@ -33,6 +33,7 @@ type ShellFrameProps = {
   onSelectThread: (threadId: string) => void;
   onSelectMessage: (messageId: string) => void;
   onOpenExternalLink: (url: string) => void;
+  resolveInlineImageUrl: (localPath: string) => string;
   onSendDraft: (draft: { to: string; subject: string; body: string }) => Promise<void>;
   onFlushOutbox: () => Promise<void>;
 };
@@ -60,6 +61,7 @@ export const ShellFrame = ({
   onSelectThread,
   onSelectMessage,
   onOpenExternalLink,
+  resolveInlineImageUrl,
   onSendDraft,
   onFlushOutbox
 }: ShellFrameProps) => {
@@ -285,6 +287,7 @@ export const ShellFrame = ({
             selectedThread={selectedThread}
             onOpenExternalLink={onOpenExternalLink}
             onSelectMessage={onSelectMessage}
+            resolveInlineImageUrl={resolveInlineImageUrl}
           />
         </section>
 

@@ -9,6 +9,7 @@ type MessageReaderPanelProps = {
   selectedThread: ThreadSummary | null;
   onOpenExternalLink: (url: string) => void;
   onSelectMessage: (messageId: string) => void;
+  resolveInlineImageUrl: (localPath: string) => string;
 };
 
 export const MessageReaderPanel = ({
@@ -17,7 +18,8 @@ export const MessageReaderPanel = ({
   selectedMessageId,
   selectedThread,
   onOpenExternalLink,
-  onSelectMessage
+  onSelectMessage,
+  resolveInlineImageUrl
 }: MessageReaderPanelProps) => {
   return (
     <aside className="insight-panel reader-panel">
@@ -42,6 +44,7 @@ export const MessageReaderPanel = ({
           threadSubject={selectedThread.subject}
           onOpenExternalLink={onOpenExternalLink}
           onSelectMessage={onSelectMessage}
+          resolveInlineImageUrl={resolveInlineImageUrl}
         />
       ) : null}
     </aside>

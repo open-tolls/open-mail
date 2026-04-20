@@ -236,6 +236,7 @@ const MailShell = () => {
       window.open(url, '_blank', 'noopener,noreferrer');
     });
   };
+  const resolveInlineImageUrl = (localPath: string) => api.system.toAssetUrl(localPath);
 
   return (
     <ShellFrame
@@ -267,6 +268,7 @@ const MailShell = () => {
       onSelectThread={handleSelectThread}
       onSelectMessage={setSelectedMessageId}
       onOpenExternalLink={handleOpenExternalLink}
+      resolveInlineImageUrl={resolveInlineImageUrl}
       onSendDraft={handleSendDraft}
       onFlushOutbox={handleFlushOutbox}
     />

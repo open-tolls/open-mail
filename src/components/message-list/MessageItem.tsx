@@ -12,6 +12,7 @@ type MessageItemProps = {
   message: MessageRecord;
   onOpenExternalLink?: (url: string) => void;
   onSelectMessage: (messageId: string) => void;
+  resolveInlineImageUrl?: (localPath: string) => string;
 };
 
 export const MessageItem = ({
@@ -19,7 +20,8 @@ export const MessageItem = ({
   isSelected,
   message,
   onOpenExternalLink,
-  onSelectMessage
+  onSelectMessage,
+  resolveInlineImageUrl
 }: MessageItemProps) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -39,7 +41,13 @@ export const MessageItem = ({
   return (
     <article className={isSelected ? 'message-card message-card-active' : 'message-card'}>
       <MessageHeader isExpanded={isExpanded} message={message} onToggle={() => setIsExpanded(false)} />
-      <MessageBody html={message.body} plainText={message.plain_text} onOpenExternalLink={onOpenExternalLink} />
+      <MessageBody
+        attachments={message.attachments}
+        html={message.body}
+        plainText={message.plain_text}
+        onOpenExternalLink={onOpenExternalLink}
+        resolveInlineImageUrl={resolveInlineImageUrl}
+      />
       <MessageAttachments attachments={message.attachments} />
       {Object.keys(message.headers).length ? (
         <div className="message-header-grid">

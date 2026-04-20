@@ -9,6 +9,7 @@ type MessageListProps = {
   threadSubject: string;
   onSelectMessage: (messageId: string) => void;
   onOpenExternalLink?: (url: string) => void;
+  resolveInlineImageUrl?: (localPath: string) => string;
 };
 
 export const MessageList = ({
@@ -16,7 +17,8 @@ export const MessageList = ({
   selectedMessageId,
   threadSubject,
   onSelectMessage,
-  onOpenExternalLink
+  onOpenExternalLink,
+  resolveInlineImageUrl
 }: MessageListProps) => {
   const chronologicalMessages = useMemo(() => sortMessagesChronologically(messages), [messages]);
   const latestMessageId = chronologicalMessages.at(-1)?.id ?? null;
@@ -38,6 +40,7 @@ export const MessageList = ({
             message={message}
             onOpenExternalLink={onOpenExternalLink}
             onSelectMessage={onSelectMessage}
+            resolveInlineImageUrl={resolveInlineImageUrl}
           />
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type {
   BuildOAuthAuthorizationUrlRequest,
   EnqueueOutboxMessageRequest,
@@ -54,7 +54,8 @@ export const api = {
       invokeOrThrow<OAuthAuthorizationRequest>('build_oauth_authorization_url', { request })
   },
   system: {
-    openExternalUrl: (url: string) => invokeOrThrow<void>('open_external_url', { url })
+    openExternalUrl: (url: string) => invokeOrThrow<void>('open_external_url', { url }),
+    toAssetUrl: (filePath: string) => (isTauriRuntimeAvailable() ? convertFileSrc(filePath) : filePath)
   }
 };
 

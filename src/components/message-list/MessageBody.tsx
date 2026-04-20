@@ -1,9 +1,12 @@
 import { type MouseEvent, useMemo, useState } from 'react';
+import type { AttachmentRecord } from '@lib/contracts';
 
 type MessageBodyProps = {
+  attachments?: AttachmentRecord[];
   html: string;
   onOpenExternalLink?: (url: string) => void;
   plainText: string | null;
+  resolveInlineImageUrl?: (localPath: string) => string;
 };
 
 const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input']);
@@ -16,6 +19,33 @@ const getSafeUrl = (rawUrl: string) => {
   } catch {
     return null;
   }
+};
+
+const normalizeContentId = (contentId: string) => contentId.trim().replace(/^<|>$/g, '').toLowerCase();
+
+const getCidValue = (src: string) => {
+  if (!src.trim().toLowerCase().startsWith('cid:')) {
+    return null;
+  }
+
+  return normalizeContentId(decodeURIComponent(src.trim().slice(4)));
+};
+
+const getInlineImageSources = (
+  attachments: AttachmentRecord[],
+  resolveInlineImageUrl: (localPath: string) => string
+) => {
+  const sources = new Map<string, string>();
+
+  attachments.forEach((attachment) => {
+    if (!attachment.is_inline || !attachment.content_id || !attachment.local_path) {
+      return;
+    }
+
+    sources.set(normalizeContentId(attachment.content_id), resolveInlineImageUrl(attachment.local_path));
+  });
+
+  return sources;
 };
 
 const isTrackingPixel = (image: HTMLImageElement) => {
@@ -37,7 +67,7 @@ const hasRemoteImages = (html: string) => {
   });
 };
 
-const sanitizeEmailHtml = (html: string, allowRemoteImages: boolean) => {
+const sanitizeEmailHtml = (html: string, allowRemoteImages: boolean, inlineImageSources: Map<string, string>) => {
   const template = document.createElement('template');
   template.innerHTML = html;
 
@@ -73,9 +103,31 @@ const sanitizeEmailHtml = (html: string, allowRemoteImages: boolean) => {
 
     if (tagName === 'img') {
       const image = element as HTMLImageElement;
-      const safeUrl = getSafeUrl(image.getAttribute('src') ?? '');
+      const rawSrc = image.getAttribute('src') ?? '';
+      const cidValue = getCidValue(rawSrc);
 
-      if (!allowRemoteImages || !safeUrl || !allowedImageProtocols.has(safeUrl.protocol) || isTrackingPixel(image)) {
+      if (isTrackingPixel(image)) {
+        image.remove();
+        return;
+      }
+
+      if (cidValue) {
+        const inlineSrc = inlineImageSources.get(cidValue);
+
+        if (!inlineSrc) {
+          image.remove();
+          return;
+        }
+
+        image.src = inlineSrc;
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        return;
+      }
+
+      const safeUrl = getSafeUrl(rawSrc);
+
+      if (!allowRemoteImages || !safeUrl || !allowedImageProtocols.has(safeUrl.protocol)) {
         image.remove();
         return;
       }
@@ -93,14 +145,26 @@ const openExternalLink = (url: string) => {
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 
-export const MessageBody = ({ html, onOpenExternalLink, plainText }: MessageBodyProps) => {
+const resolveLocalInlineImageUrl = (localPath: string) => localPath;
+
+export const MessageBody = ({
+  attachments = [],
+  html,
+  onOpenExternalLink,
+  plainText,
+  resolveInlineImageUrl = resolveLocalInlineImageUrl
+}: MessageBodyProps) => {
   const [isQuotedTextVisible, setIsQuotedTextVisible] = useState(false);
   const [areRemoteImagesVisible, setAreRemoteImagesVisible] = useState(false);
   const rawBody = html || plainText || '';
   const hasBlockedRemoteImages = useMemo(() => hasRemoteImages(rawBody), [rawBody]);
+  const inlineImageSources = useMemo(
+    () => getInlineImageSources(attachments, resolveInlineImageUrl),
+    [attachments, resolveInlineImageUrl]
+  );
   const sanitizedHtml = useMemo(
-    () => sanitizeEmailHtml(rawBody, areRemoteImagesVisible),
-    [areRemoteImagesVisible, rawBody]
+    () => sanitizeEmailHtml(rawBody, areRemoteImagesVisible, inlineImageSources),
+    [areRemoteImagesVisible, inlineImageSources, rawBody]
   );
 
   const handleBodyClick = (event: MouseEvent<HTMLDivElement>) => {
