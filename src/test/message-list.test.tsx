@@ -161,4 +161,41 @@ describe('MessageList', () => {
     );
     expect(screen.queryByRole('button', { name: /load remote images/i })).not.toBeInTheDocument();
   });
+
+  it('formats plain text messages with escaped markup and safe links', () => {
+    const onOpenExternalLink = vi.fn();
+    const messages = [
+      makeMessage({
+        id: 'msg_plain_text',
+        body: '',
+        plain_text: [
+          'Hello team,',
+          'This stays on the next line.',
+          '',
+          'Read more at https://example.com/docs',
+          '<strong>literal markup</strong>'
+        ].join('\n')
+      })
+    ];
+
+    const { container } = render(
+      <MessageList
+        messages={messages}
+        selectedMessageId="msg_plain_text"
+        threadSubject="Thread subject"
+        onSelectMessage={vi.fn()}
+        onOpenExternalLink={onOpenExternalLink}
+      />
+    );
+
+    const messageBody = container.querySelector('.message-body-content');
+    expect(messageBody).toHaveTextContent('Hello team,');
+    expect(messageBody).toHaveTextContent('This stays on the next line.');
+    expect(messageBody).toHaveTextContent('<strong>literal markup</strong>');
+    expect(messageBody?.innerHTML).toContain('Hello team,<br>');
+
+    fireEvent.click(screen.getByRole('link', { name: 'https://example.com/docs' }));
+
+    expect(onOpenExternalLink).toHaveBeenCalledWith('https://example.com/docs');
+  });
 });

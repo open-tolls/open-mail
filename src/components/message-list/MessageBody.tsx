@@ -12,6 +12,17 @@ type MessageBodyProps = {
 const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input']);
 const allowedImageProtocols = new Set(['http:', 'https:']);
 const allowedLinkProtocols = new Set(['http:', 'https:', 'mailto:']);
+const plainTextLinkPattern = /(https?:\/\/[^\s<]+|mailto:[^\s<]+)/gi;
+const htmlEscapeMap: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+};
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (character) => htmlEscapeMap[character] ?? character);
 
 const getSafeUrl = (rawUrl: string) => {
   try {
@@ -22,6 +33,40 @@ const getSafeUrl = (rawUrl: string) => {
 };
 
 const normalizeContentId = (contentId: string) => contentId.trim().replace(/^<|>$/g, '').toLowerCase();
+
+const linkifyPlainText = (text: string) => {
+  const segments: string[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(plainTextLinkPattern)) {
+    const matchedText = match[0];
+    const matchIndex = match.index ?? 0;
+    segments.push(escapeHtml(text.slice(lastIndex, matchIndex)));
+
+    const safeUrl = getSafeUrl(matchedText);
+
+    if (!safeUrl || !allowedLinkProtocols.has(safeUrl.protocol)) {
+      segments.push(escapeHtml(matchedText));
+    } else {
+      const escapedUrl = escapeHtml(safeUrl.toString());
+      segments.push(`<a href="${escapedUrl}">${escapeHtml(matchedText)}</a>`);
+    }
+
+    lastIndex = matchIndex + matchedText.length;
+  }
+
+  segments.push(escapeHtml(text.slice(lastIndex)));
+
+  return segments.join('');
+};
+
+const formatPlainTextAsHtml = (plainText: string) =>
+  plainText
+    .replace(/\r\n?/g, '\n')
+    .split(/\n{2,}/)
+    .filter((paragraph) => paragraph.length > 0)
+    .map((paragraph) => `<p>${paragraph.split('\n').map(linkifyPlainText).join('<br />')}</p>`)
+    .join('');
 
 const getCidValue = (src: string) => {
   if (!src.trim().toLowerCase().startsWith('cid:')) {
@@ -156,7 +201,7 @@ export const MessageBody = ({
 }: MessageBodyProps) => {
   const [isQuotedTextVisible, setIsQuotedTextVisible] = useState(false);
   const [areRemoteImagesVisible, setAreRemoteImagesVisible] = useState(false);
-  const rawBody = html || plainText || '';
+  const rawBody = useMemo(() => (html.trim() ? html : formatPlainTextAsHtml(plainText ?? '')), [html, plainText]);
   const hasBlockedRemoteImages = useMemo(() => hasRemoteImages(rawBody), [rawBody]);
   const inlineImageSources = useMemo(
     () => getInlineImageSources(attachments, resolveInlineImageUrl),

@@ -390,10 +390,10 @@ function sanitizeEmailHtml(html: string): string {
 - [x] Botao "Load images" funciona
 - [x] Inline images (CID) renderizadas
 - [x] Tracking pixels removidos
-- [ ] Emails em plain text formatados corretamente
+- [x] Emails em plain text formatados corretamente
 - [ ] Tabelas de layout renderizadas corretamente
 
-> Status: sanitizacao conservadora remove tags perigosas, handlers inline e URLs `javascript:`. Links HTTP/HTTPS/mailto sao interceptados para abertura externa, imagens remotas ficam bloqueadas ate "Load remote images", pixels 1x1 sao removidos e imagens `cid:` sao resolvidas por attachments inline com `content_id` + `local_path`. Plain text avancado e tabelas de layout ficam para proximos cortes de rendering seguro.
+> Status: sanitizacao conservadora remove tags perigosas, handlers inline e URLs `javascript:`. Links HTTP/HTTPS/mailto sao interceptados para abertura externa, imagens remotas ficam bloqueadas ate "Load remote images", pixels 1x1 sao removidos, imagens `cid:` sao resolvidas por attachments inline com `content_id` + `local_path`, e plain text vira HTML escapado com paragrafos, quebras de linha e links seguros. Tabelas de layout ficam para o proximo corte de rendering seguro.
 
 ---
 
@@ -643,6 +643,7 @@ npm install -D @types/dompurify
 - [x] Imagens remotas bloqueadas por padrao
 - [x] Links externos e Load remote images seguros
 - [x] Inline images CID resolvidas
+- [x] Plain text formatado com escape seguro
 - [ ] Attachments com download e preview
 - [ ] Thread actions (archive, trash, star, move, label)
 - [ ] Busca full-text + filtros estruturados
