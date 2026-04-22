@@ -26,6 +26,7 @@ type ThreadState = {
   threadsByFolderKey: Record<string, ThreadSummary[]>;
   threadSummaries: ThreadSummary[];
   selectedThreadId: string | null;
+  applyThreadLabels: (threadIds: string[], labelIds: string[]) => void;
   applyThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   moveThreadsToFolder: (threadIds: string[], folderId: string) => void;
   fetchMore: (accountId: string, folderId: string, fallbackThreads?: ThreadRecord[]) => Promise<void>;
@@ -56,6 +57,18 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   threadsByFolderKey: {},
   threadSummaries: [],
   selectedThreadId: null,
+  applyThreadLabels: (threadIds, labelIds) =>
+    set((state) => {
+      const selectedThreadIds = new Set(threadIds);
+
+      return {
+        threadRecords: state.threadRecords.map((thread) =>
+          selectedThreadIds.has(thread.id)
+            ? { ...thread, label_ids: Array.from(new Set([...thread.label_ids, ...labelIds])) }
+            : thread
+        )
+      };
+    }),
   applyThreadAction: (action, threadIds) =>
     set((state) => {
       const selectedThreadIds = new Set(threadIds);

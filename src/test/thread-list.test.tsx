@@ -181,4 +181,34 @@ describe('ThreadList', () => {
     expect(onMoveThreads).toHaveBeenCalledWith(['thr_0'], 'fld_archive');
     expect(screen.queryByRole('dialog', { name: 'Move threads dialog' })).not.toBeInTheDocument();
   });
+
+  it('opens a label dialog and reports checked plus newly created labels', () => {
+    const onApplyLabels = vi.fn();
+
+    render(
+      <ThreadListPanel
+        activeFolderName="Inbox"
+        folders={[folder('fld_inbox', 'Inbox')]}
+        isSearchActive={false}
+        labels={[
+          { id: 'lbl_design', name: 'Design review' },
+          { id: 'lbl_release', name: 'Release' }
+        ]}
+        onApplyLabels={onApplyLabels}
+        onSelectThread={vi.fn()}
+        searchQuery=""
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Thread 0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Label selected threads' }));
+    fireEvent.click(screen.getByLabelText('Design review'));
+    fireEvent.change(screen.getByLabelText('Create label'), { target: { value: 'VIP' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply labels' }));
+
+    expect(onApplyLabels).toHaveBeenCalledWith(['thr_0'], ['lbl_design', 'custom:vip']);
+    expect(screen.queryByRole('dialog', { name: 'Label threads dialog' })).not.toBeInTheDocument();
+  });
 });

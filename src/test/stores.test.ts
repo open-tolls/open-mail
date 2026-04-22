@@ -209,6 +209,18 @@ describe('phase 3 domain stores', () => {
     expect(useThreadStore.getState().threadsByFolderKey['acc_1:archive']?.map((thread) => thread.id)).toEqual(['thr_1']);
   });
 
+  it('applies label ids to thread records optimistically', () => {
+    useThreadStore.getState().setThreadRecords([
+      { ...threadRecord('thr_1'), label_ids: ['lbl_existing'] },
+      threadRecord('thr_2')
+    ]);
+
+    useThreadStore.getState().applyThreadLabels(['thr_1'], ['lbl_existing', 'lbl_design']);
+
+    expect(useThreadStore.getState().threadRecords[0]?.label_ids).toEqual(['lbl_existing', 'lbl_design']);
+    expect(useThreadStore.getState().threadRecords[1]?.label_ids).toEqual([]);
+  });
+
   it('fetches paginated folder threads from fallback records and caches by folder', async () => {
     const records = Array.from({ length: 75 }, (_, index) => threadRecord(`thr_${index}`));
 

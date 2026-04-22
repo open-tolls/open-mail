@@ -78,6 +78,7 @@ const MailShell = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
+  const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
   const moveThreadsToFolder = useThreadStore((state) => state.moveThreadsToFolder);
   const updateThread = useThreadStore((state) => state.updateThread);
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -267,6 +268,9 @@ const MailShell = () => {
   const handleThreadAction = (action: StoreThreadAction, threadIds: string[]) => {
     applyThreadAction(action, threadIds);
   };
+  const handleApplyLabels = (threadIds: string[], labelIds: string[]) => {
+    applyThreadLabels(threadIds, labelIds);
+  };
   const handleMoveThreads = (threadIds: string[], folderId: string) => {
     moveThreadsToFolder(threadIds, folderId);
   };
@@ -340,6 +344,7 @@ const MailShell = () => {
       isThreadsLoading={folderThreadsQuery.isLoading || searchThreadsQuery.isLoading}
       hasMoreThreads={!isSearchActive && folderThreadsQuery.hasMore}
       onLoadMoreThreads={folderThreadsQuery.loadMore}
+      onApplyLabels={handleApplyLabels}
       onMoveThreads={handleMoveThreads}
       onThreadAction={handleThreadAction}
       onSelectFolder={handleSelectFolder}
