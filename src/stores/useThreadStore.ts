@@ -11,6 +11,8 @@ type FetchThreadOptions = {
   force?: boolean;
 };
 
+export type StoreThreadAction = 'archive' | 'trash' | 'toggle-read' | 'star';
+
 type ThreadState = {
   activeFolderKey: string | null;
   hasMore: boolean;
@@ -24,6 +26,7 @@ type ThreadState = {
   threadsByFolderKey: Record<string, ThreadSummary[]>;
   threadSummaries: ThreadSummary[];
   selectedThreadId: string | null;
+  applyThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   fetchMore: (accountId: string, folderId: string, fallbackThreads?: ThreadRecord[]) => Promise<void>;
   fetchThreads: (
     accountId: string,
@@ -52,6 +55,76 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   threadsByFolderKey: {},
   threadSummaries: [],
   selectedThreadId: null,
+  applyThreadAction: (action, threadIds) =>
+    set((state) => {
+      const selectedThreadIds = new Set(threadIds);
+      const selectedSummaries = state.threadSummaries.filter((thread) => selectedThreadIds.has(thread.id));
+      const shouldMarkUnread =
+        action === 'toggle-read' && selectedSummaries.length > 0 && selectedSummaries.every((thread) => !thread.isUnread);
+
+      const updateSummary = (thread: ThreadSummary) => {
+        if (!selectedThreadIds.has(thread.id)) {
+          return thread;
+        }
+
+        if (action === 'star') {
+          return { ...thread, isStarred: !thread.isStarred };
+        }
+
+        if (action === 'toggle-read') {
+          return { ...thread, isUnread: shouldMarkUnread };
+        }
+
+        return thread;
+      };
+      const updateRecord = (thread: ThreadRecord) => {
+        if (!selectedThreadIds.has(thread.id)) {
+          return thread;
+        }
+
+        if (action === 'star') {
+          return { ...thread, is_starred: !thread.is_starred };
+        }
+
+        if (action === 'toggle-read') {
+          return { ...thread, is_unread: shouldMarkUnread };
+        }
+
+        return thread;
+      };
+
+      if (action === 'archive' || action === 'trash') {
+        const keepThread = (thread: ThreadSummary | ThreadRecord) => !selectedThreadIds.has(thread.id);
+        const nextThreads = state.threads.filter(keepThread);
+
+        return {
+          selectedThreadId: selectedThreadIds.has(state.selectedThreadId ?? '')
+            ? nextThreads[0]?.id ?? null
+            : state.selectedThreadId,
+          threads: nextThreads,
+          threadRecords: state.threadRecords.filter(keepThread),
+          threadSummaries: state.threadSummaries.filter(keepThread),
+          threadsByFolderKey: Object.fromEntries(
+            Object.entries(state.threadsByFolderKey).map(([folderKey, threads]) => [
+              folderKey,
+              threads.filter(keepThread)
+            ])
+          )
+        };
+      }
+
+      return {
+        threads: state.threads.map(updateSummary),
+        threadRecords: state.threadRecords.map(updateRecord),
+        threadSummaries: state.threadSummaries.map(updateSummary),
+        threadsByFolderKey: Object.fromEntries(
+          Object.entries(state.threadsByFolderKey).map(([folderKey, threads]) => [
+            folderKey,
+            threads.map(updateSummary)
+          ])
+        )
+      };
+    }),
   fetchThreads: async (accountId, folderId, fallbackThreads = [], options = {}) => {
     const folderKey = getFolderKey(accountId, folderId);
     const cachedThreads = get().threadsByFolderKey[folderKey];

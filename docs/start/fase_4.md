@@ -494,13 +494,15 @@ export function ThreadListToolbar() {
 - Atalho `l`
 
 **Criterio de aceite:**
-- [ ] Toolbar aparece ao selecionar thread(s)
-- [ ] Archive, trash, star, mark read/unread funcionam
+- [x] Toolbar aparece ao selecionar thread(s)
+- [x] Archive, trash, star, mark read/unread funcionam
 - [ ] Move to folder dialog funciona
 - [ ] Label dialog funciona
 - [ ] Atalhos de teclado funcionam
-- [ ] Optimistic update (UI atualiza antes do IMAP)
+- [x] Optimistic update (UI atualiza antes do IMAP)
 - [ ] Undo funciona (snackbar com "Undo" button)
+
+> Status: toolbar contextual, quick actions, context menu e atalhos de archive/trash/star aplicam atualizacoes locais otimistas via `useThreadStore`. Move/label dialogs, cobertura completa de atalhos e undo ficam para os proximos cortes.
 
 ---
 

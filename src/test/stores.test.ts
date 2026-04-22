@@ -158,6 +158,36 @@ describe('phase 3 domain stores', () => {
     expect(useThreadStore.getState().threadRecords[0]?.is_starred).toBe(true);
   });
 
+  it('applies thread actions across summaries, records, and folder caches', () => {
+    useThreadStore.getState().setThreadSummaries([
+      { ...threadSummary('thr_1'), isUnread: true },
+      threadSummary('thr_2')
+    ]);
+    useThreadStore.getState().setThreadRecords([
+      { ...threadRecord('thr_1'), is_unread: true },
+      threadRecord('thr_2')
+    ]);
+    useThreadStore.setState({
+      activeFolderKey: 'acc_1:inbox',
+      threadsByFolderKey: {
+        'acc_1:inbox': [{ ...threadSummary('thr_1'), isUnread: true }, threadSummary('thr_2')]
+      }
+    });
+
+    useThreadStore.getState().applyThreadAction('star', ['thr_1']);
+    expect(useThreadStore.getState().threadSummaries[0]?.isStarred).toBe(true);
+    expect(useThreadStore.getState().threadRecords[0]?.is_starred).toBe(true);
+
+    useThreadStore.getState().applyThreadAction('toggle-read', ['thr_1', 'thr_2']);
+    expect(useThreadStore.getState().threadSummaries.map((thread) => thread.isUnread)).toEqual([false, false]);
+    expect(useThreadStore.getState().threadRecords.map((thread) => thread.is_unread)).toEqual([false, false]);
+
+    useThreadStore.getState().applyThreadAction('archive', ['thr_1']);
+    expect(useThreadStore.getState().threadSummaries.map((thread) => thread.id)).toEqual(['thr_2']);
+    expect(useThreadStore.getState().threadRecords.map((thread) => thread.id)).toEqual(['thr_2']);
+    expect(useThreadStore.getState().threadsByFolderKey['acc_1:inbox']?.map((thread) => thread.id)).toEqual(['thr_2']);
+  });
+
   it('fetches paginated folder threads from fallback records and caches by folder', async () => {
     const records = Array.from({ length: 75 }, (_, index) => threadRecord(`thr_${index}`));
 

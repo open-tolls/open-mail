@@ -95,17 +95,17 @@ describe('mailbox overview integration', () => {
 
     fireEvent.keyDown(window, { key: 's' });
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent(
-      'Star shortcut queued: Premium motion system approved'
+      'Star shortcut applied: Premium motion system approved'
     );
 
     fireEvent.keyDown(window, { key: '#' });
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent(
-      'Trash shortcut queued: Premium motion system approved'
+      'Trash shortcut applied: Premium motion system approved'
     );
 
     fireEvent.keyDown(window, { key: 'r' });
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent(
-      'Reply shortcut queued: Premium motion system approved'
+      'Reply shortcut queued: Rust health-check online'
     );
   });
 
@@ -123,7 +123,7 @@ describe('mailbox overview integration', () => {
     fireEvent.keyDown(window, { key: 'x' });
 
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent(
-      'Star shortcut queued: Premium motion system approved'
+      'Star shortcut applied: Premium motion system approved'
     );
     expect(window.localStorage.getItem('open-mail-shortcuts')).toContain('"thread.star":"x"');
   });

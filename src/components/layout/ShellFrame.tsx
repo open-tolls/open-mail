@@ -7,6 +7,7 @@ import { MessageReaderPanel } from '@components/layout/MessageReaderPanel';
 import { ThreadListPanel } from '@components/layout/ThreadListPanel';
 import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboardShortcuts';
 import type { AttachmentRecord, FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
+import type { StoreThreadAction } from '@stores/useThreadStore';
 import { type ShortcutAction, useShortcutStore } from '@stores/useShortcutStore';
 import { useUIStore } from '@stores/useUIStore';
 
@@ -29,6 +30,7 @@ type ShellFrameProps = {
   isThreadsLoading?: boolean;
   onSelectFolder: (folderId: string) => void;
   onLoadMoreThreads?: () => Promise<void> | void;
+  onThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   onSearchQueryChange: (query: string) => void;
   onSelectThread: (threadId: string) => void;
   onSelectMessage: (messageId: string) => void;
@@ -58,6 +60,7 @@ export const ShellFrame = ({
   isThreadsLoading = false,
   onSelectFolder,
   onLoadMoreThreads,
+  onThreadAction,
   onSearchQueryChange,
   onSelectThread,
   onSelectMessage,
@@ -121,6 +124,15 @@ export const ShellFrame = ({
       selectedThread ? `${label}: ${selectedThread.subject}` : `${label}: no thread selected`
     );
   }, [selectedThread]);
+  const runSelectedThreadAction = useCallback((action: StoreThreadAction, label: string) => {
+    if (!selectedThread) {
+      reportThreadShortcut(label);
+      return;
+    }
+
+    onThreadAction(action, [selectedThread.id]);
+    reportThreadShortcut(label);
+  }, [onThreadAction, reportThreadShortcut, selectedThread]);
   const shortcutMap = useMemo(() => {
     const actionHandlers: Partial<Record<ShortcutAction, () => void>> = {
       'action.redo': () => setShortcutStatusLabel('Redo shortcut ready'),
@@ -139,14 +151,14 @@ export const ShellFrame = ({
       'nav.sent': () => selectSystemFolder('sent'),
       'preferences.open': () => setShortcutStatusLabel('Preferences shortcut ready'),
       'search.focus': () => searchInputRef.current?.focus(),
-      'thread.archive': () => reportThreadShortcut('Archive shortcut queued'),
+      'thread.archive': () => runSelectedThreadAction('archive', 'Archive shortcut applied'),
       'thread.forward': () => reportThreadShortcut('Forward shortcut queued'),
       'thread.next': () => selectThreadByOffset(1),
       'thread.prev': () => selectThreadByOffset(-1),
       'thread.reply': () => reportThreadShortcut('Reply shortcut queued'),
       'thread.replyAll': () => reportThreadShortcut('Reply all shortcut queued'),
-      'thread.star': () => reportThreadShortcut('Star shortcut queued'),
-      'thread.trash': () => reportThreadShortcut('Trash shortcut queued'),
+      'thread.star': () => runSelectedThreadAction('star', 'Star shortcut applied'),
+      'thread.trash': () => runSelectedThreadAction('trash', 'Trash shortcut applied'),
       'ui.back': () => {
         setIsComposerOpen(false);
         searchInputRef.current?.blur();
@@ -161,7 +173,7 @@ export const ShellFrame = ({
 
       return shortcuts;
     }, {});
-  }, [reportThreadShortcut, selectSystemFolder, selectThreadByOffset, setSidebarCollapsed, shortcutBindings]);
+  }, [reportThreadShortcut, runSelectedThreadAction, selectSystemFolder, selectThreadByOffset, setSidebarCollapsed, shortcutBindings]);
 
   useKeyboardShortcuts(shortcutMap);
 
@@ -262,6 +274,7 @@ export const ShellFrame = ({
             isSearchActive={isSearchActive}
             isLoading={isThreadsLoading}
             onLoadMore={onLoadMoreThreads}
+            onThreadAction={onThreadAction}
             searchQuery={searchQuery}
             selectedThreadId={selectedThreadId}
             threads={threads}

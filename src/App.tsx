@@ -17,7 +17,7 @@ import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
 import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport } from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
-import { useThreadStore } from '@stores/useThreadStore';
+import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
 import { useUIStore } from '@stores/useUIStore';
 
 type ComposeDraft = {
@@ -77,6 +77,7 @@ const MailShell = () => {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
+  const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
   const updateThread = useThreadStore((state) => state.updateThread);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const folderThreadsQuery = useThreads({
@@ -262,6 +263,9 @@ const MailShell = () => {
     const folderSegment = selectedFolderId ? getFolderRouteSegment(selectedFolderId) : 'inbox';
     navigate(`/${folderSegment}/${nextThreadId}`);
   };
+  const handleThreadAction = (action: StoreThreadAction, threadIds: string[]) => {
+    applyThreadAction(action, threadIds);
+  };
   const handleOpenExternalLink = (url: string) => {
     if (!tauriRuntime.isAvailable()) {
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -332,6 +336,7 @@ const MailShell = () => {
       isThreadsLoading={folderThreadsQuery.isLoading || searchThreadsQuery.isLoading}
       hasMoreThreads={!isSearchActive && folderThreadsQuery.hasMore}
       onLoadMoreThreads={folderThreadsQuery.loadMore}
+      onThreadAction={handleThreadAction}
       onSelectFolder={handleSelectFolder}
       onSearchQueryChange={setSearchQuery}
       onSelectThread={handleSelectThread}

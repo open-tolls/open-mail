@@ -15,6 +15,7 @@ type ThreadListPanelProps = {
   selectedThreadId: string | null;
   threads: ThreadSummary[];
   onLoadMore?: () => Promise<void> | void;
+  onThreadAction?: (action: ThreadAction, threadIds: string[]) => void;
   onSelectThread: (threadId: string) => void;
 };
 
@@ -27,6 +28,7 @@ export const ThreadListPanel = ({
   selectedThreadId,
   threads,
   onLoadMore,
+  onThreadAction,
   onSelectThread
 }: ThreadListPanelProps) => {
   const [activeFilter, setActiveFilter] = useState<ThreadFilter>('all');
@@ -36,7 +38,8 @@ export const ThreadListPanel = ({
   const countLabel = isSearchActive ? `${filteredThreads.length} matches` : `${filteredThreads.length} threads`;
   const handleThreadAction = (action: ThreadAction, threadIds: string[]) => {
     const actionLabel = action.replace('-', ' ');
-    setActionStatus(`${actionLabel} queued for ${threadIds.length} thread${threadIds.length === 1 ? '' : 's'}`);
+    onThreadAction?.(action, threadIds);
+    setActionStatus(`${actionLabel} applied to ${threadIds.length} thread${threadIds.length === 1 ? '' : 's'}`);
   };
 
   return (
