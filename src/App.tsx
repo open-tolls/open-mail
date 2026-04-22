@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { save } from '@tauri-apps/plugin-dialog';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
 import { ComponentGallery } from '@components/dev/ComponentGallery';
@@ -13,9 +13,11 @@ import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
 import { downloadAttachment } from '@lib/attachment-download';
+import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
 import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport } from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
+import { useThreadStore } from '@stores/useThreadStore';
 import { useUIStore } from '@stores/useUIStore';
 
 type ComposeDraft = {
@@ -65,6 +67,7 @@ const useApplySelectedTheme = () => {
 const MailShell = () => {
   const { folderId, threadId } = useParams<{ folderId?: string; threadId?: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   useDomainEvents();
   const { data, isLoading, isError } = useBackendHealth();
   const mailboxQuery = useMailboxOverview();
@@ -74,6 +77,7 @@ const MailShell = () => {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
+  const updateThread = useThreadStore((state) => state.updateThread);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const folderThreadsQuery = useThreads({
     accountId: mailbox?.accountId ?? null,
@@ -203,6 +207,36 @@ const MailShell = () => {
         : messages[0].id
     );
   }, [messagesQuery.data]);
+
+  useEffect(() => {
+    const messages = messagesQuery.data ?? [];
+
+    if (!messages.length) {
+      return;
+    }
+
+    void autoMarkVisibleMessagesRead(messages, {
+      isDesktopRuntime: tauriRuntime.isAvailable(),
+      markRead: api.messages.markRead
+    })
+      .then((updatedMessageIds) => {
+        if (!updatedMessageIds.length) {
+          return;
+        }
+
+        if (selectedThread) {
+          updateThread(selectedThread.id, { isUnread: false });
+        }
+
+        void queryClient.invalidateQueries({ queryKey: ['mailbox-overview'] });
+        void queryClient.invalidateQueries({ queryKey: ['thread-messages', selectedThread?.id ?? null] });
+        void queryClient.invalidateQueries({ queryKey: ['folder-threads'] });
+        void queryClient.invalidateQueries({ queryKey: ['sync-status-detail'] });
+      })
+      .catch(() => {
+        setOutboxStatus('Could not mark visible messages as read');
+      });
+  }, [messagesQuery.data, queryClient, selectedThread, updateThread]);
 
   const handleSendDraft = async (draft: ComposeDraft) => {
     setOutboxStatus('Queueing message...');

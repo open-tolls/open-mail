@@ -323,9 +323,9 @@ export function MessageItem({ message, isLast, defaultExpanded }) {
 - [x] Quoted text colapsavel
 - [x] Attachments listados com download
 - [x] Acoes (reply, reply all, forward, more)
-- [ ] Mark as read automatico ao visualizar
+- [x] Mark as read automatico ao visualizar
 
-> Status: message view inicial implementada em `src/components/message-list/` com ordem cronologica, expand/collapse, body sanitizado, quoted text colapsavel, anexos listados e acoes basicas. Mark-as-read automatico fica para um corte posterior.
+> Status: message view inicial implementada em `src/components/message-list/` com ordem cronologica, expand/collapse, body sanitizado, quoted text colapsavel, anexos listados, acoes basicas e mark-as-read automatico para mensagens visiveis no desktop.
 
 ---
 
@@ -652,7 +652,7 @@ npm install -D @types/dompurify
 - [ ] Busca full-text + filtros estruturados
 - [ ] Undo/redo funcional
 - [ ] Keyboard shortcuts (j/k, e, #, s, r, f)
-- [ ] Mark as read ao visualizar
+- [x] Mark as read ao visualizar
 - [x] Testes passando
 - [ ] CI green
 
