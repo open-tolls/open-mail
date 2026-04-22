@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { MessageRecord } from '@lib/contracts';
+import type { AttachmentRecord, MessageRecord } from '@lib/contracts';
 import { MessageItem } from '@components/message-list/MessageItem';
 import { sortMessagesChronologically } from '@components/message-list/messageListUtils';
 
@@ -7,6 +7,7 @@ type MessageListProps = {
   messages: MessageRecord[];
   selectedMessageId: string | null;
   threadSubject: string;
+  onDownloadAttachment?: (attachment: AttachmentRecord) => void;
   onSelectMessage: (messageId: string) => void;
   onOpenExternalLink?: (url: string) => void;
   resolveInlineImageUrl?: (localPath: string) => string;
@@ -16,6 +17,7 @@ export const MessageList = ({
   messages,
   selectedMessageId,
   threadSubject,
+  onDownloadAttachment,
   onSelectMessage,
   onOpenExternalLink,
   resolveInlineImageUrl
@@ -38,6 +40,7 @@ export const MessageList = ({
             isSelected={message.id === selectedMessageId}
             key={message.id}
             message={message}
+            onDownloadAttachment={onDownloadAttachment}
             onOpenExternalLink={onOpenExternalLink}
             onSelectMessage={onSelectMessage}
             resolveInlineImageUrl={resolveInlineImageUrl}

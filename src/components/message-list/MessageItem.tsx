@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { MessageRecord } from '@lib/contracts';
+import type { AttachmentRecord, MessageRecord } from '@lib/contracts';
 import { MessageActions } from '@components/message-list/MessageActions';
 import { MessageAttachments } from '@components/message-list/MessageAttachments';
 import { MessageBody } from '@components/message-list/MessageBody';
@@ -10,6 +10,7 @@ type MessageItemProps = {
   defaultExpanded: boolean;
   isSelected: boolean;
   message: MessageRecord;
+  onDownloadAttachment?: (attachment: AttachmentRecord) => void;
   onOpenExternalLink?: (url: string) => void;
   onSelectMessage: (messageId: string) => void;
   resolveInlineImageUrl?: (localPath: string) => string;
@@ -19,6 +20,7 @@ export const MessageItem = ({
   defaultExpanded,
   isSelected,
   message,
+  onDownloadAttachment,
   onOpenExternalLink,
   onSelectMessage,
   resolveInlineImageUrl
@@ -48,7 +50,11 @@ export const MessageItem = ({
         onOpenExternalLink={onOpenExternalLink}
         resolveInlineImageUrl={resolveInlineImageUrl}
       />
-      <MessageAttachments attachments={message.attachments} />
+      <MessageAttachments
+        attachments={message.attachments}
+        onDownloadAttachment={onDownloadAttachment}
+        resolveAttachmentUrl={resolveInlineImageUrl}
+      />
       {Object.keys(message.headers).length ? (
         <div className="message-header-grid">
           {Object.entries(message.headers).map(([key, value]) => (

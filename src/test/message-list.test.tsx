@@ -231,4 +231,50 @@ describe('MessageList', () => {
     expect(table?.getAttribute('style')).toBe('width: 100%; border-collapse: collapse;');
     expect(cell.getAttribute('style')).toBe('color: red;');
   });
+
+  it('previews local image attachments and exposes download actions', () => {
+    const onDownloadAttachment = vi.fn();
+    const messages = [
+      makeMessage({
+        id: 'msg_with_attachment',
+        attachments: [
+          makeAttachment({
+            id: 'att_receipt',
+            message_id: 'msg_with_attachment',
+            filename: 'receipt.png',
+            content_type: 'image/png',
+            is_inline: false,
+            local_path: '/tmp/open-mail/receipt.png',
+            size: 4096
+          })
+        ]
+      })
+    ];
+
+    render(
+      <MessageList
+        messages={messages}
+        selectedMessageId="msg_with_attachment"
+        threadSubject="Thread subject"
+        onSelectMessage={vi.fn()}
+        onDownloadAttachment={onDownloadAttachment}
+        resolveInlineImageUrl={(localPath) => `asset://${localPath}`}
+      />
+    );
+
+    expect(screen.getByText('Image')).toBeInTheDocument();
+    expect(screen.getByText('receipt.png')).toBeInTheDocument();
+    expect(screen.getByText('image/png · 4 KB')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /preview receipt\.png/i }));
+
+    expect(screen.getByRole('img', { name: 'Preview of receipt.png' })).toHaveAttribute(
+      'src',
+      'asset:///tmp/open-mail/receipt.png'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /download receipt\.png/i }));
+
+    expect(onDownloadAttachment).toHaveBeenCalledWith(expect.objectContaining({ id: 'att_receipt' }));
+  });
 });
