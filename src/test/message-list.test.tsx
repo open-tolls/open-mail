@@ -198,4 +198,37 @@ describe('MessageList', () => {
 
     expect(onOpenExternalLink).toHaveBeenCalledWith('https://example.com/docs');
   });
+
+  it('renders layout tables while stripping unsafe inline CSS', () => {
+    const messages = [
+      makeMessage({
+        id: 'msg_layout_table',
+        body: [
+          '<table width="100%" cellpadding="8" cellspacing="0" style="position: fixed; width: 100%; border-collapse: collapse;">',
+          '<tbody><tr>',
+          '<td style="color: red; position: absolute; background-image: url(javascript:alert(1));">Layout cell</td>',
+          '</tr></tbody>',
+          '</table>'
+        ].join('')
+      })
+    ];
+
+    const { container } = render(
+      <MessageList
+        messages={messages}
+        selectedMessageId="msg_layout_table"
+        threadSubject="Thread subject"
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    const table = container.querySelector('table');
+    const cell = screen.getByText('Layout cell');
+
+    expect(table).toHaveClass('message-layout-table');
+    expect(table).toHaveAttribute('width', '100%');
+    expect(table).toHaveAttribute('cellpadding', '8');
+    expect(table?.getAttribute('style')).toBe('width: 100%; border-collapse: collapse;');
+    expect(cell.getAttribute('style')).toBe('color: red;');
+  });
 });

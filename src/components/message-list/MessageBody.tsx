@@ -12,6 +12,7 @@ type MessageBodyProps = {
 const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'input']);
 const allowedImageProtocols = new Set(['http:', 'https:']);
 const allowedLinkProtocols = new Set(['http:', 'https:', 'mailto:']);
+const blockedStyleProperties = new Set(['behavior', 'bottom', 'left', 'position', 'right', 'top', 'z-index']);
 const plainTextLinkPattern = /(https?:\/\/[^\s<]+|mailto:[^\s<]+)/gi;
 const htmlEscapeMap: Record<string, string> = {
   '&': '&amp;',
@@ -67,6 +68,24 @@ const formatPlainTextAsHtml = (plainText: string) =>
     .filter((paragraph) => paragraph.length > 0)
     .map((paragraph) => `<p>${paragraph.split('\n').map(linkifyPlainText).join('<br />')}</p>`)
     .join('');
+
+const sanitizeInlineStyle = (style: string) =>
+  style
+    .split(';')
+    .map((declaration) => declaration.trim())
+    .filter(Boolean)
+    .filter((declaration) => {
+      const [rawProperty, ...rawValueParts] = declaration.split(':');
+      const property = rawProperty?.trim().toLowerCase();
+      const value = rawValueParts.join(':').trim().toLowerCase();
+
+      if (!property || !value || blockedStyleProperties.has(property)) {
+        return false;
+      }
+
+      return !value.includes('expression(') && !value.includes('javascript:');
+    })
+    .join('; ');
 
 const getCidValue = (src: string) => {
   if (!src.trim().toLowerCase().startsWith('cid:')) {
@@ -130,7 +149,21 @@ const sanitizeEmailHtml = (html: string, allowRemoteImages: boolean, inlineImage
       if (attributeName.startsWith('on') || attributeValue.startsWith('javascript:')) {
         element.removeAttribute(attribute.name);
       }
+
+      if (attributeName === 'style') {
+        const safeStyle = sanitizeInlineStyle(attribute.value);
+
+        if (safeStyle) {
+          element.setAttribute(attribute.name, `${safeStyle};`);
+        } else {
+          element.removeAttribute(attribute.name);
+        }
+      }
     });
+
+    if (tagName === 'table') {
+      element.classList.add('message-layout-table');
+    }
 
     if (tagName === 'a') {
       const anchor = element as HTMLAnchorElement;

@@ -1090,6 +1090,17 @@ summary.folder-group-title::-webkit-details-marker {
   margin: 0 0 12px;
 }
 
+.message-layout-table {
+  max-width: 100%;
+  table-layout: auto;
+  border-spacing: 0;
+}
+
+.message-layout-table td,
+.message-layout-table th {
+  vertical-align: top;
+}
+
 .message-remote-images-warning {
   display: flex;
   flex-wrap: wrap;
