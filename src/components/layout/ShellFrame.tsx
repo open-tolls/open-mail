@@ -270,9 +270,11 @@ export const ShellFrame = ({
       <main className="content-panel">
         <MailTopbar
           backendStatus={backendStatus}
+          folders={folders}
           layoutMode={layoutMode}
           searchInputRef={searchInputRef}
           searchQuery={searchQuery}
+          threads={threads}
           themeId={themeId}
           onCycleTheme={cycleTheme}
           onSearchQueryChange={onSearchQueryChange}

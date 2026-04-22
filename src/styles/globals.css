@@ -490,11 +490,15 @@ summary.folder-group-title::-webkit-details-marker {
   align-items: center;
 }
 
+.search-shell-wrap {
+  position: relative;
+  flex: 1;
+}
+
 .search-shell {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1;
   min-height: 56px;
   padding: 0 18px;
   border: 1px solid var(--line);
@@ -508,6 +512,46 @@ summary.folder-group-title::-webkit-details-marker {
   outline: none;
   background: transparent;
   color: var(--text);
+}
+
+.search-suggestions {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(21, 25, 34, 0.96);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.search-suggestions button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.search-suggestions button:hover,
+.search-suggestions button:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.search-suggestions span {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .shortcut-pill {
