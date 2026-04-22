@@ -18,6 +18,7 @@ import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, Outb
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
+import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
 
 type ComposeDraft = {
@@ -79,8 +80,11 @@ const MailShell = () => {
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
   const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
+  const createThreadSnapshot = useThreadStore((state) => state.createThreadSnapshot);
   const moveThreadsToFolder = useThreadStore((state) => state.moveThreadsToFolder);
+  const restoreThreadSnapshot = useThreadStore((state) => state.restoreThreadSnapshot);
   const updateThread = useThreadStore((state) => state.updateThread);
+  const pushUndo = useUndoStore((state) => state.push);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const folderThreadsQuery = useThreads({
     accountId: mailbox?.accountId ?? null,
@@ -265,13 +269,29 @@ const MailShell = () => {
     const folderSegment = selectedFolderId ? getFolderRouteSegment(selectedFolderId) : 'inbox';
     navigate(`/${folderSegment}/${nextThreadId}`);
   };
+  const pushThreadUndo = (description: string) => {
+    const snapshot = createThreadSnapshot();
+
+    pushUndo({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      description,
+      timestamp: Date.now(),
+      undo: () => {
+        restoreThreadSnapshot(snapshot);
+        setSelectedThreadId(snapshot.selectedThreadId);
+      }
+    });
+  };
   const handleThreadAction = (action: StoreThreadAction, threadIds: string[]) => {
+    pushThreadUndo('Thread action applied');
     applyThreadAction(action, threadIds);
   };
   const handleApplyLabels = (threadIds: string[], labelIds: string[]) => {
+    pushThreadUndo('Labels applied');
     applyThreadLabels(threadIds, labelIds);
   };
   const handleMoveThreads = (threadIds: string[], folderId: string) => {
+    pushThreadUndo('Thread moved');
     moveThreadsToFolder(threadIds, folderId);
   };
   const handleOpenExternalLink = (url: string) => {

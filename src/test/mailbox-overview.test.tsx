@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '@/App';
 import { useShortcutStore } from '@stores/useShortcutStore';
@@ -107,6 +107,53 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent(
       'Reply shortcut queued: Rust health-check online'
     );
+  });
+
+  it('shows undo toast for destructive thread actions and restores by button or shortcut', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: '#' });
+    expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'Undo notification' })).toHaveTextContent('Thread action applied');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo last action' }));
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'e' });
+    expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'z', metaKey: true });
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+  });
+
+  it('auto-dismisses undo toast after five seconds', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    try {
+      fireEvent.keyDown(window, { key: 's' });
+      expect(screen.getByRole('status', { name: 'Undo notification' })).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByRole('status', { name: 'Undo notification' })).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens move and label thread dialogs from keyboard shortcuts', async () => {

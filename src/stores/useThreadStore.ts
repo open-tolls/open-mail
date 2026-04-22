@@ -13,6 +13,20 @@ type FetchThreadOptions = {
 
 export type StoreThreadAction = 'archive' | 'trash' | 'toggle-read' | 'star';
 
+export type ThreadUndoSnapshot = Pick<
+  ThreadState,
+  | 'activeFolderKey'
+  | 'hasMore'
+  | 'hasMoreByFolderKey'
+  | 'offset'
+  | 'offsetByFolderKey'
+  | 'selectedThreadId'
+  | 'threadRecords'
+  | 'threads'
+  | 'threadsByFolderKey'
+  | 'threadSummaries'
+>;
+
 type ThreadState = {
   activeFolderKey: string | null;
   hasMore: boolean;
@@ -28,7 +42,9 @@ type ThreadState = {
   selectedThreadId: string | null;
   applyThreadLabels: (threadIds: string[], labelIds: string[]) => void;
   applyThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
+  createThreadSnapshot: () => ThreadUndoSnapshot;
   moveThreadsToFolder: (threadIds: string[], folderId: string) => void;
+  restoreThreadSnapshot: (snapshot: ThreadUndoSnapshot) => void;
   fetchMore: (accountId: string, folderId: string, fallbackThreads?: ThreadRecord[]) => Promise<void>;
   fetchThreads: (
     accountId: string,
@@ -57,6 +73,23 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
   threadsByFolderKey: {},
   threadSummaries: [],
   selectedThreadId: null,
+  createThreadSnapshot: () => {
+    const state = get();
+
+    return {
+      activeFolderKey: state.activeFolderKey,
+      hasMore: state.hasMore,
+      hasMoreByFolderKey: state.hasMoreByFolderKey,
+      offset: state.offset,
+      offsetByFolderKey: state.offsetByFolderKey,
+      selectedThreadId: state.selectedThreadId,
+      threadRecords: state.threadRecords,
+      threads: state.threads,
+      threadsByFolderKey: state.threadsByFolderKey,
+      threadSummaries: state.threadSummaries
+    };
+  },
+  restoreThreadSnapshot: (snapshot) => set(snapshot),
   applyThreadLabels: (threadIds, labelIds) =>
     set((state) => {
       const selectedThreadIds = new Set(threadIds);

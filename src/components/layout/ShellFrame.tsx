@@ -9,6 +9,7 @@ import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboa
 import type { AttachmentRecord, FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 import type { StoreThreadAction } from '@stores/useThreadStore';
 import { type ShortcutAction, useShortcutStore } from '@stores/useShortcutStore';
+import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
 
 type ShellFrameProps = {
@@ -81,6 +82,9 @@ export const ShellFrame = ({
   const [shortcutStatusLabel, setShortcutStatusLabel] = useState<string | null>(null);
   const [threadDialogRequest, setThreadDialogRequest] = useState<ThreadDialogRequest | null>(null);
   const shortcutBindings = useShortcutStore((state) => state.bindings);
+  const currentUndoToast = useUndoStore((state) => state.currentToast);
+  const dismissUndoToast = useUndoStore((state) => state.dismiss);
+  const runUndo = useUndoStore((state) => state.undo);
   const isSidebarCollapsed = useUIStore((state) => state.isSidebarCollapsed);
   const layoutMode = useUIStore((state) => state.layoutMode);
   const themeId = useUIStore((state) => state.themeId);
@@ -151,10 +155,13 @@ export const ShellFrame = ({
     }));
     reportThreadShortcut(label);
   }, [reportThreadShortcut, selectedThread]);
+  const runUndoShortcut = useCallback(() => {
+    void runUndo().then(() => setShortcutStatusLabel('Undo applied'));
+  }, [runUndo]);
   const shortcutMap = useMemo(() => {
     const actionHandlers: Partial<Record<ShortcutAction, () => void>> = {
       'action.redo': () => setShortcutStatusLabel('Redo shortcut ready'),
-      'action.undo': () => setShortcutStatusLabel('Undo shortcut ready'),
+      'action.undo': runUndoShortcut,
       'compose.new': () => {
         setSidebarCollapsed(false);
         setIsComposerOpen(true);
@@ -197,6 +204,7 @@ export const ShellFrame = ({
     openSelectedThreadDialog,
     reportThreadShortcut,
     runSelectedThreadAction,
+    runUndoShortcut,
     selectSystemFolder,
     selectThreadByOffset,
     setSidebarCollapsed,
@@ -204,6 +212,18 @@ export const ShellFrame = ({
   ]);
 
   useKeyboardShortcuts(shortcutMap);
+
+  useEffect(() => {
+    if (!currentUndoToast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(dismissUndoToast, 5000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentUndoToast, dismissUndoToast]);
 
   useEffect(() => {
     if (!isResizingThreadPanel) {
@@ -346,6 +366,14 @@ export const ShellFrame = ({
           syncStatusLabel={syncStatusLabel}
           totalUnreadCount={totalUnreadCount}
         />
+        {currentUndoToast ? (
+          <div aria-label="Undo notification" className="undo-toast" role="status">
+            <span>{currentUndoToast.description}</span>
+            <button onClick={() => void runUndo()} type="button" aria-label="Undo last action">
+              Undo
+            </button>
+          </div>
+        ) : null}
       </main>
     </div>
   );

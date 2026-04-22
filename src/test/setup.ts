@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { beforeEach } from 'vitest';
 import { defaultShortcutBindings, useShortcutStore } from '@stores/useShortcutStore';
 import { useThreadStore } from '@stores/useThreadStore';
+import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
 
 if (!window.matchMedia) {
@@ -45,4 +46,5 @@ beforeEach(() => {
     threadSummaries: [],
     selectedThreadId: null
   });
+  useUndoStore.setState({ actions: [], currentToast: null });
 });

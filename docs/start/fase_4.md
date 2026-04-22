@@ -500,9 +500,9 @@ export function ThreadListToolbar() {
 - [x] Label dialog funciona
 - [x] Atalhos de teclado funcionam
 - [x] Optimistic update (UI atualiza antes do IMAP)
-- [ ] Undo funciona (snackbar com "Undo" button)
+- [x] Undo funciona (snackbar com "Undo" button)
 
-> Status: toolbar contextual, quick actions, context menu e atalhos de archive/trash/star aplicam atualizacoes locais otimistas via `useThreadStore`. O dialog de mover threads lista os folders da conta e aplica a movimentacao otimista entre caches. O dialog de labels aplica etiquetas existentes e cria ids locais para novas etiquetas. Atalhos `v` e `l` abrem move/label para a thread selecionada. Undo fica para o proximo corte.
+> Status: toolbar contextual, quick actions, context menu e atalhos de archive/trash/star aplicam atualizacoes locais otimistas via `useThreadStore`. O dialog de mover threads lista os folders da conta e aplica a movimentacao otimista entre caches. O dialog de labels aplica etiquetas existentes e cria ids locais para novas etiquetas. Atalhos `v` e `l` abrem move/label para a thread selecionada. Undo por snackbar e `Cmd+Z` restaura snapshots locais das acoes otimistas.
 
 ---
 
@@ -603,10 +603,12 @@ interface UndoState {
 - `Cmd+Z` executa undo
 
 **Criterio de aceite:**
-- [ ] Toast de undo aparece apos acoes destrutivas
-- [ ] Click em "Undo" reverte a acao
-- [ ] Cmd+Z funciona
-- [ ] Toast auto-dismiss apos 5s
+- [x] Toast de undo aparece apos acoes destrutivas
+- [x] Click em "Undo" reverte a acao
+- [x] Cmd+Z funciona
+- [x] Toast auto-dismiss apos 5s
+
+> Status: `useUndoStore` gerencia o toast atual e historico curto de undo. A shell cria snapshots do `useThreadStore` antes de acoes otimistas e restaura via botao ou `Cmd+Z`; redo fica para uma evolucao posterior.
 
 ---
 

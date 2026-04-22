@@ -209,6 +209,27 @@ describe('phase 3 domain stores', () => {
     expect(useThreadStore.getState().threadsByFolderKey['acc_1:archive']?.map((thread) => thread.id)).toEqual(['thr_1']);
   });
 
+  it('restores an optimistic thread snapshot for undo', () => {
+    useThreadStore.getState().setThreadSummaries([threadSummary('thr_1'), threadSummary('thr_2')]);
+    useThreadStore.getState().setThreadRecords([threadRecord('thr_1'), threadRecord('thr_2')]);
+    useThreadStore.setState({
+      activeFolderKey: 'acc_1:inbox',
+      threads: [threadSummary('thr_1'), threadSummary('thr_2')],
+      threadsByFolderKey: {
+        'acc_1:inbox': [threadSummary('thr_1'), threadSummary('thr_2')]
+      },
+      selectedThreadId: 'thr_1'
+    });
+    const snapshot = useThreadStore.getState().createThreadSnapshot();
+
+    useThreadStore.getState().applyThreadAction('archive', ['thr_1']);
+    useThreadStore.getState().restoreThreadSnapshot(snapshot);
+
+    expect(useThreadStore.getState().threads.map((thread) => thread.id)).toEqual(['thr_1', 'thr_2']);
+    expect(useThreadStore.getState().threadRecords.map((thread) => thread.id)).toEqual(['thr_1', 'thr_2']);
+    expect(useThreadStore.getState().selectedThreadId).toBe('thr_1');
+  });
+
   it('applies label ids to thread records optimistically', () => {
     useThreadStore.getState().setThreadRecords([
       { ...threadRecord('thr_1'), label_ids: ['lbl_existing'] },
