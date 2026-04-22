@@ -559,11 +559,13 @@ pub async fn search_messages(
 
 **Criterio de aceite:**
 - [ ] Busca full-text funciona
-- [ ] Filtros estruturados funcionam (from, to, subject, etc.)
+- [x] Filtros estruturados funcionam (from, to, subject, etc.)
 - [ ] Autocomplete de contatos
 - [ ] Resultados exibidos como thread list
 - [ ] Performance: busca em <500ms para 100k mensagens
 - [ ] Cmd+K abre busca
+
+> Status: `parseSearchQuery` cobre texto livre e filtros `from:`, `to:`, `subject:`, `has:attachment`, `is:unread`, `is:starred`, `after:`, `before:` e `in:`. O fallback web/demo de `useSearchThreads` usa o parser para filtrar `ThreadRecord`s e a shell exibe os resultados na `ThreadList`; full-text via backend, autocomplete e benchmark ficam para cortes posteriores.
 
 ---
 

@@ -60,6 +60,24 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByText('No results found')).toBeInTheDocument();
   });
 
+  it('filters fallback threads with structured search syntax', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const searchInput = await screen.findByRole('textbox');
+    fireEvent.change(searchInput, { target: { value: 'from:infra subject:health is:starred' } });
+
+    expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
+    expect(await screen.findByText('Search results for "from:infra subject:health is:starred"')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Premium motion system approved' })).not.toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: 'has:attachment from:release' } });
+    expect(await screen.findByText('No results found')).toBeInTheDocument();
+  });
+
   it('supports phase 3 keyboard shortcuts for search, composer, and thread navigation', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

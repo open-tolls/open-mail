@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ThreadRecord, ThreadSummary } from '@lib/contracts';
+import { matchesParsedSearchQuery, parseSearchQuery } from '@lib/search-query';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 
 const toThreadSummary = (threads: ThreadRecord[]): ThreadSummary[] =>
@@ -14,13 +15,6 @@ const toThreadSummary = (threads: ThreadRecord[]): ThreadSummary[] =>
     messageCount: thread.message_count,
     lastMessageAt: thread.last_message_at
   }));
-
-const includesQuery = (thread: ThreadRecord, query: string) => {
-  const normalizedQuery = query.toLocaleLowerCase('pt-BR');
-  return [thread.subject, thread.snippet, ...thread.participant_ids].some((value) =>
-    value.toLocaleLowerCase('pt-BR').includes(normalizedQuery)
-  );
-};
 
 export const useSearchThreads = (
   accountId: string | null,
@@ -41,7 +35,8 @@ export const useSearchThreads = (
       }
 
       if (!tauriRuntime.isAvailable()) {
-        return toThreadSummary(fallbackThreads.filter((thread) => includesQuery(thread, trimmedQuery)));
+        const parsedQuery = parseSearchQuery(trimmedQuery);
+        return toThreadSummary(fallbackThreads.filter((thread) => matchesParsedSearchQuery(thread, parsedQuery)));
       }
 
       return api.mailbox.searchThreads(accountId, trimmedQuery);
