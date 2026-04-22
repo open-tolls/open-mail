@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import { Command, Search } from 'lucide-react';
 import { SearchSuggestions } from '@components/search/SearchSuggestions';
 import { StatusBadge } from '@components/ui/StatusBadge';
@@ -30,6 +30,7 @@ export const MailTopbar = ({
   onSearchQueryChange,
   onToggleLayoutMode
 }: MailTopbarProps) => {
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const completeSearchSuggestion = (value: string) => {
     const prefix = searchQuery.trim().split(/\s+/).slice(0, -1).join(' ');
     onSearchQueryChange(prefix ? `${prefix} ${value}` : value);
@@ -43,6 +44,8 @@ export const MailTopbar = ({
           <input
             ref={searchInputRef}
             onChange={(event) => onSearchQueryChange(event.target.value)}
+            onBlur={() => setIsSearchFocused(false)}
+            onFocus={() => setIsSearchFocused(true)}
             placeholder="Search threads, people, commands"
             value={searchQuery}
           />
@@ -53,7 +56,7 @@ export const MailTopbar = ({
         </label>
         <SearchSuggestions
           folders={folders}
-          isOpen={document.activeElement === searchInputRef.current || searchQuery.trim().length > 0}
+          isOpen={isSearchFocused || searchQuery.trim().length > 0}
           onSelect={completeSearchSuggestion}
           query={searchQuery}
           threads={threads}

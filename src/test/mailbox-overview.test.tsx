@@ -105,6 +105,7 @@ describe('mailbox overview integration', () => {
     const searchInput = await screen.findByRole('textbox');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     expect(searchInput).toHaveFocus();
+    expect(await screen.findByRole('listbox', { name: 'Search suggestions' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'n', metaKey: true });
     expect(await screen.findByLabelText(/^to$/i)).toBeInTheDocument();
