@@ -78,6 +78,7 @@ const MailShell = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
+  const moveThreadsToFolder = useThreadStore((state) => state.moveThreadsToFolder);
   const updateThread = useThreadStore((state) => state.updateThread);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const folderThreadsQuery = useThreads({
@@ -266,6 +267,9 @@ const MailShell = () => {
   const handleThreadAction = (action: StoreThreadAction, threadIds: string[]) => {
     applyThreadAction(action, threadIds);
   };
+  const handleMoveThreads = (threadIds: string[], folderId: string) => {
+    moveThreadsToFolder(threadIds, folderId);
+  };
   const handleOpenExternalLink = (url: string) => {
     if (!tauriRuntime.isAvailable()) {
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -336,6 +340,7 @@ const MailShell = () => {
       isThreadsLoading={folderThreadsQuery.isLoading || searchThreadsQuery.isLoading}
       hasMoreThreads={!isSearchActive && folderThreadsQuery.hasMore}
       onLoadMoreThreads={folderThreadsQuery.loadMore}
+      onMoveThreads={handleMoveThreads}
       onThreadAction={handleThreadAction}
       onSelectFolder={handleSelectFolder}
       onSearchQueryChange={setSearchQuery}

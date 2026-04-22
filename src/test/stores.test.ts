@@ -188,6 +188,27 @@ describe('phase 3 domain stores', () => {
     expect(useThreadStore.getState().threadsByFolderKey['acc_1:inbox']?.map((thread) => thread.id)).toEqual(['thr_2']);
   });
 
+  it('moves threads between folder caches optimistically', () => {
+    useThreadStore.getState().setThreadSummaries([threadSummary('thr_1'), threadSummary('thr_2')]);
+    useThreadStore.getState().setThreadRecords([threadRecord('thr_1'), threadRecord('thr_2')]);
+    useThreadStore.setState({
+      activeFolderKey: 'acc_1:inbox',
+      threads: [threadSummary('thr_1'), threadSummary('thr_2')],
+      threadsByFolderKey: {
+        'acc_1:inbox': [threadSummary('thr_1'), threadSummary('thr_2')],
+        'acc_1:archive': []
+      },
+      selectedThreadId: 'thr_1'
+    });
+
+    useThreadStore.getState().moveThreadsToFolder(['thr_1'], 'archive');
+
+    expect(useThreadStore.getState().threads.map((thread) => thread.id)).toEqual(['thr_2']);
+    expect(useThreadStore.getState().selectedThreadId).toBe('thr_2');
+    expect(useThreadStore.getState().threadRecords[0]?.folder_ids).toEqual(['archive']);
+    expect(useThreadStore.getState().threadsByFolderKey['acc_1:archive']?.map((thread) => thread.id)).toEqual(['thr_1']);
+  });
+
   it('fetches paginated folder threads from fallback records and caches by folder', async () => {
     const records = Array.from({ length: 75 }, (_, index) => threadRecord(`thr_${index}`));
 

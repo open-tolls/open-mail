@@ -1,8 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { ThreadListPanel } from '@components/layout/ThreadListPanel';
 import { ThreadList } from '@components/thread-list/ThreadList';
 import { filterThreads } from '@components/thread-list/threadListUtils';
-import type { ThreadSummary } from '@lib/contracts';
+import type { FolderRecord, ThreadSummary } from '@lib/contracts';
+
+const folder = (id: string, name: string): FolderRecord => ({
+  id,
+  account_id: 'acc_demo',
+  name,
+  path: name,
+  role: id,
+  unread_count: 0,
+  total_count: 1,
+  created_at: '2026-03-13T10:00:00Z',
+  updated_at: '2026-03-13T10:00:00Z'
+});
 
 const makeThread = (index: number, overrides: Partial<ThreadSummary> = {}): ThreadSummary => ({
   id: `thr_${index}`,
@@ -140,5 +153,32 @@ describe('ThreadList', () => {
     expect(filterThreads(threads, 'starred')).toHaveLength(1);
     expect(filterThreads(threads, 'attachments')).toHaveLength(1);
     expect(filterThreads(threads, 'all')).toHaveLength(3);
+  });
+
+  it('opens a move dialog and reports the selected destination folder', () => {
+    const onMoveThreads = vi.fn();
+
+    render(
+      <ThreadListPanel
+        activeFolderName="Inbox"
+        folders={[folder('fld_inbox', 'Inbox'), folder('fld_archive', 'Archive')]}
+        isSearchActive={false}
+        onMoveThreads={onMoveThreads}
+        onSelectThread={vi.fn()}
+        searchQuery=""
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Thread 0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected threads to folder' }));
+
+    expect(screen.getByRole('dialog', { name: 'Move threads dialog' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+    expect(onMoveThreads).toHaveBeenCalledWith(['thr_0'], 'fld_archive');
+    expect(screen.queryByRole('dialog', { name: 'Move threads dialog' })).not.toBeInTheDocument();
   });
 });

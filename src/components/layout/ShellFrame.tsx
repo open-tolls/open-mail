@@ -30,6 +30,7 @@ type ShellFrameProps = {
   isThreadsLoading?: boolean;
   onSelectFolder: (folderId: string) => void;
   onLoadMoreThreads?: () => Promise<void> | void;
+  onMoveThreads: (threadIds: string[], folderId: string) => void;
   onThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   onSearchQueryChange: (query: string) => void;
   onSelectThread: (threadId: string) => void;
@@ -60,6 +61,7 @@ export const ShellFrame = ({
   isThreadsLoading = false,
   onSelectFolder,
   onLoadMoreThreads,
+  onMoveThreads,
   onThreadAction,
   onSearchQueryChange,
   onSelectThread,
@@ -270,10 +272,12 @@ export const ShellFrame = ({
         >
           <ThreadListPanel
             activeFolderName={activeFolder?.name ?? null}
+            folders={folders}
             hasMore={hasMoreThreads}
             isSearchActive={isSearchActive}
             isLoading={isThreadsLoading}
             onLoadMore={onLoadMoreThreads}
+            onMoveThreads={onMoveThreads}
             onThreadAction={onThreadAction}
             searchQuery={searchQuery}
             selectedThreadId={selectedThreadId}

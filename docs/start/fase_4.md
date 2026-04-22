@@ -496,13 +496,13 @@ export function ThreadListToolbar() {
 **Criterio de aceite:**
 - [x] Toolbar aparece ao selecionar thread(s)
 - [x] Archive, trash, star, mark read/unread funcionam
-- [ ] Move to folder dialog funciona
+- [x] Move to folder dialog funciona
 - [ ] Label dialog funciona
 - [ ] Atalhos de teclado funcionam
 - [x] Optimistic update (UI atualiza antes do IMAP)
 - [ ] Undo funciona (snackbar com "Undo" button)
 
-> Status: toolbar contextual, quick actions, context menu e atalhos de archive/trash/star aplicam atualizacoes locais otimistas via `useThreadStore`. Move/label dialogs, cobertura completa de atalhos e undo ficam para os proximos cortes.
+> Status: toolbar contextual, quick actions, context menu e atalhos de archive/trash/star aplicam atualizacoes locais otimistas via `useThreadStore`. O dialog de mover threads lista os folders da conta e aplica a movimentacao otimista entre caches. Label dialog, cobertura completa de atalhos e undo ficam para os proximos cortes.
 
 ---
 
@@ -628,7 +628,7 @@ npm install -D @types/dompurify
 | Unit        | Search query parser                             | Vitest          |
 | Unit        | Date formatting (relative dates)                | Vitest          |
 | Integracao  | useThreads hook (mock Tauri invoke)             | Vitest          |
-| Integracao  | Thread actions (archive, trash, star)           | Vitest          |
+| Integracao  | Thread actions (archive, trash, star, move)     | Vitest          |
 | E2E         | Navegar inbox → selecionar thread → ler email   | Playwright      |
 | E2E         | Buscar email → ver resultado                    | Playwright      |
 

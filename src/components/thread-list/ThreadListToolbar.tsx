@@ -1,6 +1,6 @@
-import { Archive, MailOpen, Star, Trash2 } from 'lucide-react';
+import { Archive, FolderInput, MailOpen, Star, Trash2 } from 'lucide-react';
 
-export type ThreadAction = 'archive' | 'trash' | 'toggle-read' | 'star';
+export type ThreadAction = 'archive' | 'trash' | 'toggle-read' | 'star' | 'move';
 
 type ThreadListToolbarProps = {
   selectedCount: number;
@@ -30,6 +30,10 @@ export const ThreadListToolbar = ({ selectedCount, onAction }: ThreadListToolbar
       <button aria-label="Star selected threads" onClick={() => onAction('star')} type="button">
         <Star size={15} />
         Star
+      </button>
+      <button aria-label="Move selected threads to folder" onClick={() => onAction('move')} type="button">
+        <FolderInput size={15} />
+        Move
       </button>
     </div>
   );

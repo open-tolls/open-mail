@@ -27,6 +27,7 @@ type ThreadState = {
   threadSummaries: ThreadSummary[];
   selectedThreadId: string | null;
   applyThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
+  moveThreadsToFolder: (threadIds: string[], folderId: string) => void;
   fetchMore: (accountId: string, folderId: string, fallbackThreads?: ThreadRecord[]) => Promise<void>;
   fetchThreads: (
     accountId: string,
@@ -122,6 +123,41 @@ export const useThreadStore = create<ThreadState>((set, get) => ({
             folderKey,
             threads.map(updateSummary)
           ])
+        )
+      };
+    }),
+  moveThreadsToFolder: (threadIds, folderId) =>
+    set((state) => {
+      const selectedThreadIds = new Set(threadIds);
+      const activeFolderId = state.activeFolderKey?.split(':')[1];
+      const movedThreads = state.threads.filter((thread) => selectedThreadIds.has(thread.id));
+      const nextThreads = state.threads.filter((thread) => !selectedThreadIds.has(thread.id));
+
+      return {
+        selectedThreadId: selectedThreadIds.has(state.selectedThreadId ?? '')
+          ? nextThreads[0]?.id ?? null
+          : state.selectedThreadId,
+        threads: nextThreads,
+        threadRecords: state.threadRecords.map((thread) =>
+          selectedThreadIds.has(thread.id)
+            ? {
+                ...thread,
+                folder_ids: Array.from(
+                  new Set([...thread.folder_ids.filter((id) => id !== activeFolderId), folderId])
+                )
+              }
+            : thread
+        ),
+        threadSummaries: state.threadSummaries.filter((thread) => !selectedThreadIds.has(thread.id)),
+        threadsByFolderKey: Object.fromEntries(
+          Object.entries(state.threadsByFolderKey).map(([folderKey, threads]) => {
+            if (folderKey.endsWith(`:${folderId}`)) {
+              const existingIds = new Set(threads.map((thread) => thread.id));
+              return [folderKey, [...threads, ...movedThreads.filter((thread) => !existingIds.has(thread.id))]];
+            }
+
+            return [folderKey, threads.filter((thread) => !selectedThreadIds.has(thread.id))];
+          })
         )
       };
     }),
