@@ -1,3 +1,5 @@
+use std::{fs, path::Path};
+
 use tauri::State;
 use uuid::Uuid;
 
@@ -50,6 +52,26 @@ async fn list_accounts_for_state(state: &AppState) -> Result<Vec<Account>, Strin
         .account_repo
         .find_all()
         .await
+        .map_err(|error| error.to_string())
+}
+
+fn download_attachment_file(
+    source_path: impl AsRef<Path>,
+    save_path: impl AsRef<Path>,
+) -> Result<(), String> {
+    let source_path = source_path.as_ref();
+    let save_path = save_path.as_ref();
+
+    if !source_path.is_file() {
+        return Err("Attachment file is unavailable".into());
+    }
+
+    if let Some(parent) = save_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    fs::copy(source_path, save_path)
+        .map(|_| ())
         .map_err(|error| error.to_string())
 }
 
@@ -450,6 +472,11 @@ pub async fn build_oauth_authorization_url(
 }
 
 #[tauri::command]
+pub async fn download_attachment(local_path: String, save_path: String) -> Result<(), String> {
+    download_attachment_file(local_path, save_path)
+}
+
+#[tauri::command]
 pub async fn open_external_url(url: String) -> Result<(), String> {
     let safe_url = validate_external_url(&url)?;
     open_url_with_system(&safe_url)
@@ -766,18 +793,20 @@ pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use std::{
+        fs,
         sync::atomic::{AtomicU64, Ordering},
         sync::Arc,
         time::{SystemTime, UNIX_EPOCH},
     };
 
     use super::{
-        build_oauth_authorization_url_for_request, enqueue_outbox_message_for_state,
-        flush_outbox_for_state, force_sync_for_state, get_message_for_state,
-        get_sync_status_detail_for_state, get_sync_status_for_state, list_messages_for_state,
-        list_threads_for_state, mailbox_overview_for_state, mark_messages_read_for_state,
-        search_threads_for_state, seed_demo_data, start_sync_for_state, stop_sync_for_state,
-        validate_external_url, BuildOAuthAuthorizationUrlRequest, EnqueueOutboxMessageRequest,
+        build_oauth_authorization_url_for_request, download_attachment_file,
+        enqueue_outbox_message_for_state, flush_outbox_for_state, force_sync_for_state,
+        get_message_for_state, get_sync_status_detail_for_state, get_sync_status_for_state,
+        list_messages_for_state, list_threads_for_state, mailbox_overview_for_state,
+        mark_messages_read_for_state, search_threads_for_state, seed_demo_data,
+        start_sync_for_state, stop_sync_for_state, validate_external_url,
+        BuildOAuthAuthorizationUrlRequest, EnqueueOutboxMessageRequest,
     };
     use crate::{
         domain::models::{
@@ -1102,5 +1131,28 @@ mod tests {
         );
         assert!(validate_external_url("javascript:alert(1)").is_err());
         assert!(validate_external_url("file:///etc/passwd").is_err());
+    }
+
+    #[test]
+    fn download_attachment_file_copies_local_attachment_to_selected_path() {
+        let unique_suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let source_path =
+            std::env::temp_dir().join(format!("open-mail-attachment-source-{unique_suffix}.txt"));
+        let save_path =
+            std::env::temp_dir().join(format!("open-mail-attachment-save-{unique_suffix}.txt"));
+        fs::write(&source_path, "attachment payload").unwrap();
+
+        download_attachment_file(&source_path, &save_path).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&save_path).unwrap(),
+            "attachment payload"
+        );
+
+        let _ = fs::remove_file(source_path);
+        let _ = fs::remove_file(save_path);
     }
 }

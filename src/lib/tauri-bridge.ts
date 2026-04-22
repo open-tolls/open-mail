@@ -43,6 +43,10 @@ export const api = {
     markUnread: (messageIds: string[]) =>
       invokeOrThrow<string[]>('mark_messages_unread', { messageIds })
   },
+  attachments: {
+    download: (localPath: string, savePath: string) =>
+      invokeOrThrow<void>('download_attachment', { localPath, savePath })
+  },
   outbox: {
     enqueue: (request: EnqueueOutboxMessageRequest) =>
       invokeOrThrow<OutboxMessage>('enqueue_outbox_message', { request }),

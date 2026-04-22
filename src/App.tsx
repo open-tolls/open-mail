@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { save } from '@tauri-apps/plugin-dialog';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
 import { ComponentGallery } from '@components/dev/ComponentGallery';
 import { ShellFrame } from '@components/layout/ShellFrame';
@@ -11,7 +12,8 @@ import { useSearchThreads } from '@hooks/useSearchThreads';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
-import type { EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport } from '@lib/contracts';
+import { downloadAttachment } from '@lib/attachment-download';
+import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport } from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useUIStore } from '@stores/useUIStore';
@@ -236,6 +238,39 @@ const MailShell = () => {
       window.open(url, '_blank', 'noopener,noreferrer');
     });
   };
+  const handleDownloadAttachment = (attachment: AttachmentRecord) => {
+    if (!tauriRuntime.isAvailable()) {
+      setOutboxStatus('Attachment download requires the desktop runtime');
+      return;
+    }
+
+    setOutboxStatus(`Preparing ${attachment.filename}...`);
+    void downloadAttachment(attachment, {
+      saveAttachmentFile: api.attachments.download,
+      showSaveDialog: (options) =>
+        save({
+          title: `Save ${attachment.filename}`,
+          canCreateDirectories: true,
+          ...options
+        })
+    })
+      .then((result) => {
+        if (result === 'saved') {
+          setOutboxStatus(`Saved ${attachment.filename}`);
+          return;
+        }
+
+        if (result === 'missing-local-file') {
+          setOutboxStatus(`Attachment file unavailable: ${attachment.filename}`);
+          return;
+        }
+
+        setOutboxStatus(`Download cancelled: ${attachment.filename}`);
+      })
+      .catch(() => {
+        setOutboxStatus(`Could not save ${attachment.filename}`);
+      });
+  };
   const resolveInlineImageUrl = (localPath: string) => api.system.toAssetUrl(localPath);
 
   return (
@@ -268,6 +303,7 @@ const MailShell = () => {
       onSelectThread={handleSelectThread}
       onSelectMessage={setSelectedMessageId}
       onOpenExternalLink={handleOpenExternalLink}
+      onDownloadAttachment={handleDownloadAttachment}
       resolveInlineImageUrl={resolveInlineImageUrl}
       onSendDraft={handleSendDraft}
       onFlushOutbox={handleFlushOutbox}

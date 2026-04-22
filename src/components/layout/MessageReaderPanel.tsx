@@ -1,6 +1,6 @@
 import { MessageList } from '@components/message-list/MessageList';
 import { StatusBadge } from '@components/ui/StatusBadge';
-import type { MessageRecord, ThreadSummary } from '@lib/contracts';
+import type { AttachmentRecord, MessageRecord, ThreadSummary } from '@lib/contracts';
 
 type MessageReaderPanelProps = {
   isMessagesLoading: boolean;
@@ -9,6 +9,7 @@ type MessageReaderPanelProps = {
   selectedThread: ThreadSummary | null;
   onOpenExternalLink: (url: string) => void;
   onSelectMessage: (messageId: string) => void;
+  onDownloadAttachment: (attachment: AttachmentRecord) => void;
   resolveInlineImageUrl: (localPath: string) => string;
 };
 
@@ -19,6 +20,7 @@ export const MessageReaderPanel = ({
   selectedThread,
   onOpenExternalLink,
   onSelectMessage,
+  onDownloadAttachment,
   resolveInlineImageUrl
 }: MessageReaderPanelProps) => {
   return (
@@ -44,6 +46,7 @@ export const MessageReaderPanel = ({
           threadSubject={selectedThread.subject}
           onOpenExternalLink={onOpenExternalLink}
           onSelectMessage={onSelectMessage}
+          onDownloadAttachment={onDownloadAttachment}
           resolveInlineImageUrl={resolveInlineImageUrl}
         />
       ) : null}

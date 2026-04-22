@@ -446,12 +446,12 @@ pub async fn get_attachment_data(
 
 **Criterio de aceite:**
 - [x] Anexos listados com icone, nome e tamanho
-- [ ] Download funciona (dialog de salvar)
+- [x] Download funciona (dialog de salvar)
 - [x] Preview de imagens inline
 - [x] Preview de PDF (via iframe ou lib)
 - [ ] Drag & drop de anexo para desktop (futuro)
 
-> Status: attachments exibem tipo visual, nome, MIME, tamanho formatado, acao de download via callback, preview inline para imagens com `local_path` e preview de PDFs locais via iframe. Dialog nativo de salvar e drag/drop ficam para cortes posteriores.
+> Status: attachments exibem tipo visual, nome, MIME, tamanho formatado, download por dialog nativo de salvar, preview inline para imagens com `local_path` e preview de PDFs locais via iframe. Drag/drop fica para corte posterior.
 
 ---
 

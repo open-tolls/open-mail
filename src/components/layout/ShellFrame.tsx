@@ -6,7 +6,7 @@ import { MailTopbar } from '@components/layout/MailTopbar';
 import { MessageReaderPanel } from '@components/layout/MessageReaderPanel';
 import { ThreadListPanel } from '@components/layout/ThreadListPanel';
 import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboardShortcuts';
-import type { FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
+import type { AttachmentRecord, FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 import { type ShortcutAction, useShortcutStore } from '@stores/useShortcutStore';
 import { useUIStore } from '@stores/useUIStore';
 
@@ -33,6 +33,7 @@ type ShellFrameProps = {
   onSelectThread: (threadId: string) => void;
   onSelectMessage: (messageId: string) => void;
   onOpenExternalLink: (url: string) => void;
+  onDownloadAttachment: (attachment: AttachmentRecord) => void;
   resolveInlineImageUrl: (localPath: string) => string;
   onSendDraft: (draft: { to: string; subject: string; body: string }) => Promise<void>;
   onFlushOutbox: () => Promise<void>;
@@ -61,6 +62,7 @@ export const ShellFrame = ({
   onSelectThread,
   onSelectMessage,
   onOpenExternalLink,
+  onDownloadAttachment,
   resolveInlineImageUrl,
   onSendDraft,
   onFlushOutbox
@@ -287,6 +289,7 @@ export const ShellFrame = ({
             selectedThread={selectedThread}
             onOpenExternalLink={onOpenExternalLink}
             onSelectMessage={onSelectMessage}
+            onDownloadAttachment={onDownloadAttachment}
             resolveInlineImageUrl={resolveInlineImageUrl}
           />
         </section>

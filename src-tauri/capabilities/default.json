@@ -3,6 +3,5 @@
   "identifier": "default",
   "description": "Default capability for the Open Mail desktop shell.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-save"]
 }
-

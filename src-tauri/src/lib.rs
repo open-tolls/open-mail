@@ -6,10 +6,10 @@ pub mod plugins;
 use std::{path::PathBuf, sync::Arc};
 
 use commands::{
-    build_oauth_authorization_url, enqueue_outbox_message, flush_outbox, force_sync, get_message,
-    get_sync_status, get_sync_status_detail, health_check, list_accounts, list_folders,
-    list_messages, list_threads, mailbox_overview, mark_messages_read, mark_messages_unread,
-    open_external_url, search_threads, start_sync, stop_sync,
+    build_oauth_authorization_url, download_attachment, enqueue_outbox_message, flush_outbox,
+    force_sync, get_message, get_sync_status, get_sync_status_detail, health_check, list_accounts,
+    list_folders, list_messages, list_threads, mailbox_overview, mark_messages_read,
+    mark_messages_unread, open_external_url, search_threads, start_sync, stop_sync,
 };
 use domain::events::DomainEvent;
 use domain::repositories::{
@@ -65,6 +65,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(state)
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             sync_manager.set_event_emitter(Arc::new(TauriSyncEventEmitter {
                 app_handle: app.handle().clone(),
@@ -94,6 +95,7 @@ pub fn run() {
             enqueue_outbox_message,
             flush_outbox,
             build_oauth_authorization_url,
+            download_attachment,
             open_external_url,
             mark_messages_read,
             mark_messages_unread
