@@ -7,7 +7,7 @@ import { MailTopbar } from '@components/layout/MailTopbar';
 import { MessageReaderPanel } from '@components/layout/MessageReaderPanel';
 import { ThreadListPanel, type ThreadDialogRequest } from '@components/layout/ThreadListPanel';
 import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboardShortcuts';
-import { prepareReplyDraft } from '@lib/compose-utils';
+import { prepareForwardDraft, prepareReplyDraft } from '@lib/compose-utils';
 import type { AttachmentRecord, FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 import type { StoreThreadAction } from '@stores/useThreadStore';
 import { type ShortcutAction, useShortcutStore } from '@stores/useShortcutStore';
@@ -165,6 +165,10 @@ export const ShellFrame = ({
     openComposerWithDraft(prepareReplyDraft(message, replyAll));
     setShortcutStatusLabel(replyAll ? 'Reply all draft ready' : 'Reply draft ready');
   }, [openComposerWithDraft]);
+  const handleForwardMessage = useCallback((message: MessageRecord) => {
+    openComposerWithDraft(prepareForwardDraft(message));
+    setShortcutStatusLabel('Forward draft ready');
+  }, [openComposerWithDraft]);
   const reportThreadShortcut = useCallback((label: string) => {
     setShortcutStatusLabel(
       selectedThread ? `${label}: ${selectedThread.subject}` : `${label}: no thread selected`
@@ -208,7 +212,14 @@ export const ShellFrame = ({
       'preferences.open': () => setShortcutStatusLabel('Preferences shortcut ready'),
       'search.focus': () => searchInputRef.current?.focus(),
       'thread.archive': () => runSelectedThreadAction('archive', 'Archive shortcut applied'),
-      'thread.forward': () => reportThreadShortcut('Forward shortcut queued'),
+      'thread.forward': () => {
+        if (!activeMessage) {
+          reportThreadShortcut('Forward shortcut queued');
+          return;
+        }
+
+        handleForwardMessage(activeMessage);
+      },
       'thread.label': () => openSelectedThreadDialog('label', 'Label shortcut opened'),
       'thread.move': () => openSelectedThreadDialog('move', 'Move shortcut opened'),
       'thread.next': () => selectThreadByOffset(1),
@@ -248,6 +259,7 @@ export const ShellFrame = ({
     }, {});
   }, [
     activeMessage,
+    handleForwardMessage,
     handleReplyMessage,
     openComposerWithDraft,
     openSelectedThreadDialog,
@@ -440,7 +452,7 @@ export const ShellFrame = ({
             messages={messages}
             selectedMessageId={selectedMessageId}
             selectedThread={selectedThread}
-            onForwardMessage={(message) => reportThreadShortcut(`Forward ready: ${message.subject}`)}
+            onForwardMessage={handleForwardMessage}
             onOpenExternalLink={onOpenExternalLink}
             onReplyAllMessage={(message) => handleReplyMessage(message, true)}
             onReplyMessage={(message) => handleReplyMessage(message, false)}

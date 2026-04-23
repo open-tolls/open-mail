@@ -379,4 +379,24 @@ describe('mailbox overview integration', () => {
       'Vamos fechar a base visual do composer e da thread list hoje.'
     );
   });
+
+  it('opens a forward draft with forwarded content from the selected message', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Forward' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forward' }));
+
+    const composer = await screen.findByRole('region', { name: /composer/i });
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Forward draft ready');
+    expect(screen.getByLabelText(/^subject$/i)).toHaveValue('Fwd: Premium motion system approved');
+    expect(within(composer).queryByTitle('atlas@example.com')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('Forwarded message');
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('From: Atlas Design');
+  });
 });

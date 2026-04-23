@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { prepareReplyDraft } from '@lib/compose-utils';
+import { prepareForwardDraft, prepareReplyDraft } from '@lib/compose-utils';
 import type { ContactRecord, MessageRecord } from '@lib/contracts';
 
 const contact = (email: string, options?: Partial<ContactRecord>): ContactRecord => ({
@@ -71,5 +71,25 @@ describe('prepareReplyDraft', () => {
 
     expect(draft.to).toEqual(['atlas@example.com', 'ops@example.com']);
     expect(draft.cc).toEqual(['design@example.com', 'ops@example.com']);
+  });
+});
+
+describe('prepareForwardDraft', () => {
+  it('prepares a forward with prefixed subject and forwarded content block', () => {
+    const draft = prepareForwardDraft(
+      message({
+        cc: [contact('review@example.com', { name: 'Review' })]
+      })
+    );
+
+    expect(draft.to).toEqual([]);
+    expect(draft.cc).toEqual([]);
+    expect(draft.subject).toBe('Fwd: Premium motion system approved');
+    expect(draft.inReplyTo).toBeNull();
+    expect(draft.references).toEqual([]);
+    expect(draft.body).toContain('Forwarded message');
+    expect(draft.body).toContain('Atlas Design <atlas@example.com>');
+    expect(draft.body).toContain('review@example.com');
+    expect(draft.body).toContain('Vamos fechar a base visual do composer.');
   });
 });

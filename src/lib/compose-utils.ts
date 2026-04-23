@@ -63,6 +63,26 @@ const quoteBody = (message: MessageRecord) => {
   ].join('');
 };
 
+const forwardBody = (message: MessageRecord) => {
+  const dateLabel = formatReplyDate(message.date);
+  const senderLabel = formatSender(message.from[0]);
+  const toLabel = toEmailList(message.to).join(', ') || 'Undisclosed recipients';
+  const ccLabel = toEmailList(message.cc).join(', ');
+
+  return [
+    '<p></p>',
+    '<div class="forward_quote">',
+    '<p>---------- Forwarded message ---------</p>',
+    `<p><strong>From:</strong> ${senderLabel}</p>`,
+    `<p><strong>Date:</strong> ${dateLabel}</p>`,
+    `<p><strong>Subject:</strong> ${message.subject || '(no subject)'}</p>`,
+    `<p><strong>To:</strong> ${toLabel}</p>`,
+    ccLabel ? `<p><strong>Cc:</strong> ${ccLabel}</p>` : '',
+    message.body || '<p></p>',
+    '</div>'
+  ].filter(Boolean).join('');
+};
+
 export const prepareReplyDraft = (message: MessageRecord, replyAll: boolean): Partial<ComposerDraft> => {
   const replyTargets = message.reply_to.length ? message.reply_to : message.from;
   const toContacts = replyAll
@@ -81,3 +101,14 @@ export const prepareReplyDraft = (message: MessageRecord, replyAll: boolean): Pa
     to: toEmailList(toContacts)
   };
 };
+
+export const prepareForwardDraft = (message: MessageRecord): Partial<ComposerDraft> => ({
+  attachments: [],
+  bcc: [],
+  body: forwardBody(message),
+  cc: [],
+  inReplyTo: null,
+  references: [],
+  subject: prefixSubject(message.subject, 'Fwd:'),
+  to: []
+});
