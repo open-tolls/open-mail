@@ -125,6 +125,17 @@ impl SqliteMessageRepository {
 
         Ok(labels)
     }
+
+    fn rebuild_message_fts(transaction: &rusqlite::Transaction<'_>) -> Result<(), DomainError> {
+        transaction
+            .execute(
+                "INSERT INTO messages_fts(messages_fts) VALUES('rebuild')",
+                [],
+            )
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -258,6 +269,8 @@ impl MessageRepository for SqliteMessageRepository {
                 .map_err(|error| DomainError::Database(error.to_string()))?;
         }
 
+        Self::rebuild_message_fts(&transaction)?;
+
         transaction
             .commit()
             .map_err(|error| DomainError::Database(error.to_string()))?;
@@ -272,9 +285,16 @@ impl MessageRepository for SqliteMessageRepository {
     }
 
     async fn delete(&self, id: &str) -> Result<(), DomainError> {
-        let connection = self.db.connection()?;
-        connection
+        let mut connection = self.db.connection()?;
+        let transaction = connection
+            .transaction()
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+        transaction
             .execute("DELETE FROM messages WHERE id = ?1", params![id])
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+        Self::rebuild_message_fts(&transaction)?;
+        transaction
+            .commit()
             .map_err(|error| DomainError::Database(error.to_string()))?;
         Ok(())
     }

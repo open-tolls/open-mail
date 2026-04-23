@@ -134,22 +134,46 @@ impl ThreadRepository for SqliteThreadRepository {
 
     async fn search(&self, account_id: &str, query: &str) -> Result<Vec<Thread>, DomainError> {
         let connection = self.db.connection()?;
-        let search_term = format!("%{query}%");
-        let mut statement = connection
-            .prepare(
-                "SELECT id, account_id, subject, snippet, message_count, has_attachments, is_unread, is_starred, last_message_at, last_message_sent_at, created_at, updated_at
-                 FROM threads
-                 WHERE account_id = ?1 AND (subject LIKE ?2 OR snippet LIKE ?2)
-                 ORDER BY last_message_at DESC",
-            )
-            .map_err(|error| DomainError::Database(error.to_string()))?;
+        let threads = if query.trim().is_empty() {
+            let mut statement = connection
+                .prepare(
+                    "SELECT id, account_id, subject, snippet, message_count, has_attachments, is_unread, is_starred, last_message_at, last_message_sent_at, created_at, updated_at
+                     FROM threads
+                     WHERE account_id = ?1
+                     ORDER BY last_message_at DESC",
+                )
+                .map_err(|error| DomainError::Database(error.to_string()))?;
 
-        let threads = statement
-            .query_map(params![account_id, search_term], map_thread)
-            .map_err(|error| DomainError::Database(error.to_string()))?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| DomainError::Database(error.to_string()))?;
-        drop(statement);
+            let threads = statement
+                .query_map(params![account_id], map_thread)
+                .map_err(|error| DomainError::Database(error.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| DomainError::Database(error.to_string()))?;
+            threads
+        } else {
+            let mut statement = connection
+                .prepare(
+                    "SELECT t.id, t.account_id, t.subject, t.snippet, t.message_count, t.has_attachments, t.is_unread, t.is_starred, t.last_message_at, t.last_message_sent_at, t.created_at, t.updated_at
+                     FROM threads t
+                     INNER JOIN (
+                        SELECT m.thread_id, MAX(m.date) AS last_match_at
+                        FROM messages_fts mf
+                        INNER JOIN messages m ON m.rowid = mf.rowid
+                        WHERE m.account_id = ?1 AND messages_fts MATCH ?2
+                        GROUP BY m.thread_id
+                     ) matches ON matches.thread_id = t.id
+                     WHERE t.account_id = ?1
+                     ORDER BY matches.last_match_at DESC, t.last_message_at DESC",
+                )
+                .map_err(|error| DomainError::Database(error.to_string()))?;
+
+            let threads = statement
+                .query_map(params![account_id, query], map_thread)
+                .map_err(|error| DomainError::Database(error.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| DomainError::Database(error.to_string()))?;
+            threads
+        };
         drop(connection);
 
         self.hydrate_threads(threads)

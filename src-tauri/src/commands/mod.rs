@@ -99,13 +99,20 @@ fn parse_thread_search_query(query: &str) -> ParsedThreadSearch {
     parsed
 }
 
+fn escape_fts_term(term: &str) -> String {
+    format!("\"{}\"", term.replace('"', "\"\"").trim())
+}
+
 fn thread_search_seed(parsed: &ParsedThreadSearch) -> String {
     parsed
         .terms
-        .first()
-        .or_else(|| parsed.subject.first())
-        .cloned()
-        .unwrap_or_default()
+        .iter()
+        .chain(parsed.subject.iter())
+        .map(|term| term.trim())
+        .filter(|term| !term.is_empty())
+        .map(escape_fts_term)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn parse_thread_search_date(
@@ -186,15 +193,7 @@ fn matches_thread_search(thread: &Thread, parsed: &ParsedThreadSearch) -> bool {
         return false;
     }
 
-    let searchable_values = [
-        vec![thread.subject.clone(), thread.snippet.clone()],
-        thread.participant_ids.clone(),
-        thread.folder_ids.clone(),
-        thread.label_ids.clone(),
-    ]
-    .concat();
-
-    matches_all(&searchable_values, &parsed.terms)
+    true
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -1127,6 +1126,29 @@ mod tests {
         assert!(release_attachments.is_empty());
         assert_eq!(date_only_after.len(), 3);
         assert!(date_only_before.is_empty());
+    }
+
+    #[tokio::test]
+    async fn thread_search_matches_message_full_text_body() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        let mut message = state
+            .message_repo
+            .find_by_id("msg_1")
+            .await
+            .unwrap()
+            .expect("seeded message should exist");
+        message.body = "<p>Vamos fechar a base visual com mockups auroraindexados.</p>".into();
+        message.plain_text = Some("Vamos fechar a base visual com mockups auroraindexados.".into());
+        state.message_repo.save(&message).await.unwrap();
+
+        let search_results = search_threads_for_state(&state, "acc_demo", "auroraindexados")
+            .await
+            .unwrap();
+
+        assert_eq!(search_results.len(), 1);
+        assert_eq!(search_results[0].id, "thr_1");
     }
 
     #[tokio::test]
