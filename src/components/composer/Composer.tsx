@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react';
+import { ComposerAttachments } from '@components/composer/ComposerAttachments';
 import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { ComposerFooter } from '@components/composer/ComposerFooter';
 import { ComposerHeader } from '@components/composer/ComposerHeader';
 
+type ComposerAttachment = {
+  file: File;
+  id: string;
+};
+
 type ComposerDraft = {
+  attachments: ComposerAttachment[];
   bcc: string[];
   body: string;
   cc: string[];
@@ -23,6 +30,7 @@ type ComposerProps = {
 };
 
 const defaultDraft: ComposerDraft = {
+  attachments: [],
   bcc: [],
   body: '<p>Open Mail phase 5 composer is ready for the next review.</p>',
   cc: [],
@@ -52,6 +60,7 @@ export const Composer = ({
   const [isBccVisible, setIsBccVisible] = useState(Boolean(mergedDraft.bcc.length));
 
   const isDirty =
+    draft.attachments.length !== mergedDraft.attachments.length ||
     draft.to.join(',') !== mergedDraft.to.join(',') ||
     draft.cc.join(',') !== mergedDraft.cc.join(',') ||
     draft.bcc.join(',') !== mergedDraft.bcc.join(',') ||
@@ -98,9 +107,27 @@ export const Composer = ({
         to={draft.to}
       />
       <ComposerEditor body={draft.body} onBodyChange={(value) => updateDraft('body', value)} />
+      <ComposerAttachments
+        attachments={draft.attachments}
+        onAdd={(files) =>
+          updateDraft('attachments', [
+            ...draft.attachments,
+            ...files.map((file) => ({
+              file,
+              id: `${file.name}-${file.size}-${file.lastModified}`
+            }))
+          ])
+        }
+        onRemove={(attachmentId) =>
+          updateDraft(
+            'attachments',
+            draft.attachments.filter((attachment) => attachment.id !== attachmentId)
+          )
+        }
+      />
       <ComposerFooter isSending={isSending} onFlushOutbox={onFlushOutbox} onSend={handleSend} status={status} />
     </section>
   );
 };
 
-export type { ComposerDraft };
+export type { ComposerAttachment, ComposerDraft };

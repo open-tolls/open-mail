@@ -38,6 +38,42 @@ const toSafeHtml = (value: string) =>
     .join('');
 
 const toMailAddresses = (emails: string[]) => emails.map((email) => ({ name: null, email }));
+const readFileBytes = async (file: File) => {
+  if (typeof file.arrayBuffer === 'function') {
+    return new Uint8Array(await file.arrayBuffer());
+  }
+
+  if (typeof Blob !== 'undefined' && file instanceof Blob) {
+    return new Uint8Array(await new Response(file).arrayBuffer());
+  }
+
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read attachment'));
+    reader.onload = () => {
+      const result = reader.result;
+
+      if (!(result instanceof ArrayBuffer)) {
+        reject(new Error('Unexpected attachment payload'));
+        return;
+      }
+
+      resolve(new Uint8Array(result));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+const toMimeAttachments = async (attachments: ComposerDraft['attachments']) =>
+  Promise.all(
+    attachments.map(async (attachment) => ({
+      filename: attachment.file.name,
+      contentType: attachment.file.type || 'application/octet-stream',
+      data: Array.from(await readFileBytes(attachment.file)),
+      isInline: false,
+      contentId: null
+    }))
+  );
 
 const htmlToPlainText = (value: string) =>
   value
@@ -141,7 +177,7 @@ const MailShell = () => {
         plainBody: htmlToPlainText(draft.body),
         inReplyTo: null,
         references: [],
-        attachments: []
+        attachments: await toMimeAttachments(draft.attachments)
       };
 
       if (!tauriRuntime.isAvailable()) {

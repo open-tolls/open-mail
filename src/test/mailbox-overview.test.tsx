@@ -325,6 +325,12 @@ describe('mailbox overview integration', () => {
         getData: () => 'cc-review@example.com,\ncc-ops@example.com'
       }
     });
+    fireEvent.change(screen.getByLabelText('Attach files'), {
+      target: {
+        files: [new File(['budget'], 'budget.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })]
+      }
+    });
+    expect(await screen.findByText('budget.xlsx')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Review package' } });
     fireEvent.click(screen.getByRole('button', { name: /^queue$/i }));
 

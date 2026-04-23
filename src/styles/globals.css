@@ -454,14 +454,62 @@ textarea {
   color: var(--accent);
 }
 
-.composer-attachments-placeholder {
+.composer-attachments {
   display: grid;
-  gap: 4px;
+  gap: 10px;
   padding: 14px;
   border: 1px dashed rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.composer-attachments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.composer-attachments-header button,
+.composer-attachment-item button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+}
+
+.composer-attachment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.composer-attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.composer-attachment-item div {
+  display: grid;
+  gap: 2px;
+}
+
+.composer-attachment-item span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.composer-attachments-empty {
+  margin: 0;
 }
 
 .composer-actions {
