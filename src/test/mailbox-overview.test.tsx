@@ -337,6 +337,7 @@ describe('mailbox overview integration', () => {
     await waitFor(() => {
       expect(screen.getByText('Queued 1 recipient(s)')).toBeInTheDocument();
     });
+    expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent('Queued 1 recipient(s)');
   });
 
   it('queues a composed message with Cmd+Enter from the shell', async () => {

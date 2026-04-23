@@ -27,6 +27,7 @@ type ShellFrameProps = {
   selectedMessageId: string | null;
   syncStatusDetail: SyncStatusDetail | null;
   outboxStatus: string;
+  composerToast: { kind: 'success' | 'error'; message: string } | null;
   recipientSuggestions: string[];
   isOutboxBusy: boolean;
   isMessagesLoading: boolean;
@@ -42,7 +43,7 @@ type ShellFrameProps = {
   onOpenExternalLink: (url: string) => void;
   onDownloadAttachment: (attachment: AttachmentRecord) => void;
   resolveInlineImageUrl: (localPath: string) => string;
-  onSendDraft: (draft: ComposerDraft) => Promise<void>;
+  onSendDraft: (draft: ComposerDraft) => Promise<boolean>;
   onFlushOutbox: () => Promise<void>;
 };
 
@@ -60,6 +61,7 @@ export const ShellFrame = ({
   selectedMessageId,
   syncStatusDetail,
   outboxStatus,
+  composerToast,
   recipientSuggestions,
   isOutboxBusy,
   isMessagesLoading,
@@ -84,6 +86,7 @@ export const ShellFrame = ({
   const [isResizingThreadPanel, setIsResizingThreadPanel] = useState(false);
   const [shortcutStatusLabel, setShortcutStatusLabel] = useState<string | null>(null);
   const [threadDialogRequest, setThreadDialogRequest] = useState<ThreadDialogRequest | null>(null);
+  const [visibleComposerToast, setVisibleComposerToast] = useState(composerToast);
   const shortcutBindings = useShortcutStore((state) => state.bindings);
   const currentUndoToast = useUndoStore((state) => state.currentToast);
   const dismissUndoToast = useUndoStore((state) => state.dismiss);
@@ -217,6 +220,22 @@ export const ShellFrame = ({
   useKeyboardShortcuts(shortcutMap);
 
   useEffect(() => {
+    setVisibleComposerToast(composerToast);
+
+    if (!composerToast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setVisibleComposerToast(null);
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [composerToast]);
+
+  useEffect(() => {
     if (!currentUndoToast) {
       return;
     }
@@ -318,8 +337,11 @@ export const ShellFrame = ({
             onClose={() => setIsComposerOpen(false)}
             onFlushOutbox={onFlushOutbox}
             onSend={async (draft) => {
-              await onSendDraft(draft);
-              setIsComposerOpen(false);
+              const didQueue = await onSendDraft(draft);
+              if (didQueue) {
+                setIsComposerOpen(false);
+              }
+              return didQueue;
             }}
           />
         ) : null}
@@ -391,6 +413,15 @@ export const ShellFrame = ({
             <button onClick={() => void runUndo()} type="button" aria-label="Undo last action">
               Undo
             </button>
+          </div>
+        ) : null}
+        {visibleComposerToast ? (
+          <div
+            aria-label="Composer notification"
+            className={['undo-toast', 'composer-toast', `composer-toast-${visibleComposerToast.kind}`].join(' ')}
+            role={visibleComposerToast.kind === 'error' ? 'alert' : 'status'}
+          >
+            <span>{visibleComposerToast.message}</span>
           </div>
         ) : null}
       </main>

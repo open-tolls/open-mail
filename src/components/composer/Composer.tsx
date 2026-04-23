@@ -26,7 +26,7 @@ type ComposerProps = {
   status: string;
   onClose: () => void;
   onFlushOutbox: () => Promise<void>;
-  onSend: (draft: ComposerDraft) => Promise<void>;
+  onSend: (draft: ComposerDraft) => Promise<boolean>;
 };
 
 const defaultDraft: ComposerDraft = {

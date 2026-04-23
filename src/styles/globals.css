@@ -529,10 +529,19 @@ textarea {
 }
 
 .composer-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 0;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   color: #1f1208;
   font-weight: 700;
+}
+
+.composer-button-spinner {
+  width: 14px;
+  height: 14px;
 }
 
 .composer-secondary,
@@ -1724,6 +1733,18 @@ summary.folder-group-title::-webkit-details-marker {
   color: var(--text);
   cursor: pointer;
   padding: 7px 11px;
+}
+
+.composer-toast {
+  bottom: 92px;
+}
+
+.composer-toast-success {
+  border-color: rgba(36, 118, 110, 0.42);
+}
+
+.composer-toast-error {
+  border-color: rgba(184, 95, 32, 0.48);
 }
 
 .quick-reply-card {

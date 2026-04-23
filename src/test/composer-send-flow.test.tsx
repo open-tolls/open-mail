@@ -8,7 +8,7 @@ describe('Composer send flow', () => {
   });
 
   it('blocks queueing when there are no recipients', async () => {
-    const onSend = vi.fn().mockResolvedValue(undefined);
+    const onSend = vi.fn().mockResolvedValue(true);
 
     render(
       <Composer
@@ -30,7 +30,7 @@ describe('Composer send flow', () => {
   });
 
   it('asks for confirmation before queueing without subject', async () => {
-    const onSend = vi.fn().mockResolvedValue(undefined);
+    const onSend = vi.fn().mockResolvedValue(true);
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
     render(
@@ -65,7 +65,7 @@ describe('Composer send flow', () => {
         status="Composer ready"
         onClose={onClose}
         onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
-        onSend={vi.fn().mockResolvedValue(undefined)}
+        onSend={vi.fn().mockResolvedValue(true)}
       />
     );
 
@@ -79,7 +79,7 @@ describe('Composer send flow', () => {
   });
 
   it('queues through the Cmd+Enter shortcut', async () => {
-    const onSend = vi.fn().mockResolvedValue(undefined);
+    const onSend = vi.fn().mockResolvedValue(true);
 
     render(
       <Composer
@@ -106,5 +106,22 @@ describe('Composer send flow', () => {
     await waitFor(() => {
       expect(onSend).toHaveBeenCalled();
     });
+  });
+
+  it('shows a loading spinner while queueing', () => {
+    render(
+      <Composer
+        from="leco@example.com"
+        isSending
+        recipientSuggestions={[]}
+        status="Queueing message..."
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSend={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /queueing/i })).toBeDisabled();
+    expect(screen.getByLabelText('Loading')).toBeInTheDocument();
   });
 });

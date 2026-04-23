@@ -22,6 +22,11 @@ import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
 
+type ComposerToast = {
+  kind: 'success' | 'error';
+  message: string;
+};
+
 const htmlEscapeMap: Record<string, string> = {
   '&': '&amp;',
   '<': '&lt;',
@@ -38,6 +43,7 @@ const toSafeHtml = (value: string) =>
     .join('');
 
 const toMailAddresses = (emails: string[]) => emails.map((email) => ({ name: null, email }));
+const toErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error');
 const readFileBytes = async (file: File) => {
   if (typeof file.arrayBuffer === 'function') {
     return new Uint8Array(await file.arrayBuffer());
@@ -117,6 +123,7 @@ const MailShell = () => {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
+  const [composerToast, setComposerToast] = useState<ComposerToast | null>(null);
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
   const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
   const createThreadSnapshot = useThreadStore((state) => state.createThreadSnapshot);
@@ -289,15 +296,33 @@ const MailShell = () => {
   }, [messagesQuery.data, queryClient, selectedThread, updateThread]);
 
   const handleSendDraft = async (draft: ComposerDraft) => {
-    setOutboxStatus('Queueing message...');
-    const queued = await enqueueOutboxMutation.mutateAsync(draft);
-    setOutboxStatus(`Queued ${queued.mimeMessage.to.length} recipient(s)`);
+    try {
+      setOutboxStatus('Queueing message...');
+      const queued = await enqueueOutboxMutation.mutateAsync(draft);
+      const successMessage = `Queued ${queued.mimeMessage.to.length} recipient(s)`;
+      setOutboxStatus(successMessage);
+      setComposerToast({ kind: 'success', message: successMessage });
+      return true;
+    } catch (error) {
+      const errorMessage = `Could not queue message: ${toErrorMessage(error)}`;
+      setOutboxStatus(errorMessage);
+      setComposerToast({ kind: 'error', message: errorMessage });
+      return false;
+    }
   };
 
   const handleFlushOutbox = async () => {
-    setOutboxStatus('Sending queued mail...');
-    const report = await flushOutboxMutation.mutateAsync();
-    setOutboxStatus(`Sent ${report.sent}/${report.attempted}; failed ${report.failed}`);
+    try {
+      setOutboxStatus('Sending queued mail...');
+      const report = await flushOutboxMutation.mutateAsync();
+      const successMessage = `Sent ${report.sent}/${report.attempted}; failed ${report.failed}`;
+      setOutboxStatus(successMessage);
+      setComposerToast({ kind: 'success', message: successMessage });
+    } catch (error) {
+      const errorMessage = `Could not flush outbox: ${toErrorMessage(error)}`;
+      setOutboxStatus(errorMessage);
+      setComposerToast({ kind: 'error', message: errorMessage });
+    }
   };
   const getFolderRouteSegment = (folderIdToRoute: string) => {
     const folder = mailbox?.folders.find((candidate) => candidate.id === folderIdToRoute);
@@ -398,6 +423,7 @@ const MailShell = () => {
       selectedMessageId={selectedMessageId}
       syncStatusDetail={syncStatusDetailQuery.data ?? null}
       outboxStatus={outboxStatus}
+      composerToast={composerToast}
       recipientSuggestions={recipientSuggestions}
       isOutboxBusy={enqueueOutboxMutation.isPending || flushOutboxMutation.isPending}
       isMessagesLoading={

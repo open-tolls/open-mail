@@ -1,3 +1,5 @@
+import { Spinner } from '@components/ui/Spinner';
+
 type ComposerFooterProps = {
   isSending: boolean;
   onDiscard: () => void;
@@ -16,7 +18,14 @@ export const ComposerFooter = ({ isSending, onDiscard, onFlushOutbox, onSend, st
         Flush outbox
       </button>
       <button className="composer-primary" disabled={isSending} onClick={() => void onSend()} type="button">
-        {isSending ? 'Working...' : 'Queue'}
+        {isSending ? (
+          <>
+            <Spinner className="composer-button-spinner" />
+            Queueing...
+          </>
+        ) : (
+          'Queue'
+        )}
       </button>
     </div>
 
