@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { prepareForwardDraft, prepareReplyDraft } from '@lib/compose-utils';
-import type { ContactRecord, MessageRecord } from '@lib/contracts';
+import type { AttachmentRecord, ContactRecord, MessageRecord } from '@lib/contracts';
 
 const contact = (email: string, options?: Partial<ContactRecord>): ContactRecord => ({
   id: options?.id ?? email,
@@ -41,6 +41,18 @@ const message = (overrides?: Partial<MessageRecord>): MessageRecord => ({
   ...overrides
 });
 
+const attachment = (overrides?: Partial<AttachmentRecord>): AttachmentRecord => ({
+  id: 'att_1',
+  message_id: 'msg_1',
+  filename: 'motion-notes.pdf',
+  content_type: 'application/pdf',
+  size: 2048,
+  content_id: null,
+  is_inline: false,
+  local_path: '/tmp/open-mail/motion-notes.pdf',
+  ...overrides
+});
+
 describe('prepareReplyDraft', () => {
   it('prepares a reply with subject, recipient, quoted body, and headers', () => {
     const draft = prepareReplyDraft(message(), false);
@@ -78,6 +90,7 @@ describe('prepareForwardDraft', () => {
   it('prepares a forward with prefixed subject and forwarded content block', () => {
     const draft = prepareForwardDraft(
       message({
+        attachments: [attachment()],
         cc: [contact('review@example.com', { name: 'Review' })]
       })
     );
@@ -87,6 +100,18 @@ describe('prepareForwardDraft', () => {
     expect(draft.subject).toBe('Fwd: Premium motion system approved');
     expect(draft.inReplyTo).toBeNull();
     expect(draft.references).toEqual([]);
+    expect(draft.attachments).toEqual([
+      {
+        id: 'att_1',
+        kind: 'forwarded',
+        name: 'motion-notes.pdf',
+        size: 2048,
+        contentType: 'application/pdf',
+        localPath: '/tmp/open-mail/motion-notes.pdf',
+        contentId: null,
+        isInline: false
+      }
+    ]);
     expect(draft.body).toContain('Forwarded message');
     expect(draft.body).toContain('Atlas Design <atlas@example.com>');
     expect(draft.body).toContain('review@example.com');

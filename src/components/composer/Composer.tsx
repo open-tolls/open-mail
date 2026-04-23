@@ -4,13 +4,9 @@ import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { ComposerFooter } from '@components/composer/ComposerFooter';
 import { ComposerHeader } from '@components/composer/ComposerHeader';
 import { ComposerSignaturePanel } from '@components/composer/ComposerSignaturePanel';
+import { toComposerFileAttachment, type ComposerAttachment } from '@lib/composer-attachments';
 import { applySignatureHtml, hasSignatureHtml } from '@lib/signature-utils';
 import { useSignatureStore } from '@stores/useSignatureStore';
-
-type ComposerAttachment = {
-  file: File;
-  id: string;
-};
 
 type ComposerDraft = {
   attachments: ComposerAttachment[];
@@ -177,10 +173,7 @@ export const Composer = ({
         onAdd={(files) =>
           updateDraft('attachments', [
             ...draft.attachments,
-            ...files.map((file) => ({
-              file,
-              id: `${file.name}-${file.size}-${file.lastModified}`
-            }))
+            ...files.map(toComposerFileAttachment)
           ])
         }
         onRemove={(attachmentId) =>

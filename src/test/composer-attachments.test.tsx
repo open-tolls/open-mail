@@ -18,7 +18,16 @@ describe('ComposerAttachments', () => {
 
     rerender(
       <ComposerAttachments
-        attachments={[{ file, id: 'report.pdf-1' }]}
+        attachments={[
+          {
+            id: 'report.pdf-1',
+            kind: 'file',
+            name: 'report.pdf',
+            size: file.size,
+            contentType: 'application/pdf',
+            file
+          }
+        ]}
         onAdd={onAdd}
         onRemove={onRemove}
       />

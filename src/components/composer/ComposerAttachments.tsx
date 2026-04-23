@@ -55,10 +55,10 @@ export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAt
           {attachments.map((attachment) => (
             <div className="composer-attachment-item" key={attachment.id}>
               <div>
-                <strong>{attachment.file.name}</strong>
-                <span>{formatSize(attachment.file.size)}</span>
+                <strong>{attachment.name}</strong>
+                <span>{formatSize(attachment.size)}</span>
               </div>
-              <button aria-label={`Remove ${attachment.file.name}`} onClick={() => onRemove(attachment.id)} type="button">
+              <button aria-label={`Remove ${attachment.name}`} onClick={() => onRemove(attachment.id)} type="button">
                 Remove
               </button>
             </div>

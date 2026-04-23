@@ -431,6 +431,7 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Forward draft ready');
     expect(screen.getByLabelText(/^subject$/i)).toHaveValue('Fwd: Premium motion system approved');
     expect(within(composer).queryByTitle('atlas@example.com')).not.toBeInTheDocument();
+    expect(within(composer).getByText('motion-notes.pdf')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('Forwarded message');
     expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('From: Atlas Design');
   });

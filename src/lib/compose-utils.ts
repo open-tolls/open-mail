@@ -1,5 +1,6 @@
 import type { ContactRecord, MessageRecord } from '@lib/contracts';
 import type { ComposerDraft } from '@components/composer/Composer';
+import { toComposerForwardedAttachment } from '@lib/composer-attachments';
 
 const uniqueEmails = (contacts: ContactRecord[]) => {
   const seen = new Set<string>();
@@ -103,7 +104,9 @@ export const prepareReplyDraft = (message: MessageRecord, replyAll: boolean): Pa
 };
 
 export const prepareForwardDraft = (message: MessageRecord): Partial<ComposerDraft> => ({
-  attachments: [],
+  attachments: message.attachments
+    .filter((attachment) => !attachment.is_inline)
+    .map(toComposerForwardedAttachment),
   bcc: [],
   body: forwardBody(message),
   cc: [],

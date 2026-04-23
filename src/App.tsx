@@ -70,15 +70,42 @@ const readFileBytes = async (file: File) => {
   });
 };
 
+const readForwardedAttachmentBytes = async (localPath: string) => {
+  const assetUrl = api.system.toAssetUrl(localPath);
+  const response = await fetch(assetUrl);
+
+  if (!response.ok) {
+    throw new Error(`Failed to read forwarded attachment from ${localPath}`);
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+};
+
 const toMimeAttachments = async (attachments: ComposerDraft['attachments']) =>
   Promise.all(
-    attachments.map(async (attachment) => ({
-      filename: attachment.file.name,
-      contentType: attachment.file.type || 'application/octet-stream',
-      data: Array.from(await readFileBytes(attachment.file)),
-      isInline: false,
-      contentId: null
-    }))
+    attachments.map(async (attachment) => {
+      if (attachment.kind === 'file') {
+        return {
+          filename: attachment.name,
+          contentType: attachment.contentType,
+          data: Array.from(await readFileBytes(attachment.file)),
+          isInline: false,
+          contentId: null
+        };
+      }
+
+      if (!attachment.localPath) {
+        throw new Error(`Attachment ${attachment.name} is not available locally`);
+      }
+
+      return {
+        filename: attachment.name,
+        contentType: attachment.contentType,
+        data: Array.from(await readForwardedAttachmentBytes(attachment.localPath)),
+        isInline: attachment.isInline,
+        contentId: attachment.contentId
+      };
+    })
   );
 
 const htmlToPlainText = (value: string) =>
