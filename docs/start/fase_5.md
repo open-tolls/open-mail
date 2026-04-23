@@ -670,6 +670,8 @@ pub async fn send_draft(
 - [ ] Toast de sucesso/erro
 - [ ] Cmd+Enter envia
 
+> Status: o fluxo atual do composer agora bloqueia envio sem destinatarios, pede confirmacao para assunto vazio e expõe botao de discard no footer. O envio ainda segue via fila local existente; SMTP direto, toast dedicado, `Cmd+Enter` e transicoes completas de draft/sent entram nos proximos cortes.
+
 ---
 
 ### 5.8 — Reply / Reply All / Forward

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ComposerAttachments } from '@components/composer/ComposerAttachments';
 import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { ComposerFooter } from '@components/composer/ComposerFooter';
@@ -58,6 +58,7 @@ export const Composer = ({
   const [draft, setDraft] = useState<ComposerDraft>(mergedDraft);
   const [isCcVisible, setIsCcVisible] = useState(Boolean(mergedDraft.cc.length));
   const [isBccVisible, setIsBccVisible] = useState(Boolean(mergedDraft.bcc.length));
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
 
   const isDirty =
     draft.attachments.length !== mergedDraft.attachments.length ||
@@ -74,6 +75,10 @@ export const Composer = ({
     }));
   };
 
+  useEffect(() => {
+    setLocalStatus(null);
+  }, [draft.attachments, draft.bcc, draft.body, draft.cc, draft.subject, draft.to]);
+
   const handleClose = () => {
     if (isDirty && !window.confirm('Discard this draft?')) {
       return;
@@ -83,6 +88,17 @@ export const Composer = ({
   };
 
   const handleSend = async () => {
+    const recipients = [...draft.to, ...draft.cc, ...draft.bcc];
+    if (!recipients.length) {
+      setLocalStatus('Please add at least one recipient');
+      return;
+    }
+
+    if (!draft.subject.trim() && !window.confirm('Send without subject?')) {
+      setLocalStatus('Send canceled');
+      return;
+    }
+
     await onSend(draft);
   };
 
@@ -125,7 +141,13 @@ export const Composer = ({
           )
         }
       />
-      <ComposerFooter isSending={isSending} onFlushOutbox={onFlushOutbox} onSend={handleSend} status={status} />
+      <ComposerFooter
+        isSending={isSending}
+        onDiscard={handleClose}
+        onFlushOutbox={onFlushOutbox}
+        onSend={handleSend}
+        status={localStatus ?? status}
+      />
     </section>
   );
 };
