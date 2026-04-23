@@ -1,4 +1,5 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Composer, type ComposerDraft } from '@components/composer/Composer';
 import { GripVertical } from 'lucide-react';
 import { MailSidebar } from '@components/layout/MailSidebar';
 import { MailStatusBar } from '@components/layout/MailStatusBar';
@@ -40,7 +41,7 @@ type ShellFrameProps = {
   onOpenExternalLink: (url: string) => void;
   onDownloadAttachment: (attachment: AttachmentRecord) => void;
   resolveInlineImageUrl: (localPath: string) => string;
-  onSendDraft: (draft: { to: string; subject: string; body: string }) => Promise<void>;
+  onSendDraft: (draft: ComposerDraft) => Promise<void>;
   onFlushOutbox: () => Promise<void>;
 };
 
@@ -262,7 +263,6 @@ export const ShellFrame = ({
         outboxStatus={outboxStatus}
         onFlushOutbox={onFlushOutbox}
         onSelectFolder={onSelectFolder}
-        onSendDraft={onSendDraft}
         onToggleComposer={toggleComposer}
         onToggleSidebar={toggleSidebarAndCloseComposer}
       />
@@ -306,6 +306,20 @@ export const ShellFrame = ({
             </article>
           </div>
         </section>
+
+        {isComposerOpen ? (
+          <Composer
+            from="leco@example.com"
+            isSending={isOutboxBusy}
+            status={outboxStatus}
+            onClose={() => setIsComposerOpen(false)}
+            onFlushOutbox={onFlushOutbox}
+            onSend={async (draft) => {
+              await onSendDraft(draft);
+              setIsComposerOpen(false);
+            }}
+          />
+        ) : null}
 
         <section
           className={[

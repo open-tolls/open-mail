@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { save } from '@tauri-apps/plugin-dialog';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
+import type { ComposerDraft } from '@components/composer/Composer';
 import { ComponentGallery } from '@components/dev/ComponentGallery';
 import { ShellFrame } from '@components/layout/ShellFrame';
 import { OnboardingView } from '@components/onboarding/OnboardingView';
@@ -20,12 +21,6 @@ import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
-
-type ComposeDraft = {
-  to: string;
-  subject: string;
-  body: string;
-};
 
 const htmlEscapeMap: Record<string, string> = {
   '&': '&amp;',
@@ -120,14 +115,14 @@ const MailShell = () => {
   const messagesQuery = useThreadMessages(selectedThread?.id ?? null);
   const syncStatusDetailQuery = useSyncStatusDetail(mailbox?.accountId ?? null);
   const enqueueOutboxMutation = useMutation({
-    mutationFn: async (draft: ComposeDraft): Promise<OutboxMessage> => {
+    mutationFn: async (draft: ComposerDraft): Promise<OutboxMessage> => {
       const accountId = mailbox?.accountId ?? 'acc_demo';
       const request: EnqueueOutboxMessageRequest = {
         accountId,
         from: { name: 'Open Mail', email: 'leco@example.com' },
         to: parseRecipients(draft.to),
-        cc: [],
-        bcc: [],
+        cc: parseRecipients(draft.cc),
+        bcc: parseRecipients(draft.bcc),
         replyTo: null,
         subject: draft.subject,
         htmlBody: toSafeHtml(draft.body),
@@ -245,7 +240,7 @@ const MailShell = () => {
       });
   }, [messagesQuery.data, queryClient, selectedThread, updateThread]);
 
-  const handleSendDraft = async (draft: ComposeDraft) => {
+  const handleSendDraft = async (draft: ComposerDraft) => {
     setOutboxStatus('Queueing message...');
     const queued = await enqueueOutboxMutation.mutateAsync(draft);
     setOutboxStatus(`Queued ${queued.mimeMessage.to.length} recipient(s)`);

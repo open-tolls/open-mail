@@ -315,6 +315,9 @@ describe('mailbox overview integration', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    expect(await screen.findByRole('region', { name: /composer/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /add cc/i }));
+    fireEvent.change(screen.getByLabelText(/^cc$/i), { target: { value: 'cc-review@example.com' } });
     fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'review@example.com' } });
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Review package' } });
     fireEvent.change(screen.getByLabelText(/^message$/i), {

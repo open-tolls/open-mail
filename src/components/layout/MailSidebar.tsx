@@ -1,4 +1,3 @@
-import { type FormEvent, useState } from 'react';
 import {
   AlertCircle,
   Archive,
@@ -27,7 +26,6 @@ type MailSidebarProps = {
   outboxStatus: string;
   onFlushOutbox: () => Promise<void>;
   onSelectFolder: (folderId: string) => void;
-  onSendDraft: (draft: { to: string; subject: string; body: string }) => Promise<void>;
   onToggleComposer: () => void;
   onToggleSidebar: () => void;
 };
@@ -58,26 +56,12 @@ export const MailSidebar = ({
   outboxStatus,
   onFlushOutbox,
   onSelectFolder,
-  onSendDraft,
   onToggleComposer,
   onToggleSidebar
 }: MailSidebarProps) => {
-  const [draftTo, setDraftTo] = useState('team@example.com');
-  const [draftSubject, setDraftSubject] = useState('Desktop alpha update');
-  const [draftBody, setDraftBody] = useState('Open Mail phase 2 is ready for the next review.');
   const accountId = folders[0]?.account_id ?? 'acc_demo';
   const systemFolders = folders.filter((folder) => folder.role);
   const customFolders = folders.filter((folder) => !folder.role);
-
-  const submitDraft = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await onSendDraft({
-      to: draftTo,
-      subject: draftSubject,
-      body: draftBody
-    });
-    onToggleComposer();
-  };
 
   return (
     <aside className="sidebar-panel">
@@ -115,53 +99,10 @@ export const MailSidebar = ({
         {!isCollapsed ? <span>{isComposerOpen ? 'Close composer' : 'New message'}</span> : null}
       </button>
 
-      {isComposerOpen && !isCollapsed ? (
-        <form className="composer-card" onSubmit={submitDraft}>
-          <label>
-            <span>To</span>
-            <input
-              onChange={(event) => setDraftTo(event.target.value)}
-              placeholder="team@example.com"
-              required
-              type="email"
-              value={draftTo}
-            />
-          </label>
-          <label>
-            <span>Subject</span>
-            <input
-              onChange={(event) => setDraftSubject(event.target.value)}
-              placeholder="What is this about?"
-              required
-              value={draftSubject}
-            />
-          </label>
-          <label>
-            <span>Message</span>
-            <textarea
-              onChange={(event) => setDraftBody(event.target.value)}
-              placeholder="Write the update..."
-              required
-              rows={5}
-              value={draftBody}
-            />
-          </label>
-          <div className="composer-actions">
-            <button className="composer-secondary" disabled={isOutboxBusy} onClick={onFlushOutbox} type="button">
-              Flush outbox
-            </button>
-            <button className="composer-primary" disabled={isOutboxBusy} type="submit">
-              {isOutboxBusy ? 'Working...' : 'Queue'}
-            </button>
-          </div>
-          <p className="composer-status" role="status">
-            {outboxStatus}
-          </p>
-        </form>
-      ) : !isCollapsed ? (
+      {!isCollapsed ? (
         <div className="outbox-mini-card">
-          <span>Outbox</span>
-          <strong>{outboxStatus}</strong>
+          <span>{isComposerOpen ? 'Composer' : 'Outbox'}</span>
+          <strong>{isComposerOpen ? 'Composer open in workspace' : outboxStatus}</strong>
           <button disabled={isOutboxBusy} onClick={onFlushOutbox} type="button">
             {isOutboxBusy ? 'Sending...' : 'Flush queue'}
           </button>

@@ -100,6 +100,8 @@ src/components/composer/
 - [ ] Cc/Bcc toggleaveis (ocultos por padrao, mostrar com botao)
 - [ ] Fechar composer pede confirmacao se ha conteudo
 
+> Status: primeiro corte do composer integrado ao shell. O formulario improvisado da sidebar foi substituido por `src/components/composer/` com painel dedicado, `From`, `To`, `Cc/Bcc` toggleaveis, `Subject`, body em textarea, footer de envio e confirmacao ao fechar quando o draft foi alterado. Os modos `reply`, `reply all`, `forward`, selector real de contas e editor rich text ficam para os proximos cortes.
+
 ---
 
 ### 5.2 — Participant Fields (To, Cc, Bcc)
