@@ -103,7 +103,16 @@ export const Composer = ({
   };
 
   return (
-    <section className="composer-panel" aria-label="Composer">
+    <section
+      aria-label="Composer"
+      className="composer-panel"
+      onKeyDown={(event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+          event.preventDefault();
+          void handleSend();
+        }
+      }}
+    >
       <ComposerHeader
         bcc={draft.bcc}
         cc={draft.cc}

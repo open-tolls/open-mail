@@ -338,4 +338,22 @@ describe('mailbox overview integration', () => {
       expect(screen.getByText('Queued 1 recipient(s)')).toBeInTheDocument();
     });
   });
+
+  it('queues a composed message with Cmd+Enter from the shell', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    const composer = await screen.findByRole('region', { name: /composer/i });
+    fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Shortcut queue' } });
+
+    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+
+    await waitFor(() => {
+      expect(screen.getByText('Queued 1 recipient(s)')).toBeInTheDocument();
+    });
+  });
 });

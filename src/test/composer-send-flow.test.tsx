@@ -77,4 +77,34 @@ describe('Composer send flow', () => {
       expect(onClose).toHaveBeenCalled();
     });
   });
+
+  it('queues through the Cmd+Enter shortcut', async () => {
+    const onSend = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <Composer
+        from="leco@example.com"
+        initialDraft={{
+          attachments: [],
+          bcc: [],
+          body: '<p>Hello</p>',
+          cc: [],
+          subject: 'Shortcut send',
+          to: ['atlas@example.com']
+        }}
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSend={onSend}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByRole('region', { name: /composer/i }), { key: 'Enter', metaKey: true });
+
+    await waitFor(() => {
+      expect(onSend).toHaveBeenCalled();
+    });
+  });
 });
