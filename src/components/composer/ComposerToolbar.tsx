@@ -2,28 +2,13 @@ import type { Editor } from '@tiptap/react';
 
 type ComposerToolbarProps = {
   editor: Editor | null;
+  onRequestLink: () => void;
 };
 
-export const ComposerToolbar = ({ editor }: ComposerToolbarProps) => {
+export const ComposerToolbar = ({ editor, onRequestLink }: ComposerToolbarProps) => {
   if (!editor) {
     return null;
   }
-
-  const addLink = () => {
-    const previousUrl = editor.getAttributes('link').href as string | undefined;
-    const nextUrl = window.prompt('Enter link URL', previousUrl ?? 'https://');
-
-    if (nextUrl === null) {
-      return;
-    }
-
-    if (!nextUrl.trim()) {
-      editor.chain().focus().unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().setLink({ href: nextUrl.trim() }).run();
-  };
 
   return (
     <div className="composer-toolbar" aria-label="Composer toolbar">
@@ -54,7 +39,7 @@ export const ComposerToolbar = ({ editor }: ComposerToolbarProps) => {
       <button
         aria-pressed={editor.isActive('strike')}
         onClick={() => editor.chain().focus().toggleStrike().run()}
-        title="Strikethrough"
+        title="Strikethrough (Cmd+Shift+S)"
         type="button"
       >
         Strike
@@ -78,7 +63,7 @@ export const ComposerToolbar = ({ editor }: ComposerToolbarProps) => {
       <button
         aria-pressed={editor.isActive('bulletList')}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
-        title="Bullet list"
+        title="Bullet list (Cmd+Shift+8)"
         type="button"
       >
         Bullets
@@ -86,7 +71,7 @@ export const ComposerToolbar = ({ editor }: ComposerToolbarProps) => {
       <button
         aria-pressed={editor.isActive('orderedList')}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        title="Numbered list"
+        title="Numbered list (Cmd+Shift+7)"
         type="button"
       >
         Numbers
@@ -94,7 +79,7 @@ export const ComposerToolbar = ({ editor }: ComposerToolbarProps) => {
       <button
         aria-pressed={editor.isActive('codeBlock')}
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        title="Code block"
+        title="Code block (Cmd+Shift+E)"
         type="button"
       >
         Code
@@ -107,7 +92,12 @@ export const ComposerToolbar = ({ editor }: ComposerToolbarProps) => {
       >
         Quote
       </button>
-      <button aria-pressed={editor.isActive('link')} onClick={addLink} title="Insert link" type="button">
+      <button
+        aria-pressed={editor.isActive('link')}
+        onClick={onRequestLink}
+        title="Insert link (Cmd+K)"
+        type="button"
+      >
         Link
       </button>
     </div>

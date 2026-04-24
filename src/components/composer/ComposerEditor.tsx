@@ -22,6 +22,27 @@ const toInitialHtml = (body: string) => {
 };
 
 export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
+  const requestLink = (editorInstance = editor) => {
+    if (!editorInstance) {
+      return false;
+    }
+
+    const previousUrl = editorInstance.getAttributes('link').href as string | undefined;
+    const nextUrl = window.prompt('Enter link URL', previousUrl ?? 'https://');
+
+    if (nextUrl === null) {
+      return true;
+    }
+
+    if (!nextUrl.trim()) {
+      editorInstance.chain().unsetLink().run();
+      return true;
+    }
+
+    editorInstance.chain().setLink({ href: nextUrl.trim() }).run();
+    return true;
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -40,6 +61,14 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
         'aria-label': 'Message',
         class: 'composer-rich-editor',
         role: 'textbox'
+      },
+      handleKeyDown: (_view, event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault();
+          return requestLink();
+        }
+
+        return false;
       }
     },
     onUpdate: ({ editor: currentEditor }) => {
@@ -64,7 +93,7 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
 
   return (
     <div className="composer-editor-shell">
-      <ComposerToolbar editor={editor} />
+      <ComposerToolbar editor={editor} onRequestLink={() => requestLink()} />
       <div className="composer-editor-field">
         <span>Message</span>
         <EditorContent editor={editor} />
