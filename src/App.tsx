@@ -15,7 +15,7 @@ import { useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
-import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport } from '@lib/contracts';
+import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport, ThreadRecord } from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
@@ -122,6 +122,29 @@ const htmlToPlainText = (value: string) =>
     .replace(/&quot;/g, '"')
     .trim();
 
+const toLocalSentThreadRecord = (message: OutboxMessage): ThreadRecord => {
+  const primaryRecipient = message.mimeMessage.to[0]?.email ?? 'Draft';
+  const sentAt = new Date().toISOString();
+
+  return {
+    id: `thr_sent_${message.id}`,
+    account_id: message.accountId,
+    subject: message.mimeMessage.subject.trim() || '(no subject)',
+    snippet: message.mimeMessage.plainBody?.trim() || 'Sent from Open Mail composer',
+    message_count: 1,
+    participant_ids: [primaryRecipient],
+    folder_ids: ['fld_sent'],
+    label_ids: [],
+    has_attachments: message.mimeMessage.attachments.length > 0,
+    is_unread: false,
+    is_starred: false,
+    last_message_at: sentAt,
+    last_message_sent_at: sentAt,
+    created_at: sentAt,
+    updated_at: sentAt
+  };
+};
+
 const useApplySelectedTheme = () => {
   const themeId = useUIStore((state) => state.themeId);
 
@@ -152,6 +175,8 @@ const MailShell = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [outboxStatus, setOutboxStatus] = useState('Composer ready');
   const [composerToast, setComposerToast] = useState<ComposerToast | null>(null);
+  const [, setQueuedOutboxMessages] = useState<OutboxMessage[]>([]);
+  const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
   const upsertAccount = useAccountStore((state) => state.upsertAccount);
@@ -163,15 +188,31 @@ const MailShell = () => {
   const updateThread = useThreadStore((state) => state.updateThread);
   const pushUndo = useUndoStore((state) => state.push);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const runtimeAllThreads = useMemo(
+    () => [...localSentThreadRecords, ...(mailbox?.allThreads ?? [])],
+    [localSentThreadRecords, mailbox?.allThreads]
+  );
+  const runtimeFolders = useMemo(
+    () =>
+      (mailbox?.folders ?? []).map((folder) =>
+        folder.role === 'sent'
+          ? {
+              ...folder,
+              total_count: folder.total_count + localSentThreadRecords.length
+            }
+          : folder
+      ),
+    [localSentThreadRecords.length, mailbox?.folders]
+  );
   const folderThreadsQuery = useThreads({
     accountId: mailbox?.accountId ?? null,
     folderId: selectedFolderId,
-    fallbackThreads: mailbox?.allThreads ?? []
+    fallbackThreads: runtimeAllThreads
   });
   const searchThreadsQuery = useSearchThreads(
     mailbox?.accountId ?? null,
     deferredSearchQuery,
-    mailbox?.allThreads ?? []
+    runtimeAllThreads
   );
   const isSearchActive = deferredSearchQuery.trim().length > 0;
   const routeFolderId = useMemo(() => {
@@ -195,8 +236,8 @@ const MailShell = () => {
   );
   const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
   const recipientSuggestions = useMemo(
-    () => Array.from(new Set((mailbox?.allThreads ?? []).flatMap((thread) => thread.participant_ids))).sort(),
-    [mailbox?.allThreads]
+    () => Array.from(new Set(runtimeAllThreads.flatMap((thread) => thread.participant_ids))).sort(),
+    [runtimeAllThreads]
   );
   const fallbackComposerAccount = useMemo(
     () => ({
@@ -355,6 +396,7 @@ const MailShell = () => {
     try {
       setOutboxStatus('Queueing message...');
       const queued = await enqueueOutboxMutation.mutateAsync(draft);
+      setQueuedOutboxMessages((current) => [...current, queued]);
       const successMessage = `Queued ${queued.mimeMessage.to.length} recipient(s)`;
       setOutboxStatus(successMessage);
       setComposerToast({ kind: 'success', message: successMessage });
@@ -371,6 +413,17 @@ const MailShell = () => {
     try {
       setOutboxStatus('Sending queued mail...');
       const report = await flushOutboxMutation.mutateAsync();
+      setQueuedOutboxMessages((current) => {
+        const sentMessages = current.slice(0, report.sent);
+        if (sentMessages.length) {
+          setLocalSentThreadRecords((existing) => [
+            ...sentMessages.map(toLocalSentThreadRecord),
+            ...existing
+          ]);
+        }
+
+        return current.slice(report.sent);
+      });
       const successMessage = `Sent ${report.sent}/${report.attempted}; failed ${report.failed}`;
       setOutboxStatus(successMessage);
       setComposerToast({ kind: 'success', message: successMessage });
@@ -468,7 +521,7 @@ const MailShell = () => {
       backendStatus={
         isLoading ? 'Conectando ao backend Tauri...' : isError ? 'Modo web ativo' : data ?? 'Backend pronto'
       }
-      folders={mailbox?.folders ?? []}
+      folders={runtimeFolders}
       threads={threads}
       activeFolderId={selectedFolderId}
       searchQuery={searchQuery}

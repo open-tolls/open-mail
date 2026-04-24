@@ -464,6 +464,35 @@ describe('mailbox overview integration', () => {
     });
   });
 
+  it('moves a locally flushed composed message into the Sent folder', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Sent after flush' } });
+    fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'release@example.com' } });
+    fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: /^queue$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Queued 2 recipient(s)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Flush queue' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Sent 1/1; failed 0')).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { key: '2', metaKey: true });
+
+    expect(await screen.findByRole('heading', { name: 'Sent after flush' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Sent');
+  });
+
   it('restores a locally autosaved draft when reopening the composer', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

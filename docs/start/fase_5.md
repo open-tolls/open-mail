@@ -674,7 +674,7 @@ pub async fn send_draft(
 - [ ] Toast de sucesso/erro
 - [ ] Cmd+Enter envia
 
-> Status: o fluxo atual do composer agora bloqueia envio sem destinatarios, pede confirmacao para assunto vazio, expõe botao de discard no footer, aceita `Cmd+Enter` para enfileirar o draft e mostra loading/toast de sucesso ou erro no caminho atual da fila local. SMTP direto e transicoes completas de draft/sent entram nos proximos cortes.
+> Status: o fluxo atual do composer agora bloqueia envio sem destinatarios, pede confirmacao para assunto vazio, expõe botao de discard no footer, aceita `Cmd+Enter` para enfileirar o draft e mostra loading/toast de sucesso ou erro no caminho atual da fila local. Depois de `Flush queue`, a mensagem enviada tambem passa a aparecer na pasta `Sent` no fallback local. SMTP direto e transicoes completas no backend ainda entram nos proximos cortes.
 
 ---
 
