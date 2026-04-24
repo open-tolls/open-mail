@@ -97,4 +97,25 @@ describe('ComposerAttachments', () => {
       'Attachments exceed the 25 MB limit. Remove a file before queueing.'
     );
   });
+
+  it('adds pasted clipboard images as attachments', () => {
+    const onAdd = vi.fn();
+    const imageFile = new File(['image-bytes'], 'clipboard.png', { type: 'image/png' });
+
+    render(<ComposerAttachments attachments={[]} onAdd={onAdd} onRemove={vi.fn()} />);
+
+    fireEvent.paste(screen.getByLabelText('Attachments'), {
+      clipboardData: {
+        items: [
+          {
+            kind: 'file',
+            type: 'image/png',
+            getAsFile: () => imageFile
+          }
+        ]
+      }
+    });
+
+    expect(onAdd).toHaveBeenCalledWith([imageFile]);
+  });
 });

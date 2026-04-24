@@ -62,6 +62,19 @@ export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAt
         event.preventDefault();
         onAdd(Array.from(event.dataTransfer.files));
       }}
+      onPaste={(event) => {
+        const clipboardFiles = Array.from(event.clipboardData?.items ?? [])
+          .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+          .map((item) => item.getAsFile())
+          .filter((file): file is File => file !== null);
+
+        if (!clipboardFiles.length) {
+          return;
+        }
+
+        event.preventDefault();
+        onAdd(clipboardFiles);
+      }}
     >
       <div className="composer-attachments-header">
         <div className="composer-attachments-heading">
@@ -124,7 +137,7 @@ export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAt
           ))}
         </div>
       ) : (
-        <p className="composer-attachments-empty">Drop files here or use Attach file.</p>
+        <p className="composer-attachments-empty">Drop files here, paste an image, or use Attach file.</p>
       )}
     </section>
   );
