@@ -8,6 +8,9 @@ type ComposerAttachmentsProps = {
   onRemove: (attachmentId: string) => void;
 };
 
+const ATTACHMENT_SIZE_LIMIT_BYTES = 25 * 1024 * 1024;
+const ATTACHMENT_WARNING_THRESHOLD_BYTES = 20 * 1024 * 1024;
+
 const formatSize = (size: number) => {
   if (size < 1024) {
     return `${size} B`;
@@ -43,11 +46,17 @@ const getAttachmentKind = (contentType: string) => {
 
 export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAttachmentsProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const totalSize = attachments.reduce((sum, attachment) => sum + attachment.size, 0);
+  const isNearLimit = totalSize >= ATTACHMENT_WARNING_THRESHOLD_BYTES;
+  const isOverLimit = totalSize > ATTACHMENT_SIZE_LIMIT_BYTES;
 
   return (
     <section
       aria-label="Attachments"
-      className="composer-attachments"
+      className={[
+        'composer-attachments',
+        isOverLimit ? 'composer-attachments-over-limit' : isNearLimit ? 'composer-attachments-warning' : ''
+      ].filter(Boolean).join(' ')}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
@@ -55,7 +64,14 @@ export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAt
       }}
     >
       <div className="composer-attachments-header">
-        <strong>Attachments</strong>
+        <div className="composer-attachments-heading">
+          <strong>Attachments</strong>
+          {attachments.length ? (
+            <span aria-label="Attachment total size">
+              {formatSize(totalSize)} of {formatSize(ATTACHMENT_SIZE_LIMIT_BYTES)}
+            </span>
+          ) : null}
+        </div>
         <button onClick={() => fileInputRef.current?.click()} type="button">
           Attach file
         </button>
@@ -71,6 +87,16 @@ export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAt
           type="file"
         />
       </div>
+      {isOverLimit ? (
+        <p className="composer-attachments-warning-text" role="alert">
+          Attachments exceed the 25 MB limit. Remove a file before queueing.
+        </p>
+      ) : null}
+      {!isOverLimit && isNearLimit ? (
+        <p className="composer-attachments-warning-text" role="status">
+          Attachments are close to the 25 MB limit.
+        </p>
+      ) : null}
 
       {attachments.length ? (
         <div className="composer-attachment-list">

@@ -496,11 +496,36 @@ textarea {
   font-size: 0.88rem;
 }
 
+.composer-attachments-warning {
+  border-color: rgba(246, 182, 111, 0.35);
+  background: rgba(246, 182, 111, 0.05);
+}
+
+.composer-attachments-over-limit {
+  border-color: rgba(240, 141, 73, 0.55);
+  background: rgba(240, 141, 73, 0.08);
+}
+
 .composer-attachments-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.composer-attachments-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.composer-attachments-heading span,
+.composer-attachments-warning-text {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.composer-attachments-over-limit .composer-attachments-warning-text {
+  color: var(--accent-strong);
 }
 
 .composer-attachments-header button,

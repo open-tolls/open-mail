@@ -39,4 +39,62 @@ describe('ComposerAttachments', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove report.pdf' }));
     expect(onRemove).toHaveBeenCalledWith('report.pdf-1');
   });
+
+  it('shows total size warnings when attachments approach or exceed the limit', () => {
+    const { rerender } = render(
+      <ComposerAttachments
+        attachments={[
+          {
+            id: 'warning-file',
+            kind: 'forwarded',
+            name: 'deck.pdf',
+            size: 21 * 1024 * 1024,
+            contentType: 'application/pdf',
+            localPath: '/tmp/open-mail/deck.pdf',
+            contentId: null,
+            isInline: false
+          }
+        ]}
+        onAdd={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Attachment total size')).toHaveTextContent('21.0 MB of 25.0 MB');
+    expect(screen.getByRole('status')).toHaveTextContent('Attachments are close to the 25 MB limit.');
+
+    rerender(
+      <ComposerAttachments
+        attachments={[
+          {
+            id: 'warning-file',
+            kind: 'forwarded',
+            name: 'deck.pdf',
+            size: 21 * 1024 * 1024,
+            contentType: 'application/pdf',
+            localPath: '/tmp/open-mail/deck.pdf',
+            contentId: null,
+            isInline: false
+          },
+          {
+            id: 'over-limit-file',
+            kind: 'forwarded',
+            name: 'video.mp4',
+            size: 5 * 1024 * 1024,
+            contentType: 'video/mp4',
+            localPath: '/tmp/open-mail/video.mp4',
+            contentId: null,
+            isInline: false
+          }
+        ]}
+        onAdd={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Attachment total size')).toHaveTextContent('26.0 MB of 25.0 MB');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Attachments exceed the 25 MB limit. Remove a file before queueing.'
+    );
+  });
 });
