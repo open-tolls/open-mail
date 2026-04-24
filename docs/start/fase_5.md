@@ -554,7 +554,7 @@ pub async fn list_drafts(state: State<'_, AppState>, account_id: String) -> Resu
 - [ ] Draft deletado apos envio
 - [ ] Draft sync para IMAP (background)
 
-> Status: primeiro corte local entregue. O composer agora faz auto-save com debounce de 2s em store persistida no cliente, restaura o draft salvo ao reabrir o composer e remove o rascunho local depois de enviar ou descartar. Ainda faltam listagem explicita em Drafts e sync com IMAP/SQLite no backend.
+> Status: o fluxo local agora cobre auto-save com debounce de 2s em store persistida no cliente, restaura o draft salvo ao reabrir o composer, lista esses drafts explicitamente na pasta `Drafts` do shell e remove o rascunho local depois de enviar ou descartar. Ainda faltam sync com IMAP/SQLite no backend.
 
 ---
 

@@ -493,6 +493,42 @@ describe('mailbox overview integration', () => {
     expect(screen.getByLabelText(/^subject$/i)).toHaveValue('Autosaved subject');
   });
 
+  it('lists locally autosaved drafts in the Drafts folder and reopens them from the thread list', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    const composer = await screen.findByRole('region', { name: /composer/i });
+
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Draft from folder' } });
+    fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'drafts@example.com' } });
+    fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    vi.useRealTimers();
+    fireEvent.click(within(composer).getByRole('button', { name: /close composer/i }));
+
+    fireEvent.keyDown(window, { key: '3', metaKey: true });
+
+    expect(await screen.findByText('Draft from folder')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Drafts');
+    expect(screen.getByRole('button', { name: /drafts/i })).toHaveTextContent('1');
+
+    fireEvent.click(screen.getByText('Draft from folder'));
+
+    expect(await screen.findByRole('region', { name: /composer/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^subject$/i)).toHaveValue('Draft from folder');
+    expect(screen.getByTitle('drafts@example.com')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mailbox status')).toHaveTextContent('Draft restored');
+  });
+
   it('opens a reply draft with quoted content once the selected message is available', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

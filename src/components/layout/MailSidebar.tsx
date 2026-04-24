@@ -114,6 +114,7 @@ export const MailSidebar = ({
           {!isCollapsed ? <p className="folder-group-title">System folders</p> : null}
           {systemFolders.map((folder) => {
             const Icon = folder.role ? folderIconMap[folder.role as keyof typeof folderIconMap] ?? BellDot : Folder;
+            const count = folder.role === 'drafts' ? folder.total_count : folder.unread_count;
             return (
               <button
                 aria-label={isCollapsed ? folder.name : undefined}
@@ -127,8 +128,8 @@ export const MailSidebar = ({
                   {!isCollapsed ? <span className="folder-link-label">{folder.name}</span> : null}
                 </span>
                 {!isCollapsed ? (
-                  <span className="folder-count">{folder.unread_count}</span>
-                ) : folder.unread_count ? (
+                  <span className="folder-count">{count}</span>
+                ) : count ? (
                   <span className="folder-rail-dot" aria-hidden="true" />
                 ) : null}
               </button>

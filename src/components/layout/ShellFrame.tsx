@@ -19,6 +19,16 @@ import { type ShortcutAction, useShortcutStore } from '@stores/useShortcutStore'
 import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
 
+const stripHtmlPreview = (value: string) =>
+  value
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 type ShellFrameProps = {
   backendStatus: string;
   folders: FolderRecord[];
@@ -97,6 +107,7 @@ export const ShellFrame = ({
   const [composerDraftId, setComposerDraftId] = useState<string | null>(null);
   const [composerLiveDraft, setComposerLiveDraft] = useState<ComposerDraft | null>(null);
   const [isResizingThreadPanel, setIsResizingThreadPanel] = useState(false);
+  const [selectedDraftThreadId, setSelectedDraftThreadId] = useState<string | null>(null);
   const [shortcutStatusLabel, setShortcutStatusLabel] = useState<string | null>(null);
   const [threadDialogRequest, setThreadDialogRequest] = useState<ThreadDialogRequest | null>(null);
   const [visibleComposerToast, setVisibleComposerToast] = useState(composerToast);
@@ -122,6 +133,18 @@ export const ShellFrame = ({
   const removeDraft = useDraftStore((state) => state.removeDraft);
   const selectDraft = useDraftStore((state) => state.selectDraft);
   const activeFolder = folders.find((folder) => folder.id === activeFolderId) ?? null;
+  const runtimeFolders = useMemo(
+    () =>
+      folders.map((folder) =>
+        folder.role === 'drafts'
+          ? {
+              ...folder,
+              total_count: drafts.length
+            }
+          : folder
+      ),
+    [drafts.length, folders]
+  );
   const accountId = composerAccountId;
   const defaultSignature = useMemo(
     () => resolveSignatureForAccount(signatures, defaultSignatureId, defaultSignatureIdsByAccountId, accountId),
@@ -131,6 +154,27 @@ export const ShellFrame = ({
     () => drafts.find((draft) => draft.id === activeDraftId) ?? null,
     [activeDraftId, drafts]
   );
+  const draftThreads = useMemo(
+    () =>
+      drafts
+        .filter((draft) => draft.accountId === accountId)
+        .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime())
+        .map((draft) => ({
+          id: draft.id,
+          subject: draft.subject.trim() || '(no subject)',
+          snippet: stripHtmlPreview(draft.body) || 'Draft in progress',
+          participants: draft.to.length ? draft.to : ['Draft'],
+          isUnread: false,
+          isStarred: false,
+          hasAttachments: false,
+          messageCount: 1,
+          lastMessageAt: draft.updatedAt
+        })),
+    [accountId, drafts]
+  );
+  const isDraftsFolder = activeFolder?.role === 'drafts';
+  const visibleThreads = isDraftsFolder ? draftThreads : threads;
+  const visibleSelectedThreadId = isDraftsFolder ? selectedDraftThreadId : selectedThreadId;
   const resetComposerState = useCallback(() => {
     setIsComposerOpen(false);
     setComposerInitialDraft(undefined);
@@ -232,6 +276,29 @@ export const ShellFrame = ({
     setComposerLiveDraft(null);
     setIsComposerOpen(true);
   }, [activeSavedDraft, composerAccountId, defaultSignature?.body, selectDraft, setSidebarCollapsed]);
+  const openComposerFromSavedDraft = useCallback((savedDraft: typeof activeSavedDraft) => {
+    if (!savedDraft) {
+      openComposerWithDraft(undefined);
+      return;
+    }
+
+    selectDraft(savedDraft.id);
+    setComposerDraftId(savedDraft.id);
+    setComposerInitialDraft({
+      attachments: [],
+      bcc: savedDraft.bcc,
+      body: savedDraft.body,
+      cc: savedDraft.cc,
+      fromAccountId: savedDraft.fromAccountId,
+      inReplyTo: savedDraft.inReplyTo,
+      references: savedDraft.references,
+      subject: savedDraft.subject,
+      to: savedDraft.to
+    });
+    setComposerLiveDraft(null);
+    setIsComposerOpen(true);
+    setSelectedDraftThreadId(savedDraft.id);
+  }, [openComposerWithDraft, selectDraft]);
   const toggleComposer = () => {
     if (isComposerOpen) {
       resetComposerState();
@@ -248,6 +315,16 @@ export const ShellFrame = ({
     openComposerWithDraft(prepareReplyDraft(message, replyAll));
     setShortcutStatusLabel(replyAll ? 'Reply all draft ready' : 'Reply draft ready');
   }, [openComposerWithDraft]);
+  useEffect(() => {
+    if (!isDraftsFolder) {
+      setSelectedDraftThreadId(null);
+      return;
+    }
+
+    setSelectedDraftThreadId((current) =>
+      current && draftThreads.some((draft) => draft.id === current) ? current : draftThreads[0]?.id ?? null
+    );
+  }, [draftThreads, isDraftsFolder]);
   const handleForwardMessage = useCallback((message: MessageRecord) => {
     openComposerWithDraft(prepareForwardDraft(message));
     setShortcutStatusLabel('Forward draft ready');
@@ -414,7 +491,7 @@ export const ShellFrame = ({
       <div className="shell-backdrop" aria-hidden="true" />
       <MailSidebar
         activeFolderId={activeFolderId}
-        folders={folders}
+        folders={runtimeFolders}
         isCollapsed={isSidebarCollapsed}
         isComposerOpen={isComposerOpen}
         isOutboxBusy={isOutboxBusy}
@@ -510,7 +587,7 @@ export const ShellFrame = ({
           <ThreadListPanel
             activeFolderName={activeFolder?.name ?? null}
             dialogRequest={threadDialogRequest}
-            folders={folders}
+            folders={runtimeFolders}
             hasMore={hasMoreThreads}
             isSearchActive={isSearchActive}
             isLoading={isThreadsLoading}
@@ -519,9 +596,23 @@ export const ShellFrame = ({
             onMoveThreads={onMoveThreads}
             onThreadAction={onThreadAction}
             searchQuery={searchQuery}
-            selectedThreadId={selectedThreadId}
-            threads={threads}
-            onSelectThread={onSelectThread}
+            selectedThreadId={visibleSelectedThreadId}
+            threads={visibleThreads}
+            onSelectThread={(threadId) => {
+              if (isDraftsFolder) {
+                const savedDraft = drafts.find((draft) => draft.id === threadId) ?? null;
+                if (!savedDraft) {
+                  return;
+                }
+
+                setSelectedDraftThreadId(threadId);
+                openComposerFromSavedDraft(savedDraft);
+                setShortcutStatusLabel('Draft restored');
+                return;
+              }
+
+              onSelectThread(threadId);
+            }}
           />
 
           <button
