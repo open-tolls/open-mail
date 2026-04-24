@@ -2,6 +2,20 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ComposerEditor } from '@components/composer/ComposerEditor';
 
+if (!('getClientRects' in Text.prototype)) {
+  Object.defineProperty(Text.prototype, 'getClientRects', {
+    configurable: true,
+    value: () => []
+  });
+}
+
+if (!('getBoundingClientRect' in Text.prototype)) {
+  Object.defineProperty(Text.prototype, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => new DOMRect()
+  });
+}
+
 const focusEditorText = (value: string) => {
   const editor = screen.getByRole('textbox', { name: 'Message' });
   const textNode = Array.from(editor.childNodes)
@@ -11,15 +25,6 @@ const focusEditorText = (value: string) => {
   if (!textNode?.textContent) {
     throw new Error(`Could not find text node containing "${value}"`);
   }
-
-  Object.defineProperty(textNode, 'getClientRects', {
-    configurable: true,
-    value: () => []
-  });
-  Object.defineProperty(textNode, 'getBoundingClientRect', {
-    configurable: true,
-    value: () => new DOMRect()
-  });
 
   const startIndex = textNode.textContent.indexOf(value);
   const range = document.createRange();
@@ -85,5 +90,14 @@ describe('ComposerEditor', () => {
     fireEvent.keyDown(editor, { key: 'k', metaKey: true });
 
     expect(promptSpy).toHaveBeenNthCalledWith(2, 'Enter link URL', 'https://example.com');
+  });
+
+  it('surfaces the advanced shortcut affordances for strike, lists, and code blocks', () => {
+    render(<ComposerEditor body="<p>Hello team</p>" onBodyChange={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Strike' })).toHaveAttribute('title', 'Strikethrough (Cmd+Shift+S)');
+    expect(screen.getByRole('button', { name: 'Numbers' })).toHaveAttribute('title', 'Numbered list (Cmd+Shift+7)');
+    expect(screen.getByRole('button', { name: 'Bullets' })).toHaveAttribute('title', 'Bullet list (Cmd+Shift+8)');
+    expect(screen.getByRole('button', { name: 'Code' })).toHaveAttribute('title', 'Code block (Cmd+Shift+E)');
   });
 });

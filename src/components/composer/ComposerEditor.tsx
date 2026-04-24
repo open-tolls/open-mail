@@ -9,6 +9,8 @@ type ComposerEditorProps = {
   onBodyChange: (value: string) => void;
 };
 
+type EditorInstance = ReturnType<typeof useEditor>;
+
 const toInitialHtml = (body: string) => {
   if (!body.trim()) {
     return '<p></p>';
@@ -22,12 +24,41 @@ const toInitialHtml = (body: string) => {
 };
 
 export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
-  const requestLink = (editorInstance = editor) => {
-    if (!editorInstance) {
+  const runEditorShortcut = (event: KeyboardEvent, editorInstance?: EditorInstance): boolean => {
+    const resolvedEditor = editorInstance ?? editor;
+
+    if (!resolvedEditor || !(event.metaKey || event.ctrlKey) || !event.shiftKey) {
       return false;
     }
 
-    const previousUrl = editorInstance.getAttributes('link').href as string | undefined;
+    switch (event.key) {
+      case '7':
+        event.preventDefault();
+        return resolvedEditor.chain().toggleOrderedList().run();
+      case '8':
+        event.preventDefault();
+        return resolvedEditor.chain().toggleBulletList().run();
+      case 'E':
+      case 'e':
+        event.preventDefault();
+        return resolvedEditor.chain().toggleCodeBlock().run();
+      case 'S':
+      case 's':
+        event.preventDefault();
+        return resolvedEditor.chain().toggleStrike().run();
+      default:
+        return false;
+    }
+  };
+
+  const requestLink = (editorInstance?: EditorInstance): boolean => {
+    const resolvedEditor = editorInstance ?? editor;
+
+    if (!resolvedEditor) {
+      return false;
+    }
+
+    const previousUrl = resolvedEditor.getAttributes('link').href as string | undefined;
     const nextUrl = window.prompt('Enter link URL', previousUrl ?? 'https://');
 
     if (nextUrl === null) {
@@ -35,11 +66,11 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
     }
 
     if (!nextUrl.trim()) {
-      editorInstance.chain().unsetLink().run();
+      resolvedEditor.chain().unsetLink().run();
       return true;
     }
 
-    editorInstance.chain().setLink({ href: nextUrl.trim() }).run();
+    resolvedEditor.chain().setLink({ href: nextUrl.trim() }).run();
     return true;
   };
 
@@ -62,10 +93,14 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
         class: 'composer-rich-editor',
         role: 'textbox'
       },
-      handleKeyDown: (_view, event) => {
+      handleKeyDown: (_view, event): boolean => {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
           event.preventDefault();
           return requestLink();
+        }
+
+        if (runEditorShortcut(event)) {
+          return true;
         }
 
         return false;

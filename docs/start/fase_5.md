@@ -382,7 +382,7 @@ export function ComposerToolbar({ editor }: { editor: Editor }) {
 - [ ] Paste de HTML preserva formatacao
 - [ ] Paste de imagem do clipboard funciona
 
-> Status: `ComposerEditor` agora usa TipTap com `StarterKit` e `Placeholder`, com toolbar mais completa para bold, italic, underline, strike, headings `H1/H2/H3`, listas, quote, code block e links. O fluxo de links ja aceita inserir, editar e remover via prompt compartilhado entre toolbar e atalho `Cmd+K`, e o body do composer segue saindo como HTML para o outbox enquanto o `plainBody` e derivado no app. Imagens inline e refinamentos de paste ainda ficam para os proximos cortes.
+> Status: `ComposerEditor` agora usa TipTap com `StarterKit` e `Placeholder`, com toolbar mais completa para bold, italic, underline, strike, headings `H1/H2/H3`, listas, quote, code block e links. O fluxo de links ja aceita inserir, editar e remover via prompt compartilhado entre toolbar e atalho `Cmd+K`, e os atalhos `Cmd+Shift+S`, `Cmd+Shift+7`, `Cmd+Shift+8` e `Cmd+Shift+E` tambem ficam tratados explicitamente no editor. O body do composer segue saindo como HTML para o outbox enquanto o `plainBody` e derivado no app. Imagens inline e refinamentos de paste ainda ficam para os proximos cortes.
 
 ---
 
