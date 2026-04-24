@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { FileImage, FileText, Paperclip } from 'lucide-react';
 import type { ComposerAttachment } from '@components/composer/Composer';
 
 type ComposerAttachmentsProps = {
@@ -17,6 +18,27 @@ const formatSize = (size: number) => {
   }
 
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const getAttachmentKind = (contentType: string) => {
+  if (contentType.startsWith('image/')) {
+    return {
+      icon: FileImage,
+      label: 'Image'
+    };
+  }
+
+  if (contentType === 'application/pdf' || contentType.includes('pdf')) {
+    return {
+      icon: FileText,
+      label: 'PDF'
+    };
+  }
+
+  return {
+    icon: Paperclip,
+    label: 'File'
+  };
 };
 
 export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAttachmentsProps) => {
@@ -54,9 +76,20 @@ export const ComposerAttachments = ({ attachments, onAdd, onRemove }: ComposerAt
         <div className="composer-attachment-list">
           {attachments.map((attachment) => (
             <div className="composer-attachment-item" key={attachment.id}>
-              <div>
+              <div
+                aria-label={`${getAttachmentKind(attachment.contentType).label} attachment`}
+                className="composer-attachment-icon"
+              >
+                {(() => {
+                  const AttachmentIcon = getAttachmentKind(attachment.contentType).icon;
+                  return <AttachmentIcon size={18} />;
+                })()}
+              </div>
+              <div className="composer-attachment-copy">
                 <strong>{attachment.name}</strong>
-                <span>{formatSize(attachment.size)}</span>
+                <span>
+                  {getAttachmentKind(attachment.contentType).label} · {formatSize(attachment.size)}
+                </span>
               </div>
               <button aria-label={`Remove ${attachment.name}`} onClick={() => onRemove(attachment.id)} type="button">
                 Remove

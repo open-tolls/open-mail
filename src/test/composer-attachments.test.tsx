@@ -34,6 +34,8 @@ describe('ComposerAttachments', () => {
     );
 
     expect(screen.getByText('report.pdf')).toBeInTheDocument();
+    expect(screen.getByLabelText('PDF attachment')).toBeInTheDocument();
+    expect(screen.getByText(/PDF ·/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Remove report.pdf' }));
     expect(onRemove).toHaveBeenCalledWith('report.pdf-1');
   });

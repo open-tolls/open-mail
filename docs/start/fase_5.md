@@ -450,7 +450,7 @@ pub async fn pick_files() -> Result<Vec<FilePath>, String> {
 - [ ] Limite de tamanho com warning
 - [ ] Icones por tipo MIME
 
-> Status: o composer agora aceita anexos locais com input de arquivos e drag and drop, exibe nome/tamanho na lista e permite remover antes do envio. O `App` ja converte `File` para `MimeAttachment` ao enfileirar a mensagem. Paste de imagem, limite total e icones por MIME ficam para os proximos cortes.
+> Status: o composer agora aceita anexos locais com input de arquivos e drag and drop, exibe nome/tamanho/tipo na lista, mostra icones por MIME e permite remover antes do envio. O `App` ja converte `File` para `MimeAttachment` ao enfileirar a mensagem. Paste de imagem e limite total ainda ficam para os proximos cortes.
 
 ---
 

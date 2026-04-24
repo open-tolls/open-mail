@@ -530,9 +530,22 @@ textarea {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.composer-attachment-item div {
+.composer-attachment-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.composer-attachment-copy {
   display: grid;
   gap: 2px;
+  flex: 1;
 }
 
 .composer-attachment-item span {
