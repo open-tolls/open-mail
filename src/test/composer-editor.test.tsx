@@ -45,6 +45,7 @@ describe('ComposerEditor', () => {
     expect(screen.getByRole('button', { name: 'Strike' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'H1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'H2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'H3' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bullets' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Numbers' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Code' })).toBeInTheDocument();

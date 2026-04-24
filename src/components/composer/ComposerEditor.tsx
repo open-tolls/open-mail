@@ -48,7 +48,7 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
     extensions: [
       StarterKit.configure({
         heading: {
-          levels: [1, 2]
+          levels: [1, 2, 3]
         }
       }),
       Placeholder.configure({

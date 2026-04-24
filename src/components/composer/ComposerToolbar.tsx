@@ -59,6 +59,13 @@ export const ComposerToolbar = ({ editor, onRequestLink }: ComposerToolbarProps)
       >
         H2
       </button>
+      <button
+        aria-pressed={editor.isActive('heading', { level: 3 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        type="button"
+      >
+        H3
+      </button>
       <span>|</span>
       <button
         aria-pressed={editor.isActive('bulletList')}
