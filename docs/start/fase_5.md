@@ -94,11 +94,11 @@ src/components/composer/
 5. **Draft** — restaura rascunho salvo
 
 **Criterio de aceite:**
-- [ ] Layout completo renderiza
-- [ ] Todos os 5 modos de abertura funcionam
-- [ ] From selector (quando ha multiplas contas)
-- [ ] Cc/Bcc toggleaveis (ocultos por padrao, mostrar com botao)
-- [ ] Fechar composer pede confirmacao se ha conteudo
+- [x] Layout completo renderiza
+- [x] Todos os 5 modos de abertura funcionam
+- [x] From selector (quando ha multiplas contas)
+- [x] Cc/Bcc toggleaveis (ocultos por padrao, mostrar com botao)
+- [x] Fechar composer pede confirmacao se ha conteudo
 
 > Status: primeiro corte do composer integrado ao shell. O formulario improvisado da sidebar foi substituido por `src/components/composer/` com painel dedicado, `From`, `To`, `Cc/Bcc` toggleaveis, `Subject`, body em textarea, footer de envio e fechamento seguro do draft. Os modos `reply`, `reply all`, `forward`, selector real de contas e editor rich text ja avancaram ao longo da fase; o campo `From` agora vira selector quando ha multiplas contas disponiveis.
 
@@ -177,12 +177,12 @@ export function ParticipantField({ label, value, onChange }: Props) {
 - Backspace remove ultimo chip quando input vazio
 
 **Criterio de aceite:**
-- [ ] Autocomplete de contatos funciona
-- [ ] Chips renderizam corretamente
-- [ ] Paste de multiplos emails funciona
-- [ ] Validacao visual de email invalido
-- [ ] Keyboard navigation (Tab, Enter, Backspace, Escape)
-- [ ] Cc/Bcc toggleaveis
+- [x] Autocomplete de contatos funciona
+- [x] Chips renderizam corretamente
+- [x] Paste de multiplos emails funciona
+- [x] Validacao visual de email invalido
+- [x] Keyboard navigation (Tab, Enter, Backspace, Escape)
+- [x] Cc/Bcc toggleaveis
 
 > Status: `ParticipantField` e `ParticipantChip` agora suportam chips, sugestoes locais a partir dos participantes conhecidos do mailbox, selecao com Enter/Tab, paste de multiplos emails, remocao com Backspace e destaque visual para destinatarios invalidos. A busca remota em contatos reais via backend ainda fica para um corte posterior.
 
@@ -370,17 +370,17 @@ export function ComposerToolbar({ editor }: { editor: Editor }) {
 | Shift+Tab    | Outdent list item |
 
 **Criterio de aceite:**
-- [ ] Formatacao basica (bold, italic, underline, strike)
-- [ ] Headings (H1, H2, H3)
-- [ ] Listas (bullet, numbered, nested)
-- [ ] Links (inserir, editar, remover)
-- [ ] Imagens inline (paste, drag & drop, dialog)
-- [ ] Code blocks
-- [ ] Alinhamento de texto
-- [ ] Toolbar reflete estado ativo
-- [ ] Atalhos de teclado funcionam
+- [x] Formatacao basica (bold, italic, underline, strike)
+- [x] Headings (H1, H2, H3)
+- [x] Listas (bullet, numbered, nested)
+- [x] Links (inserir, editar, remover)
+- [x] Imagens inline (paste, drag & drop, dialog)
+- [x] Code blocks
+- [x] Alinhamento de texto
+- [x] Toolbar reflete estado ativo
+- [x] Atalhos de teclado funcionam
 - [ ] Paste de HTML preserva formatacao
-- [ ] Paste de imagem do clipboard funciona
+- [x] Paste de imagem do clipboard funciona
 
 > Status: `ComposerEditor` agora usa TipTap com `StarterKit` e `Placeholder`, com toolbar mais completa para bold, italic, underline, strike, headings `H1/H2/H3`, listas, quote, code block, links, imagens inline e alinhamento `Left/Center/Right`. O fluxo de links ja aceita inserir, editar e remover via prompt compartilhado entre toolbar e atalho `Cmd+K`, imagens inline entram por dialog, paste ou drag and drop, os atalhos `Cmd+Shift+S`, `Cmd+Shift+7`, `Cmd+Shift+8` e `Cmd+Shift+E` ficam tratados explicitamente no editor, e listas aninhadas agora tambem aceitam `Indent` / `Outdent` na toolbar e `Tab` / `Shift+Tab` no teclado. O body do composer segue saindo como HTML para o outbox enquanto o `plainBody` e derivado no app. Refinamentos de paste rico ainda ficam para os proximos cortes.
 
@@ -443,12 +443,12 @@ pub async fn pick_files() -> Result<Vec<FilePath>, String> {
 ```
 
 **Criterio de aceite:**
-- [ ] Adicionar arquivos via dialog
-- [ ] Drag & drop funciona
-- [ ] Paste de imagem funciona
-- [ ] Remover attachment
-- [ ] Limite de tamanho com warning
-- [ ] Icones por tipo MIME
+- [x] Adicionar arquivos via dialog
+- [x] Drag & drop funciona
+- [x] Paste de imagem funciona
+- [x] Remover attachment
+- [x] Limite de tamanho com warning
+- [x] Icones por tipo MIME
 
 > Status: o composer agora aceita anexos locais com input de arquivos, drag and drop e paste de imagens do clipboard, exibe nome/tamanho/tipo na lista, mostra icones por MIME, avisa quando o total se aproxima ou ultrapassa 25 MB e permite remover antes do envio. O `App` ja converte `File` para `MimeAttachment` ao enfileirar a mensagem.
 
@@ -489,10 +489,10 @@ interface SignatureState {
 - Assinatura nao inserida em replies (configuravel)
 
 **Criterio de aceite:**
-- [ ] Criar/editar/deletar assinaturas
-- [ ] Assinatura padrao por conta
-- [ ] Inserida automaticamente em novos emails
-- [ ] Editavel dentro do composer
+- [x] Criar/editar/deletar assinaturas
+- [x] Assinatura padrao por conta
+- [x] Inserida automaticamente em novos emails
+- [x] Editavel dentro do composer
 - [ ] Persistida no backend
 
 > Status: o composer agora tem store local persistida de assinaturas, assinatura padrao global e por conta inserida automaticamente em novos emails, alem de painel compacto dentro do composer para criar, editar, deletar e aplicar a assinatura atual. Persistencia no backend ainda fica para os proximos cortes.
@@ -548,10 +548,10 @@ pub async fn list_drafts(state: State<'_, AppState>, account_id: String) -> Resu
 5. Ao descartar, draft deletado com confirmacao
 
 **Criterio de aceite:**
-- [ ] Auto-save apos 2s de inatividade
-- [ ] Draft listado na sidebar (Drafts folder)
-- [ ] Reabrir draft restaura todo o estado
-- [ ] Draft deletado apos envio
+- [x] Auto-save apos 2s de inatividade
+- [x] Draft listado na sidebar (Drafts folder)
+- [x] Reabrir draft restaura todo o estado
+- [x] Draft deletado apos envio
 - [ ] Draft sync para IMAP (background)
 
 > Status: o fluxo local agora cobre auto-save com debounce de 2s em store persistida no cliente, restaura o draft salvo ao reabrir o composer, lista esses drafts explicitamente na pasta `Drafts` do shell e remove o rascunho local depois de enviar ou descartar. Ainda faltam sync com IMAP/SQLite no backend.
@@ -667,12 +667,12 @@ pub async fn send_draft(
 
 **Criterio de aceite:**
 - [ ] Envio funciona (SMTP)
-- [ ] Validacoes pre-envio
-- [ ] Loading state durante envio
-- [ ] Mensagem movida para Sent apos envio
-- [ ] Draft deletado apos envio
-- [ ] Toast de sucesso/erro
-- [ ] Cmd+Enter envia
+- [x] Validacoes pre-envio
+- [x] Loading state durante envio
+- [x] Mensagem movida para Sent apos envio
+- [x] Draft deletado apos envio
+- [x] Toast de sucesso/erro
+- [x] Cmd+Enter envia
 
 > Status: o fluxo atual do composer agora bloqueia envio sem destinatarios, pede confirmacao para assunto vazio, expõe botao de discard no footer, aceita `Cmd+Enter` para enfileirar o draft e mostra loading/toast de sucesso ou erro no caminho atual da fila local. Depois de `Flush queue`, a mensagem enviada tambem passa a aparecer na pasta `Sent` no fallback local. SMTP direto e transicoes completas no backend ainda entram nos proximos cortes.
 
@@ -737,11 +737,11 @@ function buildQuotedText(message: Message): string {
 ```
 
 **Criterio de aceite:**
-- [ ] Reply pre-preenche corretamente (To, Subject, quoted text)
-- [ ] Reply All inclui todos os participantes (exceto "me")
-- [ ] Forward inclui body original e attachments
-- [ ] Headers corretos (In-Reply-To, References)
-- [ ] Thread continuity (reply fica no mesmo thread)
+- [x] Reply pre-preenche corretamente (To, Subject, quoted text)
+- [x] Reply All inclui todos os participantes (exceto "me")
+- [x] Forward inclui body original e attachments
+- [x] Headers corretos (In-Reply-To, References)
+- [x] Thread continuity (reply fica no mesmo thread)
 
 > Status: `reply`, `reply all` e `forward` agora preenchem o composer a partir da mensagem selecionada. Replies preservam `To/Cc`, prefixo `Re:`, quoted body e headers `In-Reply-To`/`References`; forward abre com `Fwd:`, bloco de mensagem encaminhada, quoted text colapsavel no composer e reaproveita os attachments nao-inline da mensagem original quando estao disponiveis localmente.
 
@@ -776,18 +776,18 @@ npm install @tiptap/extension-text-style
 
 ## Checklist Final da Fase 5
 
-- [ ] Composer layout completo (header, editor, footer)
-- [ ] ParticipantField com autocomplete e chips
+- [x] Composer layout completo (header, editor, footer)
+- [x] ParticipantField com autocomplete e chips
 - [ ] TipTap editor com formatting completo
-- [ ] Toolbar de formatacao funcional
-- [ ] Attachments (dialog, drag & drop, paste)
-- [ ] Assinaturas (criar, editar, auto-insert)
-- [ ] Draft auto-save (debounce 2s)
+- [x] Toolbar de formatacao funcional
+- [x] Attachments (dialog, drag & drop, paste)
+- [x] Assinaturas (criar, editar, auto-insert)
+- [x] Draft auto-save (debounce 2s)
 - [ ] Send flow (validacao, SMTP, Sent folder)
-- [ ] Reply / Reply All / Forward
-- [ ] Quoted text colapsavel
-- [ ] Keyboard shortcuts (Cmd+Enter, Cmd+B/I/U)
-- [ ] Testes passando
+- [x] Reply / Reply All / Forward
+- [x] Quoted text colapsavel
+- [x] Keyboard shortcuts (Cmd+Enter, Cmd+B/I/U)
+- [x] Testes passando
 - [ ] CI green
 
 ---
