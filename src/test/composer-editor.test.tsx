@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { runComposerListIndentationShortcut } from '@lib/composer-editor-shortcuts';
+import { getImageFiles, insertComposerInlineImages } from '@lib/composer-inline-image';
 import { getComposerTextAlign, setComposerTextAlign } from '@lib/composer-text-align';
 
 if (!('getClientRects' in Text.prototype)) {
@@ -90,6 +91,7 @@ describe('ComposerEditor', () => {
     expect(screen.getByRole('button', { name: 'Outdent' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Code' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Image' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Left' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Center' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Right' })).toBeInTheDocument();
@@ -139,6 +141,7 @@ describe('ComposerEditor', () => {
     expect(screen.getByRole('button', { name: 'Indent' })).toHaveAttribute('title', 'Indent list item (Tab)');
     expect(screen.getByRole('button', { name: 'Outdent' })).toHaveAttribute('title', 'Outdent list item (Shift+Tab)');
     expect(screen.getByRole('button', { name: 'Code' })).toHaveAttribute('title', 'Code block (Cmd+Shift+E)');
+    expect(screen.getByRole('button', { name: 'Image' })).toHaveAttribute('title', 'Insert inline image');
     expect(screen.getByRole('button', { name: 'Left' })).toHaveAttribute('title', 'Align left');
     expect(screen.getByRole('button', { name: 'Center' })).toHaveAttribute('title', 'Align center');
     expect(screen.getByRole('button', { name: 'Right' })).toHaveAttribute('title', 'Align right');
@@ -211,5 +214,29 @@ describe('ComposerEditor', () => {
     expect(updateAttributes).toHaveBeenNthCalledWith(1, 'paragraph', { textAlign: 'right' });
     expect(updateAttributes).toHaveBeenNthCalledWith(2, 'heading', { textAlign: 'right' });
     expect(getComposerTextAlign(editor)).toBe('center');
+  });
+
+  it('filters and inserts inline image files as TipTap image nodes', async () => {
+    const run = vi.fn(() => true);
+    const insertContent = vi.fn(() => ({ run }));
+    const focus = vi.fn(() => ({ insertContent }));
+    const editor = {
+      chain: vi.fn(() => ({ focus }))
+    } as never;
+    const imageFile = new File(['image'], 'inline.png', { type: 'image/png' });
+    const textFile = new File(['note'], 'note.txt', { type: 'text/plain' });
+
+    expect(getImageFiles([imageFile, textFile])).toEqual([imageFile]);
+    await expect(insertComposerInlineImages(editor, [imageFile, textFile])).resolves.toBe(true);
+
+    expect(insertContent).toHaveBeenCalledWith([
+      expect.objectContaining({
+        type: 'composerInlineImage',
+        attrs: expect.objectContaining({
+          alt: 'inline.png',
+          src: expect.stringContaining('data:image/png;base64')
+        })
+      })
+    ]);
   });
 });

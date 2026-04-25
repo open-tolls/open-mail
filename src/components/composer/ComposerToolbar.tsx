@@ -1,12 +1,16 @@
+import { useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { getComposerTextAlign, setComposerTextAlign } from '@lib/composer-text-align';
 
 type ComposerToolbarProps = {
   editor: Editor | null;
+  onAddInlineImages: (files: File[]) => void;
   onRequestLink: () => void;
 };
 
-export const ComposerToolbar = ({ editor, onRequestLink }: ComposerToolbarProps) => {
+export const ComposerToolbar = ({ editor, onAddInlineImages, onRequestLink }: ComposerToolbarProps) => {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   if (!editor) {
     return null;
   }
@@ -135,6 +139,26 @@ export const ComposerToolbar = ({ editor, onRequestLink }: ComposerToolbarProps)
       >
         Quote
       </button>
+      <button
+        onMouseDown={handleToolbarMouseDown}
+        onClick={() => imageInputRef.current?.click()}
+        title="Insert inline image"
+        type="button"
+      >
+        Image
+      </button>
+      <input
+        aria-label="Insert inline image"
+        accept="image/*"
+        hidden
+        multiple
+        onChange={(event) => {
+          onAddInlineImages(Array.from(event.target.files ?? []));
+          event.currentTarget.value = '';
+        }}
+        ref={imageInputRef}
+        type="file"
+      />
       <button
         aria-pressed={activeTextAlign === 'left'}
         onMouseDown={handleToolbarMouseDown}

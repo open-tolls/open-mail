@@ -481,6 +481,14 @@ textarea {
   color: var(--accent);
 }
 
+.composer-rich-editor img {
+  max-width: min(100%, 420px);
+  max-height: 280px;
+  margin: 0 0.35rem;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
 .composer-quoted-shell-collapsed .composer-rich-editor .gmail_quote,
 .composer-quoted-shell-collapsed .composer-rich-editor .forward_quote {
   display: none;

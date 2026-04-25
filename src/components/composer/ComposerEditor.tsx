@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { ComposerToolbar } from '@components/composer/ComposerToolbar';
 import { runComposerListIndentationShortcut } from '@lib/composer-editor-shortcuts';
+import { composerInlineImage, getImageFiles, insertComposerInlineImages } from '@lib/composer-inline-image';
 import { composerTextAlign } from '@lib/composer-text-align';
 
 type ComposerEditorProps = {
@@ -85,6 +86,7 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
         }
       }),
       composerTextAlign,
+      composerInlineImage,
       Placeholder.configure({
         placeholder: 'Write your message...'
       })
@@ -111,6 +113,26 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
         }
 
         return false;
+      },
+      handlePaste: (_view, event): boolean => {
+        const imageFiles = getImageFiles(Array.from(event.clipboardData?.files ?? []));
+        if (!editor || !imageFiles.length) {
+          return false;
+        }
+
+        event.preventDefault();
+        void insertComposerInlineImages(editor, imageFiles);
+        return true;
+      },
+      handleDrop: (_view, event): boolean => {
+        const imageFiles = getImageFiles(Array.from(event.dataTransfer?.files ?? []));
+        if (!editor || !imageFiles.length) {
+          return false;
+        }
+
+        event.preventDefault();
+        void insertComposerInlineImages(editor, imageFiles);
+        return true;
       }
     },
     onUpdate: ({ editor: currentEditor }) => {
@@ -135,7 +157,17 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
 
   return (
     <div className="composer-editor-shell">
-      <ComposerToolbar editor={editor} onRequestLink={() => requestLink()} />
+      <ComposerToolbar
+        editor={editor}
+        onAddInlineImages={(files) => {
+          if (!editor) {
+            return;
+          }
+
+          void insertComposerInlineImages(editor, files);
+        }}
+        onRequestLink={() => requestLink()}
+      />
       <div className="composer-editor-field">
         <span>Message</span>
         <EditorContent editor={editor} />
