@@ -788,7 +788,7 @@ npm install @tiptap/extension-text-style
 - [x] Quoted text colapsavel
 - [x] Keyboard shortcuts (Cmd+Enter, Cmd+B/I/U)
 - [x] Testes passando
-- [ ] CI green
+- [x] CI green
 
 ---
 
