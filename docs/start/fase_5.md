@@ -379,10 +379,10 @@ export function ComposerToolbar({ editor }: { editor: Editor }) {
 - [x] Alinhamento de texto
 - [x] Toolbar reflete estado ativo
 - [x] Atalhos de teclado funcionam
-- [ ] Paste de HTML preserva formatacao
+- [x] Paste de HTML preserva formatacao
 - [x] Paste de imagem do clipboard funciona
 
-> Status: `ComposerEditor` agora usa TipTap com `StarterKit` e `Placeholder`, com toolbar mais completa para bold, italic, underline, strike, headings `H1/H2/H3`, listas, quote, code block, links, imagens inline e alinhamento `Left/Center/Right`. O fluxo de links ja aceita inserir, editar e remover via prompt compartilhado entre toolbar e atalho `Cmd+K`, imagens inline entram por dialog, paste ou drag and drop, os atalhos `Cmd+Shift+S`, `Cmd+Shift+7`, `Cmd+Shift+8` e `Cmd+Shift+E` ficam tratados explicitamente no editor, e listas aninhadas agora tambem aceitam `Indent` / `Outdent` na toolbar e `Tab` / `Shift+Tab` no teclado. O body do composer segue saindo como HTML para o outbox enquanto o `plainBody` e derivado no app. Refinamentos de paste rico ainda ficam para os proximos cortes.
+> Status: `ComposerEditor` agora usa TipTap com `StarterKit` e `Placeholder`, com toolbar mais completa para bold, italic, underline, strike, headings `H1/H2/H3`, listas, quote, code block, links, imagens inline e alinhamento `Left/Center/Right`. O fluxo de links ja aceita inserir, editar e remover via prompt compartilhado entre toolbar e atalho `Cmd+K`, imagens inline entram por dialog, paste ou drag and drop, paste HTML passa pelo parser do TipTap para preservar formatacao suportada, os atalhos `Cmd+Shift+S`, `Cmd+Shift+7`, `Cmd+Shift+8` e `Cmd+Shift+E` ficam tratados explicitamente no editor, e listas aninhadas agora tambem aceitam `Indent` / `Outdent` na toolbar e `Tab` / `Shift+Tab` no teclado. O body do composer segue saindo como HTML para o outbox enquanto o `plainBody` e derivado no app.
 
 ---
 
@@ -778,7 +778,7 @@ npm install @tiptap/extension-text-style
 
 - [x] Composer layout completo (header, editor, footer)
 - [x] ParticipantField com autocomplete e chips
-- [ ] TipTap editor com formatting completo
+- [x] TipTap editor com formatting completo
 - [x] Toolbar de formatacao funcional
 - [x] Attachments (dialog, drag & drop, paste)
 - [x] Assinaturas (criar, editar, auto-insert)

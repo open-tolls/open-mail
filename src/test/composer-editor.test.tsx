@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { runComposerListIndentationShortcut } from '@lib/composer-editor-shortcuts';
+import { getClipboardHtml, insertComposerHtmlPaste } from '@lib/composer-html-paste';
 import { getImageFiles, insertComposerInlineImages } from '@lib/composer-inline-image';
 import { getComposerTextAlign, setComposerTextAlign } from '@lib/composer-text-align';
 
@@ -238,5 +239,23 @@ describe('ComposerEditor', () => {
         })
       })
     ]);
+  });
+
+  it('inserts rich HTML paste content through TipTap parsing', () => {
+    const run = vi.fn(() => true);
+    const insertContent = vi.fn(() => ({ run }));
+    const focus = vi.fn(() => ({ insertContent }));
+    const editor = {
+      chain: vi.fn(() => ({ focus }))
+    } as never;
+    const html = '<p><strong>Bold</strong> and <a href="https://example.com">linked</a></p>';
+
+    expect(
+      getClipboardHtml({
+        getData: (type: string) => (type === 'text/html' ? html : '')
+      })
+    ).toBe(html);
+    expect(insertComposerHtmlPaste(editor, html)).toBe(true);
+    expect(insertContent).toHaveBeenCalledWith(html);
   });
 });

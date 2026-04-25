@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { ComposerToolbar } from '@components/composer/ComposerToolbar';
 import { runComposerListIndentationShortcut } from '@lib/composer-editor-shortcuts';
+import { getClipboardHtml, insertComposerHtmlPaste } from '@lib/composer-html-paste';
 import { composerInlineImage, getImageFiles, insertComposerInlineImages } from '@lib/composer-inline-image';
 import { composerTextAlign } from '@lib/composer-text-align';
 
@@ -116,13 +117,23 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
       },
       handlePaste: (_view, event): boolean => {
         const imageFiles = getImageFiles(Array.from(event.clipboardData?.files ?? []));
-        if (!editor || !imageFiles.length) {
+        if (!editor) {
+          return false;
+        }
+
+        if (imageFiles.length) {
+          event.preventDefault();
+          void insertComposerInlineImages(editor, imageFiles);
+          return true;
+        }
+
+        const html = getClipboardHtml(event.clipboardData);
+        if (!html) {
           return false;
         }
 
         event.preventDefault();
-        void insertComposerInlineImages(editor, imageFiles);
-        return true;
+        return insertComposerHtmlPaste(editor, html);
       },
       handleDrop: (_view, event): boolean => {
         const imageFiles = getImageFiles(Array.from(event.dataTransfer?.files ?? []));
