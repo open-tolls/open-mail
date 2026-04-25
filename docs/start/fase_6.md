@@ -164,6 +164,8 @@ pub async fn add_account(
 - [ ] Credenciais salvas no keychain
 - [ ] Conta persitida no banco
 
+> Status: primeiro corte do onboarding ja trocou a tela placeholder por um wizard real com `Welcome`, selecao de provedor, caminho `OAuth` ou `IMAP manual`, passo de `Test connection`, `Initial sync` com progresso e `Done`. Neste corte, o foco ficou na estrutura navegavel e no uso do backend ja existente para preparar a URL OAuth; persistencia completa da conta, keychain e sync inicial real entram nos proximos cortes da fase.
+
 ---
 
 ### 6.2 — Adicionar Conta Adicional

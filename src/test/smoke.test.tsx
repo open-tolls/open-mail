@@ -38,7 +38,9 @@ describe('App smoke test', () => {
     );
 
     expect(screen.getByLabelText('Open Mail onboarding')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Prepare the inbox before the mail arrives.' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Bring the first account online without leaving the product.' })
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText('Mailbox folders')).not.toBeInTheDocument();
   });
 });
