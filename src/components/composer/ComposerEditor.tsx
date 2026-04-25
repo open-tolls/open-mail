@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { ComposerToolbar } from '@components/composer/ComposerToolbar';
 import { runComposerListIndentationShortcut } from '@lib/composer-editor-shortcuts';
+import { composerTextAlign } from '@lib/composer-text-align';
 
 type ComposerEditorProps = {
   body: string;
@@ -83,6 +84,7 @@ export const ComposerEditor = ({ body, onBodyChange }: ComposerEditorProps) => {
           levels: [1, 2, 3]
         }
       }),
+      composerTextAlign,
       Placeholder.configure({
         placeholder: 'Write your message...'
       })

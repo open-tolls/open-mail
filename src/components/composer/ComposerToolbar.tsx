@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/react';
+import { getComposerTextAlign, setComposerTextAlign } from '@lib/composer-text-align';
 
 type ComposerToolbarProps = {
   editor: Editor | null;
@@ -11,6 +12,7 @@ export const ComposerToolbar = ({ editor, onRequestLink }: ComposerToolbarProps)
   }
 
   const isListItemActive = editor.isActive('bulletList') || editor.isActive('orderedList');
+  const activeTextAlign = getComposerTextAlign(editor);
   const handleToolbarMouseDown = (event: { preventDefault: () => void }) => {
     event.preventDefault();
   };
@@ -132,6 +134,33 @@ export const ComposerToolbar = ({ editor, onRequestLink }: ComposerToolbarProps)
         type="button"
       >
         Quote
+      </button>
+      <button
+        aria-pressed={activeTextAlign === 'left'}
+        onMouseDown={handleToolbarMouseDown}
+        onClick={() => setComposerTextAlign(editor, 'left')}
+        title="Align left"
+        type="button"
+      >
+        Left
+      </button>
+      <button
+        aria-pressed={activeTextAlign === 'center'}
+        onMouseDown={handleToolbarMouseDown}
+        onClick={() => setComposerTextAlign(editor, 'center')}
+        title="Align center"
+        type="button"
+      >
+        Center
+      </button>
+      <button
+        aria-pressed={activeTextAlign === 'right'}
+        onMouseDown={handleToolbarMouseDown}
+        onClick={() => setComposerTextAlign(editor, 'right')}
+        title="Align right"
+        type="button"
+      >
+        Right
       </button>
       <button
         aria-pressed={editor.isActive('link')}

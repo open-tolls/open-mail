@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { runComposerListIndentationShortcut } from '@lib/composer-editor-shortcuts';
+import { getComposerTextAlign, setComposerTextAlign } from '@lib/composer-text-align';
 
 if (!('getClientRects' in Text.prototype)) {
   Object.defineProperty(Text.prototype, 'getClientRects', {
@@ -89,6 +90,9 @@ describe('ComposerEditor', () => {
     expect(screen.getByRole('button', { name: 'Outdent' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Code' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Left' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Center' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Right' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Link' })).toBeInTheDocument();
   });
 
@@ -135,6 +139,9 @@ describe('ComposerEditor', () => {
     expect(screen.getByRole('button', { name: 'Indent' })).toHaveAttribute('title', 'Indent list item (Tab)');
     expect(screen.getByRole('button', { name: 'Outdent' })).toHaveAttribute('title', 'Outdent list item (Shift+Tab)');
     expect(screen.getByRole('button', { name: 'Code' })).toHaveAttribute('title', 'Code block (Cmd+Shift+E)');
+    expect(screen.getByRole('button', { name: 'Left' })).toHaveAttribute('title', 'Align left');
+    expect(screen.getByRole('button', { name: 'Center' })).toHaveAttribute('title', 'Align center');
+    expect(screen.getByRole('button', { name: 'Right' })).toHaveAttribute('title', 'Align right');
   });
 
   it('routes Tab and Shift+Tab to nested list indentation commands', () => {
@@ -176,5 +183,33 @@ describe('ComposerEditor', () => {
       )
     ).toBe(true);
     expect(liftListItem).toHaveBeenCalledWith('listItem');
+  });
+
+  it('applies text alignment through the toolbar helpers', () => {
+    const updateAttributes = vi.fn(() => ({
+      updateAttributes,
+      run: () => true
+    }));
+    const focus = vi.fn(() => ({
+      updateAttributes,
+      run: () => true
+    }));
+    const editor = {
+      chain: vi.fn(() => ({
+        focus
+      })),
+      getAttributes: vi.fn((node: string) => {
+        if (node === 'paragraph') {
+          return { textAlign: 'center' };
+        }
+
+        return {};
+      })
+    } as never;
+
+    expect(setComposerTextAlign(editor, 'right')).toBe(true);
+    expect(updateAttributes).toHaveBeenNthCalledWith(1, 'paragraph', { textAlign: 'right' });
+    expect(updateAttributes).toHaveBeenNthCalledWith(2, 'heading', { textAlign: 'right' });
+    expect(getComposerTextAlign(editor)).toBe('center');
   });
 });
