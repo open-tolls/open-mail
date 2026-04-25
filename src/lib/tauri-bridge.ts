@@ -82,6 +82,22 @@ export const api = {
     buildOAuthAuthorizationUrl: (request: BuildOAuthAuthorizationUrlRequest) =>
       invokeOrThrow<OAuthAuthorizationRequest>('build_oauth_authorization_url', { request })
   },
+  drafts: {
+    list: (accountId: string) => invokeOrThrow<MessageRecord[]>('list_drafts', { accountId }),
+    save: (request: {
+      id: string;
+      accountId: string;
+      to: string[];
+      cc: string[];
+      bcc: string[];
+      subject: string;
+      body: string;
+      inReplyTo: string | null;
+      references: string[];
+    }) => invokeOrThrow<string>('save_draft', { request }),
+    delete: (accountId: string, draftId: string) =>
+      invokeOrThrow<void>('delete_draft', { accountId, draftId })
+  },
   system: {
     openExternalUrl: (url: string) => invokeOrThrow<void>('open_external_url', { url }),
     toAssetUrl: (filePath: string) => (isTauriRuntimeAvailable() ? convertFileSrc(filePath) : filePath)

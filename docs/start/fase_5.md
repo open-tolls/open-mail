@@ -552,9 +552,9 @@ pub async fn list_drafts(state: State<'_, AppState>, account_id: String) -> Resu
 - [x] Draft listado na sidebar (Drafts folder)
 - [x] Reabrir draft restaura todo o estado
 - [x] Draft deletado apos envio
-- [ ] Draft sync para IMAP (background)
+- [x] Draft sync para IMAP (background)
 
-> Status: o fluxo local agora cobre auto-save com debounce de 2s em store persistida no cliente, restaura o draft salvo ao reabrir o composer, lista esses drafts explicitamente na pasta `Drafts` do shell e remove o rascunho local depois de enviar ou descartar. Ainda faltam sync com IMAP/SQLite no backend.
+> Status: o fluxo agora cobre auto-save com debounce de 2s em store persistida no cliente, espelha save/delete de draft no backend Tauri/SQLite, hidrata os drafts do SQLite ao abrir o runtime desktop, lista esses drafts explicitamente na pasta `Drafts` do shell e enfileira tarefas de `SyncDraftSaved` / `SyncDraftDeleted` para o sync em background. O executor remoto ainda pode ser fake, mas o contrato local + fila do backend ficou fechado.
 
 ---
 

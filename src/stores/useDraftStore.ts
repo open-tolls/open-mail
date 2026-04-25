@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { MessageRecord } from '@lib/contracts';
+import { api, tauriRuntime } from '@lib/tauri-bridge';
 
 export type DraftRecord = {
   id: string;
@@ -64,3 +66,52 @@ export const useDraftStore = create<DraftState>()(
     }
   )
 );
+
+const toDraftRecord = (message: MessageRecord): DraftRecord => ({
+  id: message.id,
+  accountId: message.account_id,
+  bcc: message.bcc.map((contact) => contact.email),
+  body: message.body,
+  cc: message.cc.map((contact) => contact.email),
+  fromAccountId: message.account_id,
+  inReplyTo: message.in_reply_to,
+  references: message.references,
+  subject: message.subject,
+  to: message.to.map((contact) => contact.email),
+  updatedAt: message.updated_at
+});
+
+export const hydrateDraftStore = async (accountId: string) => {
+  if (!tauriRuntime.isAvailable()) {
+    return;
+  }
+
+  const drafts = await api.drafts.list(accountId);
+  useDraftStore.getState().setDrafts(drafts.map(toDraftRecord));
+};
+
+export const saveDraftToBackend = async (draft: DraftRecord) => {
+  if (!tauriRuntime.isAvailable()) {
+    return;
+  }
+
+  await api.drafts.save({
+    id: draft.id,
+    accountId: draft.accountId,
+    to: draft.to,
+    cc: draft.cc,
+    bcc: draft.bcc,
+    subject: draft.subject,
+    body: draft.body,
+    inReplyTo: draft.inReplyTo,
+    references: draft.references
+  });
+};
+
+export const deleteDraftFromBackend = async (accountId: string, draftId: string) => {
+  if (!tauriRuntime.isAvailable()) {
+    return;
+  }
+
+  await api.drafts.delete(accountId, draftId);
+};

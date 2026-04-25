@@ -9,11 +9,13 @@ import { ThreadListPanel, type ThreadDialogRequest } from '@components/layout/Th
 import { useDraftAutoSave } from '@hooks/useDraftAutoSave';
 import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboardShortcuts';
 import { prepareForwardDraft, prepareReplyDraft } from '@lib/compose-utils';
+import { tauriRuntime } from '@lib/tauri-bridge';
 import type { AttachmentRecord, FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 import { applySignatureHtml } from '@lib/signature-utils';
 import type { AccountRecord } from '@stores/useAccountStore';
 import { resolveSignatureForAccount, useSignatureStore } from '@stores/useSignatureStore';
 import { useDraftStore } from '@stores/useDraftStore';
+import { deleteDraftFromBackend, hydrateDraftStore, saveDraftToBackend } from '@stores/useDraftStore';
 import type { StoreThreadAction } from '@stores/useThreadStore';
 import { type ShortcutAction, useShortcutStore } from '@stores/useShortcutStore';
 import { useUndoStore } from '@stores/useUndoStore';
@@ -131,6 +133,7 @@ export const ShellFrame = ({
   const activeDraftId = useDraftStore((state) => state.activeDraftId);
   const editDraft = useDraftStore((state) => state.editDraft);
   const removeDraft = useDraftStore((state) => state.removeDraft);
+  const setDrafts = useDraftStore((state) => state.setDrafts);
   const selectDraft = useDraftStore((state) => state.selectDraft);
   const activeFolder = folders.find((folder) => folder.id === activeFolderId) ?? null;
   const runtimeFolders = useMemo(
@@ -207,7 +210,7 @@ export const ShellFrame = ({
     }
   }, [folders, onSelectFolder]);
   const handleAutoSaveDraft = useCallback((draftId: string, draft: ComposerDraft) => {
-    editDraft({
+    const savedDraft = {
       id: draftId,
       accountId: draft.fromAccountId,
       bcc: draft.bcc,
@@ -219,10 +222,25 @@ export const ShellFrame = ({
       subject: draft.subject,
       to: draft.to,
       updatedAt: new Date().toISOString()
+    };
+
+    editDraft(savedDraft);
+    void saveDraftToBackend(savedDraft).catch(() => {
+      setShortcutStatusLabel('Draft saved locally only');
     });
     setShortcutStatusLabel('Draft saved locally');
   }, [editDraft]);
   useDraftAutoSave(composerDraftId, composerLiveDraft, isComposerOpen, handleAutoSaveDraft);
+
+  useEffect(() => {
+    if (!tauriRuntime.isAvailable() || !accountId) {
+      return;
+    }
+
+    void hydrateDraftStore(accountId).catch(() => {
+      setDrafts([]);
+    });
+  }, [accountId, setDrafts]);
 
   const activeMessage = useMemo(() => {
     if (!messages.length) {
@@ -553,6 +571,9 @@ export const ShellFrame = ({
             onDiscard={() => {
               if (composerDraftId) {
                 removeDraft(composerDraftId);
+                void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
+                  setShortcutStatusLabel('Draft removed locally only');
+                });
               }
               selectDraft(null);
               resetComposerState();
@@ -564,6 +585,9 @@ export const ShellFrame = ({
               if (didQueue) {
                 if (composerDraftId) {
                   removeDraft(composerDraftId);
+                  void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
+                    setShortcutStatusLabel('Queued message, but draft cleanup stayed local');
+                  });
                 }
                 selectDraft(null);
                 resetComposerState();

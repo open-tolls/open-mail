@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::{
     domain::models::{
         account::{Account, AccountProvider, ConnectionSettings, SecurityType, SyncState},
+        contact::Contact,
         folder::{Folder, FolderRole},
         message::Message,
         outbox::{OutboxMessage, OutboxStatus},
@@ -238,6 +239,20 @@ pub struct SaveAccountCredentialsRequest {
     pub account_id: String,
     pub username: String,
     pub password: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveDraftRequest {
+    pub id: String,
+    pub account_id: String,
+    pub to: Vec<String>,
+    pub cc: Vec<String>,
+    pub bcc: Vec<String>,
+    pub subject: String,
+    pub body: String,
+    pub in_reply_to: Option<String>,
+    pub references: Vec<String>,
 }
 
 async fn list_accounts_for_state(state: &AppState) -> Result<Vec<Account>, String> {
@@ -589,6 +604,164 @@ async fn save_account_credentials_for_state(
         .map_err(|error| error.to_string())
 }
 
+fn draft_contact(account_id: &str, email: &str, is_me: bool) -> Contact {
+    let now = chrono::Utc::now();
+
+    Contact {
+        id: format!("ct_{}_{}", account_id, email.replace(['@', '.'], "_")),
+        account_id: account_id.into(),
+        name: None,
+        email: email.into(),
+        is_me,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+fn draft_snippet(body: &str) -> String {
+    body.replace("<br />", " ")
+        .replace("<br>", " ")
+        .replace("</p>", " ")
+        .replace(|character| character == '<' || character == '>', " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+async fn save_draft_for_state(state: &AppState, request: SaveDraftRequest) -> Result<String, String> {
+    let account = state
+        .account_repo
+        .find_by_id(&request.account_id)
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("account not found: {}", request.account_id))?;
+    let drafts_folder = state
+        .folder_repo
+        .find_by_role(&request.account_id, FolderRole::Drafts)
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("drafts folder not found for account {}", request.account_id))?;
+    let now = chrono::Utc::now();
+    let thread_id = format!("draft_thr_{}", request.id);
+    let message = Message {
+        id: request.id.clone(),
+        account_id: request.account_id.clone(),
+        thread_id: thread_id.clone(),
+        from: vec![draft_contact(&request.account_id, &account.email_address, true)],
+        to: request
+            .to
+            .iter()
+            .map(|email| draft_contact(&request.account_id, email, false))
+            .collect(),
+        cc: request
+            .cc
+            .iter()
+            .map(|email| draft_contact(&request.account_id, email, false))
+            .collect(),
+        bcc: request
+            .bcc
+            .iter()
+            .map(|email| draft_contact(&request.account_id, email, false))
+            .collect(),
+        reply_to: vec![],
+        subject: request.subject.clone(),
+        snippet: draft_snippet(&request.body),
+        body: request.body.clone(),
+        plain_text: Some(draft_snippet(&request.body)),
+        message_id_header: format!("<{}@openmail.local>", request.id),
+        in_reply_to: request.in_reply_to.clone(),
+        references: request.references.clone(),
+        folder_id: drafts_folder.id.clone(),
+        label_ids: vec![],
+        is_unread: false,
+        is_starred: false,
+        is_draft: true,
+        date: now,
+        attachments: vec![],
+        headers: std::collections::HashMap::from([(
+            "x-open-mail-draft".into(),
+            "true".into(),
+        )]),
+        created_at: now,
+        updated_at: now,
+    };
+    let thread = Thread {
+        id: thread_id,
+        account_id: request.account_id.clone(),
+        subject: request.subject.clone(),
+        snippet: message.snippet.clone(),
+        message_count: 1,
+        participant_ids: request
+            .to
+            .iter()
+            .chain(request.cc.iter())
+            .chain(request.bcc.iter())
+            .cloned()
+            .collect(),
+        folder_ids: vec![drafts_folder.id],
+        label_ids: vec![],
+        has_attachments: false,
+        is_unread: false,
+        is_starred: false,
+        last_message_at: now,
+        last_message_sent_at: None,
+        created_at: now,
+        updated_at: now,
+    };
+
+    state
+        .thread_repo
+        .save(&thread)
+        .await
+        .map_err(|error| error.to_string())?;
+    state
+        .message_repo
+        .save(&message)
+        .await
+        .map_err(|error| error.to_string())?;
+    state
+        .task_queue
+        .enqueue(MailTask::SyncDraftSaved {
+            account_id: request.account_id,
+            draft_id: request.id.clone(),
+        })
+        .map_err(|error| error.to_string())?;
+
+    Ok(request.id)
+}
+
+async fn delete_draft_for_state(
+    state: &AppState,
+    account_id: &str,
+    draft_id: &str,
+) -> Result<(), String> {
+    state
+        .message_repo
+        .delete(draft_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    let _ = state
+        .thread_repo
+        .delete(&format!("draft_thr_{draft_id}"))
+        .await;
+    state
+        .task_queue
+        .enqueue(MailTask::SyncDraftDeleted {
+            account_id: account_id.into(),
+            draft_id: draft_id.into(),
+        })
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+async fn list_drafts_for_state(state: &AppState, account_id: &str) -> Result<Vec<Message>, String> {
+    state
+        .message_repo
+        .find_drafts(account_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
 fn build_oauth_authorization_url_for_request(
     request: BuildOAuthAuthorizationUrlRequest,
 ) -> Result<OAuthAuthorizationRequest, String> {
@@ -847,6 +1020,31 @@ pub async fn save_account_credentials(
 }
 
 #[tauri::command]
+pub async fn save_draft(
+    state: State<'_, AppState>,
+    request: SaveDraftRequest,
+) -> Result<String, String> {
+    save_draft_for_state(&state, request).await
+}
+
+#[tauri::command]
+pub async fn delete_draft(
+    state: State<'_, AppState>,
+    account_id: String,
+    draft_id: String,
+) -> Result<(), String> {
+    delete_draft_for_state(&state, &account_id, &draft_id).await
+}
+
+#[tauri::command]
+pub async fn list_drafts(
+    state: State<'_, AppState>,
+    account_id: String,
+) -> Result<Vec<Message>, String> {
+    list_drafts_for_state(&state, &account_id).await
+}
+
+#[tauri::command]
 pub async fn build_oauth_authorization_url(
     request: BuildOAuthAuthorizationUrlRequest,
 ) -> Result<OAuthAuthorizationRequest, String> {
@@ -959,6 +1157,17 @@ pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
             role: Some(FolderRole::Sent),
             unread_count: 0,
             total_count: 42,
+            created_at: timestamp,
+            updated_at: timestamp,
+        },
+        Folder {
+            id: "fld_drafts".into(),
+            account_id: account.id.clone(),
+            name: "Drafts".into(),
+            path: "Drafts".into(),
+            role: Some(FolderRole::Drafts),
+            unread_count: 0,
+            total_count: 0,
             created_at: timestamp,
             updated_at: timestamp,
         },
@@ -1193,12 +1402,13 @@ mod tests {
 
     use super::{
         build_oauth_authorization_url_for_request, download_attachment_file,
-        enqueue_outbox_message_for_state, flush_outbox_for_state, force_sync_for_state,
-        get_message_for_state, get_sync_status_detail_for_state, get_sync_status_for_state,
-        list_messages_for_state, list_threads_for_state, mailbox_overview_for_state,
-        mark_messages_read_for_state, search_threads_for_state, seed_demo_data,
-        start_sync_for_state, stop_sync_for_state, validate_external_url,
-        BuildOAuthAuthorizationUrlRequest, EnqueueOutboxMessageRequest,
+        delete_draft_for_state, enqueue_outbox_message_for_state, flush_outbox_for_state,
+        force_sync_for_state, get_message_for_state, get_sync_status_detail_for_state,
+        get_sync_status_for_state, list_drafts_for_state, list_messages_for_state,
+        list_threads_for_state, mailbox_overview_for_state, mark_messages_read_for_state,
+        save_draft_for_state, search_threads_for_state, seed_demo_data, start_sync_for_state,
+        stop_sync_for_state, validate_external_url, BuildOAuthAuthorizationUrlRequest,
+        EnqueueOutboxMessageRequest, SaveDraftRequest,
     };
     use crate::{
         domain::models::{
@@ -1550,6 +1760,49 @@ mod tests {
         assert_eq!(updated_ids, vec![message.id]);
         assert!(!persisted.is_unread);
         assert_eq!(state.task_queue.pending_count().unwrap(), 1);
+    }
+
+    #[tokio::test]
+    async fn save_list_and_delete_draft_persists_backend_draft_and_queues_sync_tasks() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        let draft_id = save_draft_for_state(
+            &state,
+            SaveDraftRequest {
+                id: "draft_1".into(),
+                account_id: "acc_demo".into(),
+                to: vec!["team@example.com".into()],
+                cc: vec![],
+                bcc: vec![],
+                subject: "Draft subject".into(),
+                body: "<p>Draft body</p>".into(),
+                in_reply_to: None,
+                references: vec![],
+            },
+        )
+        .await
+        .unwrap();
+
+        let drafts = list_drafts_for_state(&state, "acc_demo").await.unwrap();
+        let persisted = state
+            .message_repo
+            .find_by_id(&draft_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(drafts.len(), 1);
+        assert!(persisted.is_draft);
+        assert_eq!(persisted.folder_id, "fld_drafts");
+        assert_eq!(state.task_queue.pending_count().unwrap(), 1);
+
+        delete_draft_for_state(&state, "acc_demo", &draft_id)
+            .await
+            .unwrap();
+
+        assert!(state.message_repo.find_by_id(&draft_id).await.unwrap().is_none());
+        assert_eq!(state.task_queue.pending_count().unwrap(), 2);
     }
 
     #[test]
