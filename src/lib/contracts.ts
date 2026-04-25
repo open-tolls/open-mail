@@ -108,6 +108,21 @@ export type OutboxSendReport = {
   failed: number;
 };
 
+export type SignatureRecord = {
+  id: string;
+  title: string;
+  body: string;
+  accountId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SignatureSettings = {
+  signatures: SignatureRecord[];
+  defaultSignatureId: string | null;
+  defaultSignatureIdsByAccountId: Record<string, string | null>;
+};
+
 export type ThreadSummary = {
   id: string;
   subject: string;

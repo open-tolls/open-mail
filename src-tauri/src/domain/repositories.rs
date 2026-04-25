@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 
 use crate::domain::{
@@ -8,6 +10,7 @@ use crate::domain::{
         folder::{Folder, FolderRole},
         message::Message,
         outbox::{OutboxMessage, OutboxStatus},
+        signature::Signature,
         sync_cursor::SyncCursor,
         thread::Thread,
     },
@@ -98,4 +101,18 @@ pub trait OutboxRepository: Send + Sync {
         status: OutboxStatus,
     ) -> Result<Vec<OutboxMessage>, DomainError>;
     async fn save(&self, message: &OutboxMessage) -> Result<(), DomainError>;
+}
+
+#[async_trait]
+pub trait SignatureRepository: Send + Sync {
+    async fn find_all(&self) -> Result<Vec<Signature>, DomainError>;
+    async fn find_default_global(&self) -> Result<Option<String>, DomainError>;
+    async fn find_defaults_by_account(&self) -> Result<HashMap<String, Option<String>>, DomainError>;
+    async fn save(&self, signature: &Signature) -> Result<(), DomainError>;
+    async fn delete(&self, id: &str) -> Result<(), DomainError>;
+    async fn set_default(
+        &self,
+        signature_id: Option<&str>,
+        account_id: Option<&str>,
+    ) -> Result<(), DomainError>;
 }

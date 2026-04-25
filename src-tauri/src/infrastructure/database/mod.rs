@@ -11,6 +11,7 @@ use crate::domain::errors::DomainError;
 const INITIAL_MIGRATION: &str = include_str!("migrations/001_initial_schema.sql");
 const SYNC_CURSOR_MIGRATION: &str = include_str!("migrations/002_sync_cursors.sql");
 const OUTBOX_MESSAGES_MIGRATION: &str = include_str!("migrations/004_outbox_messages.sql");
+const SIGNATURES_MIGRATION: &str = include_str!("migrations/005_signatures.sql");
 pub mod repositories;
 
 #[derive(Debug, Clone)]
@@ -47,6 +48,9 @@ impl Database {
             .map_err(|error| DomainError::Database(error.to_string()))?;
         connection
             .execute_batch(OUTBOX_MESSAGES_MIGRATION)
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+        connection
+            .execute_batch(SIGNATURES_MIGRATION)
             .map_err(|error| DomainError::Database(error.to_string()))?;
         ensure_column(&connection, "sync_cursors", "uid_validity", "INTEGER")?;
         ensure_column(&connection, "sync_cursors", "last_seen_uid", "INTEGER")?;
@@ -111,6 +115,7 @@ mod tests {
         repositories::{
             account_repository::SqliteAccountRepository, folder_repository::SqliteFolderRepository,
             message_repository::SqliteMessageRepository, outbox_repository::SqliteOutboxRepository,
+            signature_repository::SqliteSignatureRepository,
             sync_cursor_repository::SqliteSyncCursorRepository,
             thread_repository::SqliteThreadRepository,
         },
@@ -123,12 +128,14 @@ mod tests {
         models::folder::{Folder, FolderRole},
         models::message::Message,
         models::outbox::{OutboxMessage, OutboxStatus},
+        models::signature::Signature,
         models::sync_cursor::SyncCursor,
         models::thread::Thread,
         repositories::AccountRepository,
         repositories::FolderRepository,
         repositories::MessageRepository,
         repositories::OutboxRepository,
+        repositories::SignatureRepository,
         repositories::SyncCursorRepository,
         repositories::ThreadRepository,
     };
@@ -301,6 +308,19 @@ mod tests {
                 updated_at: timestamp,
             },
         ]
+    }
+
+    fn sample_signature(id: &str, account_id: Option<&str>) -> Signature {
+        let timestamp = sample_timestamp();
+
+        Signature {
+            id: id.into(),
+            title: format!("Signature {id}"),
+            body: "<p>Best,<br />Open Mail</p>".into(),
+            account_id: account_id.map(str::to_string),
+            created_at: timestamp,
+            updated_at: timestamp,
+        }
     }
 
     #[test]
@@ -584,5 +604,46 @@ mod tests {
         assert_eq!(persisted.status, OutboxStatus::Queued);
         assert_eq!(persisted.mime_message.subject, "Queued message");
         assert_eq!(queued_messages.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn persists_signatures_and_defaults() {
+        let database_path = unique_database_path("open-mail-signatures");
+        let database = Database::new(&database_path).unwrap();
+        database.run_migrations().unwrap();
+
+        let account_repo = SqliteAccountRepository::new(database.clone());
+        let signature_repo = SqliteSignatureRepository::new(database.clone());
+        account_repo.save(&sample_account()).await.unwrap();
+
+        let global_signature = sample_signature("sig_default", None);
+        let account_signature = sample_signature("sig_ops", Some("acc_1"));
+
+        signature_repo.save(&global_signature).await.unwrap();
+        signature_repo.save(&account_signature).await.unwrap();
+        signature_repo
+            .set_default(Some("sig_default"), None)
+            .await
+            .unwrap();
+        signature_repo
+            .set_default(Some("sig_ops"), Some("acc_1"))
+            .await
+            .unwrap();
+
+        let signatures = signature_repo.find_all().await.unwrap();
+        let global_default = signature_repo.find_default_global().await.unwrap();
+        let defaults_by_account = signature_repo.find_defaults_by_account().await.unwrap();
+
+        assert_eq!(signatures.len(), 2);
+        assert_eq!(global_default.as_deref(), Some("sig_default"));
+        assert_eq!(
+            defaults_by_account.get("acc_1").and_then(|value| value.as_deref()),
+            Some("sig_ops")
+        );
+
+        signature_repo.delete("sig_ops").await.unwrap();
+
+        let defaults_by_account = signature_repo.find_defaults_by_account().await.unwrap();
+        assert_eq!(defaults_by_account.get("acc_1"), Some(&None));
     }
 }

@@ -6,21 +6,23 @@ pub mod plugins;
 use std::{path::PathBuf, sync::Arc};
 
 use commands::{
-    build_oauth_authorization_url, download_attachment, enqueue_outbox_message, flush_outbox,
-    force_sync, get_message, get_sync_status, get_sync_status_detail, health_check, list_accounts,
-    list_folders, list_messages, list_threads, mailbox_overview, mark_messages_read,
-    mark_messages_unread, open_external_url, search_threads, start_sync, stop_sync,
+    build_oauth_authorization_url, delete_signature, download_attachment, enqueue_outbox_message,
+    flush_outbox, force_sync, get_message, get_sync_status, get_sync_status_detail, health_check,
+    list_accounts, list_folders, list_messages, list_signatures, list_threads, mailbox_overview,
+    mark_messages_read, mark_messages_unread, open_external_url, save_signature, search_threads,
+    set_default_signature, start_sync, stop_sync,
 };
 use domain::events::DomainEvent;
 use domain::repositories::{
     AccountRepository, FolderRepository, MessageRepository, OutboxRepository, SyncCursorRepository,
-    ThreadRepository,
+    SignatureRepository, ThreadRepository,
 };
 use infrastructure::{
     database::{
         repositories::{
             account_repository::SqliteAccountRepository, folder_repository::SqliteFolderRepository,
             message_repository::SqliteMessageRepository, outbox_repository::SqliteOutboxRepository,
+            signature_repository::SqliteSignatureRepository,
             sync_cursor_repository::SqliteSyncCursorRepository,
             thread_repository::SqliteThreadRepository,
         },
@@ -40,6 +42,7 @@ pub struct AppState {
     pub thread_repo: Arc<dyn ThreadRepository>,
     pub message_repo: Arc<dyn MessageRepository>,
     pub outbox_repo: Arc<dyn OutboxRepository>,
+    pub signature_repo: Arc<dyn SignatureRepository>,
     pub credential_store: Arc<dyn CredentialStore>,
     pub task_queue: Arc<dyn MailTaskQueue>,
     pub sync_cursor_repo: Arc<dyn SyncCursorRepository>,
@@ -94,6 +97,10 @@ pub fn run() {
             get_sync_status_detail,
             enqueue_outbox_message,
             flush_outbox,
+            list_signatures,
+            save_signature,
+            delete_signature,
+            set_default_signature,
             build_oauth_authorization_url,
             download_attachment,
             open_external_url,
@@ -116,6 +123,8 @@ fn build_app_state() -> Result<AppState, String> {
     let message_repo: Arc<dyn MessageRepository> =
         Arc::new(SqliteMessageRepository::new(db.clone()));
     let outbox_repo: Arc<dyn OutboxRepository> = Arc::new(SqliteOutboxRepository::new(db.clone()));
+    let signature_repo: Arc<dyn SignatureRepository> =
+        Arc::new(SqliteSignatureRepository::new(db.clone()));
     let credential_store: Arc<dyn CredentialStore> = Arc::new(InMemoryCredentialStore::default());
     let task_queue: Arc<dyn MailTaskQueue> = Arc::new(InMemoryMailTaskQueue::default());
     let sync_cursor_repo: Arc<dyn SyncCursorRepository> =
@@ -135,6 +144,7 @@ fn build_app_state() -> Result<AppState, String> {
         thread_repo,
         message_repo,
         outbox_repo,
+        signature_repo,
         credential_store,
         task_queue,
         sync_cursor_repo,

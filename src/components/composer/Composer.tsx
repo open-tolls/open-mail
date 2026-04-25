@@ -7,7 +7,13 @@ import { ComposerSignaturePanel } from '@components/composer/ComposerSignaturePa
 import { toComposerFileAttachment, type ComposerAttachment } from '@lib/composer-attachments';
 import { applySignatureHtml, hasSignatureHtml, stripSignatureHtml } from '@lib/signature-utils';
 import type { AccountRecord } from '@stores/useAccountStore';
-import { resolveSignatureForAccount, useSignatureStore } from '@stores/useSignatureStore';
+import {
+  deleteSignatureFromBackend,
+  resolveSignatureForAccount,
+  saveSignatureToBackend,
+  setDefaultSignatureOnBackend,
+  useSignatureStore
+} from '@stores/useSignatureStore';
 
 type ComposerDraft = {
   attachments: ComposerAttachment[];
@@ -301,18 +307,43 @@ export const Composer = ({
               body: '<p>Best,<br />Your name</p>',
               title: `Signature ${signatures.length + 1}`
             });
+            void saveSignatureToBackend({
+              id: signatureId,
+              accountId: draft.fromAccountId,
+              body: '<p>Best,<br />Your name</p>',
+              title: `Signature ${signatures.length + 1}`
+            }).catch(() => {
+              setLocalStatus('Could not save signature');
+            });
             applySignature(signatureId);
           }}
           onDeleteSignature={(signatureId) => {
             deleteSignature(signatureId);
+            void deleteSignatureFromBackend(signatureId).catch(() => {
+              setLocalStatus('Could not delete signature');
+            });
             if (activeSignatureId === signatureId) {
               applySignature(null);
             }
           }}
-          onSetDefault={(signatureId) => setDefaultSignature(signatureId, draft.fromAccountId)}
+          onSetDefault={(signatureId) => {
+            setDefaultSignature(signatureId, draft.fromAccountId);
+            void setDefaultSignatureOnBackend(signatureId, draft.fromAccountId).catch(() => {
+              setLocalStatus('Could not update default signature');
+            });
+          }}
           onToggleOpen={() => setIsSignaturePanelOpen(false)}
           onUpdateSignature={(signatureId, nextSignature) => {
             updateSignature(signatureId, nextSignature);
+            const nextStoredSignature = useSignatureStore
+              .getState()
+              .signatures.find((candidate) => candidate.id === signatureId);
+
+            if (nextStoredSignature) {
+              void saveSignatureToBackend(nextStoredSignature).catch(() => {
+                setLocalStatus('Could not save signature');
+              });
+            }
 
             if (activeSignatureId === signatureId && nextSignature.body !== undefined) {
               updateDraft('body', applySignatureHtml(draft.body, nextSignature.body));

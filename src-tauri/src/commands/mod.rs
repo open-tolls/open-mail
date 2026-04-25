@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 
 use tauri::State;
 use uuid::Uuid;
@@ -9,6 +9,7 @@ use crate::{
         folder::{Folder, FolderRole},
         message::Message,
         outbox::{OutboxMessage, OutboxStatus},
+        signature::Signature,
         thread::Thread,
     },
     domain::read_models::{MailboxOverview, ThreadSummary},
@@ -206,10 +207,137 @@ pub struct BuildOAuthAuthorizationUrlRequest {
     pub code_challenge: String,
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignatureSettings {
+    pub signatures: Vec<Signature>,
+    pub default_signature_id: Option<String>,
+    pub default_signature_ids_by_account_id: HashMap<String, Option<String>>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSignatureRequest {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub account_id: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetDefaultSignatureRequest {
+    pub signature_id: Option<String>,
+    pub account_id: Option<String>,
+}
+
 async fn list_accounts_for_state(state: &AppState) -> Result<Vec<Account>, String> {
     state
         .account_repo
         .find_all()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+fn default_signature(now: chrono::DateTime<chrono::Utc>) -> Signature {
+    Signature {
+        id: "sig_default".into(),
+        title: "Default signature".into(),
+        body: "<p>Best,<br />Leco</p>".into(),
+        account_id: None,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+async fn list_signatures_for_state(state: &AppState) -> Result<SignatureSettings, String> {
+    let mut signatures = state
+        .signature_repo
+        .find_all()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if signatures.is_empty() {
+        let signature = default_signature(chrono::Utc::now());
+        state
+            .signature_repo
+            .save(&signature)
+            .await
+            .map_err(|error| error.to_string())?;
+        state
+            .signature_repo
+            .set_default(Some(&signature.id), None)
+            .await
+            .map_err(|error| error.to_string())?;
+        signatures.push(signature);
+    }
+
+    let default_signature_id = state
+        .signature_repo
+        .find_default_global()
+        .await
+        .map_err(|error| error.to_string())?;
+    let default_signature_ids_by_account_id = state
+        .signature_repo
+        .find_defaults_by_account()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(SignatureSettings {
+        signatures,
+        default_signature_id,
+        default_signature_ids_by_account_id,
+    })
+}
+
+async fn save_signature_for_state(
+    state: &AppState,
+    request: SaveSignatureRequest,
+) -> Result<Signature, String> {
+    let existing_signature = state
+        .signature_repo
+        .find_all()
+        .await
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .find(|signature| signature.id == request.id);
+    let now = chrono::Utc::now();
+    let signature = Signature {
+        id: request.id,
+        title: request.title,
+        body: request.body,
+        account_id: request.account_id,
+        created_at: existing_signature
+            .as_ref()
+            .map(|signature| signature.created_at)
+            .unwrap_or(now),
+        updated_at: now,
+    };
+
+    state
+        .signature_repo
+        .save(&signature)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(signature)
+}
+
+async fn delete_signature_for_state(state: &AppState, id: &str) -> Result<(), String> {
+    state
+        .signature_repo
+        .delete(id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn set_default_signature_for_state(
+    state: &AppState,
+    request: SetDefaultSignatureRequest,
+) -> Result<(), String> {
+    state
+        .signature_repo
+        .set_default(request.signature_id.as_deref(), request.account_id.as_deref())
         .await
         .map_err(|error| error.to_string())
 }
@@ -544,6 +672,32 @@ pub async fn list_folders(
     account_id: String,
 ) -> Result<Vec<Folder>, String> {
     list_folders_for_state(&state, &account_id).await
+}
+
+#[tauri::command]
+pub async fn list_signatures(state: State<'_, AppState>) -> Result<SignatureSettings, String> {
+    list_signatures_for_state(&state).await
+}
+
+#[tauri::command]
+pub async fn save_signature(
+    state: State<'_, AppState>,
+    request: SaveSignatureRequest,
+) -> Result<Signature, String> {
+    save_signature_for_state(&state, request).await
+}
+
+#[tauri::command]
+pub async fn delete_signature(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    delete_signature_for_state(&state, &id).await
+}
+
+#[tauri::command]
+pub async fn set_default_signature(
+    state: State<'_, AppState>,
+    request: SetDefaultSignatureRequest,
+) -> Result<(), String> {
+    set_default_signature_for_state(&state, request).await
 }
 
 #[tauri::command]
@@ -983,7 +1137,7 @@ mod tests {
         },
         domain::repositories::{
             AccountRepository, FolderRepository, MessageRepository, OutboxRepository,
-            SyncCursorRepository, ThreadRepository,
+            SignatureRepository, SyncCursorRepository, ThreadRepository,
         },
         infrastructure::{
             database::{
@@ -992,6 +1146,7 @@ mod tests {
                     folder_repository::SqliteFolderRepository,
                     message_repository::SqliteMessageRepository,
                     outbox_repository::SqliteOutboxRepository,
+                    signature_repository::SqliteSignatureRepository,
                     sync_cursor_repository::SqliteSyncCursorRepository,
                     thread_repository::SqliteThreadRepository,
                 },
@@ -1026,6 +1181,8 @@ mod tests {
             Arc::new(SqliteMessageRepository::new(db.clone()));
         let outbox_repo: Arc<dyn OutboxRepository> =
             Arc::new(SqliteOutboxRepository::new(db.clone()));
+        let signature_repo: Arc<dyn SignatureRepository> =
+            Arc::new(SqliteSignatureRepository::new(db.clone()));
         let sync_cursor_repo: Arc<dyn SyncCursorRepository> =
             Arc::new(SqliteSyncCursorRepository::new(db.clone()));
         let sync_manager = Arc::new(SyncManager::new(
@@ -1043,6 +1200,7 @@ mod tests {
             thread_repo,
             message_repo,
             outbox_repo,
+            signature_repo,
             credential_store: Arc::new(
                 crate::infrastructure::sync::InMemoryCredentialStore::default(),
             ),

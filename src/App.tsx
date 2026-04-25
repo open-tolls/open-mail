@@ -19,6 +19,7 @@ import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, Outb
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
+import { hydrateSignatureStore } from '@stores/useSignatureStore';
 import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
@@ -265,6 +266,12 @@ const MailShell = () => {
       displayName: 'Open Mail Demo'
     });
   }, [mailbox?.accountId, upsertAccount]);
+
+  useEffect(() => {
+    void hydrateSignatureStore().catch(() => {
+      setOutboxStatus('Could not load saved signatures');
+    });
+  }, []);
   const enqueueOutboxMutation = useMutation({
     mutationFn: async (draft: ComposerDraft): Promise<OutboxMessage> => {
       const accountId = draft.fromAccountId || selectedComposerAccount.id;

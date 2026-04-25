@@ -7,6 +7,8 @@ import type {
   OAuthAuthorizationRequest,
   OutboxMessage,
   OutboxSendReport,
+  SignatureRecord,
+  SignatureSettings,
   SyncStatusDetail,
   ThreadSummary
 } from '@lib/contracts';
@@ -52,6 +54,19 @@ export const api = {
       invokeOrThrow<OutboxMessage>('enqueue_outbox_message', { request }),
     flush: (accountId: string) =>
       invokeOrThrow<OutboxSendReport>('flush_outbox', { accountId })
+  },
+  signatures: {
+    list: () => invokeOrThrow<SignatureSettings>('list_signatures'),
+    save: (request: Omit<SignatureRecord, 'createdAt' | 'updatedAt'>) =>
+      invokeOrThrow<SignatureRecord>('save_signature', { request }),
+    delete: (id: string) => invokeOrThrow<void>('delete_signature', { id }),
+    setDefault: (signatureId: string | null, accountId?: string | null) =>
+      invokeOrThrow<void>('set_default_signature', {
+        request: {
+          signatureId,
+          accountId: accountId ?? null
+        }
+      })
   },
   auth: {
     buildOAuthAuthorizationUrl: (request: BuildOAuthAuthorizationUrlRequest) =>
