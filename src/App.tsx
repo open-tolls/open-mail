@@ -13,6 +13,8 @@ import { useSearchThreads } from '@hooks/useSearchThreads';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
+import { useUnifiedInboxThreads } from '@hooks/useUnifiedInboxThreads';
+import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
 import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport, ThreadRecord } from '@lib/contracts';
@@ -148,6 +150,8 @@ const toLocalSentThreadRecord = (message: OutboxMessage): ThreadRecord => {
   };
 };
 
+const isInboxFolderId = (folderId: string) => folderId.toLowerCase().includes('inbox');
+
 const useApplySelectedTheme = () => {
   const themeId = useUIStore((state) => state.themeId);
 
@@ -196,18 +200,6 @@ const MailShell = () => {
     () => [...localSentThreadRecords, ...(mailbox?.allThreads ?? [])],
     [localSentThreadRecords, mailbox?.allThreads]
   );
-  const runtimeFolders = useMemo(
-    () =>
-      (mailbox?.folders ?? []).map((folder) =>
-        folder.role === 'sent'
-          ? {
-              ...folder,
-              total_count: folder.total_count + localSentThreadRecords.length
-            }
-          : folder
-      ),
-    [localSentThreadRecords.length, mailbox?.folders]
-  );
   const folderThreadsQuery = useThreads({
     accountId: mailbox?.accountId ?? null,
     folderId: selectedFolderId,
@@ -234,15 +226,6 @@ const MailShell = () => {
       )?.id ?? null
     );
   }, [folderId, mailbox?.folders]);
-  const threads = useMemo(
-    () => (isSearchActive ? searchThreadsQuery.data : folderThreadsQuery.threads) ?? mailbox?.threads ?? [],
-    [folderThreadsQuery.threads, isSearchActive, mailbox?.threads, searchThreadsQuery.data]
-  );
-  const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
-  const recipientSuggestions = useMemo(
-    () => Array.from(new Set(runtimeAllThreads.flatMap((thread) => thread.participant_ids))).sort(),
-    [runtimeAllThreads]
-  );
   const fallbackComposerAccount = useMemo(
     () => ({
       id: mailbox?.accountId ?? 'acc_demo',
@@ -252,10 +235,83 @@ const MailShell = () => {
     }),
     [mailbox?.accountId]
   );
-  const composerAccounts = accounts.length ? accounts : [fallbackComposerAccount];
+  const composerAccounts = useMemo(
+    () => (accounts.length ? accounts : [fallbackComposerAccount]),
+    [accounts, fallbackComposerAccount]
+  );
   const selectedComposerAccount = composerAccounts.find((account) => account.id === selectedAccountId) ?? composerAccounts[0];
+  const selectedFolder = mailbox?.folders.find((folder) => folder.id === selectedFolderId) ?? null;
+  const isUnifiedInboxActive = composerAccounts.length > 1 && selectedFolder?.role === 'inbox';
+  const unifiedInboxQuery = useUnifiedInboxThreads({
+    accounts: composerAccounts,
+    fallbackThreads: runtimeAllThreads,
+    enabled: isUnifiedInboxActive
+  });
+  const fallbackUnifiedInboxThreads = useMemo(() => {
+    if (tauriRuntime.isAvailable() || composerAccounts.length <= 1) {
+      return null;
+    }
+
+    const accountIds = new Set(composerAccounts.map((account) => account.id));
+    return toThreadSummary(
+      runtimeAllThreads.filter(
+        (thread) =>
+          accountIds.has(thread.account_id) && thread.folder_ids.some((folderId) => isInboxFolderId(folderId))
+      )
+    ).sort(
+      (first, second) => new Date(second.lastMessageAt).getTime() - new Date(first.lastMessageAt).getTime()
+    );
+  }, [composerAccounts, runtimeAllThreads]);
+  const runtimeFolders = useMemo(
+    () =>
+      (mailbox?.folders ?? []).map((folder) =>
+        folder.role === 'sent'
+          ? {
+              ...folder,
+              total_count: folder.total_count + localSentThreadRecords.length
+            }
+          : folder.role === 'inbox' && composerAccounts.length > 1
+            ? {
+                ...folder,
+                name: 'Unified Inbox',
+                total_count: unifiedInboxQuery.data?.length ?? fallbackUnifiedInboxThreads?.length ?? folder.total_count
+              }
+            : folder
+      ),
+    [
+      composerAccounts.length,
+      fallbackUnifiedInboxThreads?.length,
+      localSentThreadRecords.length,
+      mailbox?.folders,
+      unifiedInboxQuery.data
+    ]
+  );
+  const threads = useMemo(
+    () =>
+      (isSearchActive
+        ? searchThreadsQuery.data
+        : isUnifiedInboxActive
+          ? unifiedInboxQuery.data ?? fallbackUnifiedInboxThreads
+          : folderThreadsQuery.threads) ??
+      mailbox?.threads ??
+      [],
+    [
+      folderThreadsQuery.threads,
+      isSearchActive,
+      isUnifiedInboxActive,
+      mailbox?.threads,
+      searchThreadsQuery.data,
+      fallbackUnifiedInboxThreads,
+      unifiedInboxQuery.data
+    ]
+  );
+  const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
   const messagesQuery = useThreadMessages(selectedThread?.id ?? null);
   const syncStatusDetailQuery = useSyncStatusDetail(mailbox?.accountId ?? null);
+  const recipientSuggestions = useMemo(
+    () => Array.from(new Set(runtimeAllThreads.flatMap((thread) => thread.participant_ids))).sort(),
+    [runtimeAllThreads]
+  );
 
   useEffect(() => {
     if (!tauriRuntime.isAvailable()) {
@@ -613,9 +669,9 @@ const MailShell = () => {
         messagesQuery.isLoading ||
         syncStatusDetailQuery.isLoading
       }
-      isThreadsLoading={folderThreadsQuery.isLoading || searchThreadsQuery.isLoading}
-      hasMoreThreads={!isSearchActive && folderThreadsQuery.hasMore}
-      onLoadMoreThreads={folderThreadsQuery.loadMore}
+      isThreadsLoading={folderThreadsQuery.isLoading || searchThreadsQuery.isLoading || unifiedInboxQuery.isLoading}
+      hasMoreThreads={!isSearchActive && !isUnifiedInboxActive && folderThreadsQuery.hasMore}
+      onLoadMoreThreads={isUnifiedInboxActive ? undefined : folderThreadsQuery.loadMore}
       onApplyLabels={handleApplyLabels}
       onAddAccount={() => navigate('/onboarding/add-account')}
       onMoveThreads={handleMoveThreads}

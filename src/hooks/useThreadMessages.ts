@@ -142,6 +142,45 @@ const fallbackMessages: Record<string, MessageRecord[]> = {
       created_at: '2026-03-13T10:00:00Z',
       updated_at: '2026-03-13T10:00:00Z'
     }
+  ],
+  thr_4: [
+    {
+      id: 'msg_4',
+      account_id: 'acc_ops',
+      thread_id: 'thr_4',
+      from: [
+        {
+          id: 'ct_ops',
+          account_id: 'acc_ops',
+          name: 'Operations',
+          email: 'ops@example.com',
+          is_me: false,
+          created_at: '2026-03-13T11:15:00Z',
+          updated_at: '2026-03-13T11:15:00Z'
+        }
+      ],
+      to: [],
+      cc: [],
+      bcc: [],
+      reply_to: [],
+      subject: 'Operations rollout ready',
+      snippet: 'Second account is online and ready for the unified inbox pass.',
+      body: '<p>Second account is online and ready for the unified inbox pass.</p>',
+      plain_text: 'Second account is online and ready for the unified inbox pass.',
+      message_id_header: '<msg_4@openmail.dev>',
+      in_reply_to: null,
+      references: [],
+      folder_id: 'fld_ops_inbox',
+      label_ids: [],
+      is_unread: true,
+      is_starred: false,
+      is_draft: false,
+      date: '2026-03-13T11:15:00Z',
+      attachments: [],
+      headers: {},
+      created_at: '2026-03-13T11:15:00Z',
+      updated_at: '2026-03-13T11:15:00Z'
+    }
   ]
 };
 

@@ -260,6 +260,39 @@ describe('mailbox overview integration', () => {
     expect(within(configuredAccounts).getByText('ops@example.com')).toBeInTheDocument();
   });
 
+  it('shows a unified inbox when multiple accounts are configured', async () => {
+    useAccountStore.setState({
+      accounts: [
+        {
+          id: 'acc_demo',
+          provider: 'Gmail',
+          email: 'leco@example.com',
+          displayName: 'Open Mail Demo'
+        },
+        {
+          id: 'acc_ops',
+          provider: 'Outlook',
+          email: 'ops@example.com',
+          displayName: 'Operations'
+        }
+      ],
+      selectedAccountId: 'acc_demo'
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('button', { name: /unified inbox/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Operations rollout ready' })).toBeInTheDocument();
+
+    const threadList = await screen.findByRole('listbox', { name: 'Thread list' });
+    expect(within(threadList).getByText('Operations rollout ready')).toBeInTheDocument();
+    expect(within(threadList).getByText('Premium motion system approved')).toBeInTheDocument();
+  });
+
   it('supports phase 3 thread action shortcuts with status feedback', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

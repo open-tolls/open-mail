@@ -6,6 +6,7 @@ import type {
   ConnectionSettings,
   CompleteOAuthAccountRequest,
   EnqueueOutboxMessageRequest,
+  FolderRecord,
   MailboxOverview,
   MessageRecord,
   OAuthAuthorizationRequest,
@@ -36,6 +37,8 @@ export const api = {
   },
   mailbox: {
     overview: () => invokeOrThrow<MailboxOverview>('mailbox_overview'),
+    listFolders: (accountId: string) =>
+      invokeOrThrow<FolderRecord[]>('list_folders', { accountId }),
     listThreads: (accountId: string, folderId: string, offset = 0, limit = 25) =>
       invokeOrThrow<ThreadSummary[]>('list_threads', { accountId, folderId, offset, limit }),
     searchThreads: (accountId: string, query: string) =>

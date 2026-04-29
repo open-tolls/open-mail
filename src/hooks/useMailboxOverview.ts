@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { MailboxReadModel, MailboxOverview, ThreadRecord, ThreadSummary } from '@lib/contracts';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 
-const fallbackThreadRecords: ThreadRecord[] = [
+export const fallbackThreadRecords: ThreadRecord[] = [
   {
     id: 'thr_1',
     account_id: 'acc_demo',
@@ -53,6 +53,23 @@ const fallbackThreadRecords: ThreadRecord[] = [
     last_message_sent_at: '2026-03-13T07:00:00Z',
     created_at: '2026-03-13T10:00:00Z',
     updated_at: '2026-03-13T10:00:00Z'
+  },
+  {
+    id: 'thr_4',
+    account_id: 'acc_ops',
+    subject: 'Operations rollout ready',
+    snippet: 'Second account is online and ready for the unified inbox pass.',
+    message_count: 2,
+    participant_ids: ['ops@example.com'],
+    folder_ids: ['fld_ops_inbox'],
+    label_ids: [],
+    has_attachments: false,
+    is_unread: true,
+    is_starred: false,
+    last_message_at: '2026-03-13T11:15:00Z',
+    last_message_sent_at: '2026-03-13T11:15:00Z',
+    created_at: '2026-03-13T11:15:00Z',
+    updated_at: '2026-03-13T11:15:00Z'
   }
 ];
 
