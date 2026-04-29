@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Cloud,
@@ -8,19 +8,22 @@ import {
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { DoneStep } from '@components/onboarding/DoneStep';
 import { ImapStep, type ImapFormState } from '@components/onboarding/ImapStep';
-import { OnboardingLayout } from '@components/onboarding/OnboardingLayout';
 import { OAuthStep } from '@components/onboarding/OAuthStep';
+import { OnboardingLayout } from '@components/onboarding/OnboardingLayout';
 import { ProviderCard } from '@components/onboarding/ProviderCard';
 import { SyncStep } from '@components/onboarding/SyncStep';
 import { TestConnectionStep } from '@components/onboarding/TestConnectionStep';
 import { WelcomeStep } from '@components/onboarding/WelcomeStep';
-import type { AccountProvider } from '@lib/contracts';
+import type { AccountProvider, ConnectionSettings, SecurityType } from '@lib/contracts';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
+import { useAccountStore } from '@stores/useAccountStore';
 
 type ProviderKind = 'oauth' | 'imap';
 type StepId = 'welcome' | 'provider' | 'oauth' | 'imap' | 'test' | 'sync' | 'done';
+type ConnectionCheckStatus = 'idle' | 'running' | 'success' | 'error';
 
 type ProviderOption = {
   description: string;
@@ -110,11 +113,52 @@ const onboardingSteps = [
 ];
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const createEmptyConnectionChecks = (): { label: string; status: ConnectionCheckStatus }[] => [
+  { label: 'Incoming mail', status: 'idle' },
+  { label: 'Outgoing mail', status: 'idle' }
+];
+
 const createCodeChallenge = () => {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 };
+
+const parsePort = (value: string, fallback: number) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const toSecurityType = (value: ImapFormState['imapSecurity']): SecurityType => {
+  switch (value) {
+    case 'SSL':
+      return 'Ssl';
+    case 'StartTLS':
+      return 'StartTls';
+    default:
+      return 'None';
+  }
+};
+
+const toConnectionSettings = (form: ImapFormState): ConnectionSettings => ({
+  imapHost: form.imapHost.trim(),
+  imapPort: parsePort(form.imapPort, 993),
+  imapSecurity: toSecurityType(form.imapSecurity),
+  smtpHost: form.smtpHost.trim(),
+  smtpPort: parsePort(form.smtpPort, 587),
+  smtpSecurity: toSecurityType(form.smtpSecurity)
+});
+
+const isImapFormReady = (form: ImapFormState) =>
+  Boolean(
+    form.displayName.trim() &&
+      form.email.trim() &&
+      form.password &&
+      form.imapHost.trim() &&
+      form.smtpHost.trim() &&
+      parsePort(form.imapPort, 0) > 0 &&
+      parsePort(form.smtpPort, 0) > 0
+  );
 
 const defaultImapForm = (provider: ProviderOption | null): ImapFormState => {
   switch (provider?.id) {
@@ -171,18 +215,20 @@ const defaultImapForm = (provider: ProviderOption | null): ImapFormState => {
 
 export const OnboardingView = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const upsertAccount = useAccountStore((state) => state.upsertAccount);
+  const selectAccount = useAccountStore((state) => state.selectAccount);
   const [step, setStep] = useState<StepId>('welcome');
   const [selectedProvider, setSelectedProvider] = useState<ProviderOption | null>(null);
   const [oauthClientId, setOauthClientId] = useState('');
   const [oauthStatus, setOauthStatus] = useState<string | null>(null);
   const [oauthAuthUrl, setOauthAuthUrl] = useState<string | null>(null);
   const [imapForm, setImapForm] = useState<ImapFormState>(defaultImapForm(null));
-  const [connectionChecks, setConnectionChecks] = useState<
-    { label: string; status: 'idle' | 'running' | 'success' }[]
-  >([
-    { label: 'Incoming mail', status: 'idle' },
-    { label: 'Outgoing mail', status: 'idle' }
-  ]);
+  const [connectionChecks, setConnectionChecks] = useState<{ label: string; status: ConnectionCheckStatus }[]>(
+    createEmptyConnectionChecks()
+  );
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
+  const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatus, setSyncStatus] = useState('Ready to start initial sync');
 
@@ -206,18 +252,32 @@ export const OnboardingView = () => {
 
   const testHelper = selectedProvider?.kind === 'oauth'
     ? 'We validate that the OAuth request is prepared and the browser handoff is ready.'
-    : 'We validate the IMAP and SMTP settings you entered before the account moves into sync.';
+    : 'We validate the IMAP and SMTP settings you entered, then persist the account before the first sync starts.';
 
   const checksReady = connectionChecks.every((check) => check.status === 'success');
+  const canReviewImapConnection = isImapFormReady(imapForm);
+
+  const resetFlow = () => {
+    setSelectedProvider(null);
+    setOauthClientId('');
+    setOauthStatus(null);
+    setOauthAuthUrl(null);
+    setImapForm(defaultImapForm(null));
+    setConnectionChecks(createEmptyConnectionChecks());
+    setConnectionStatus(null);
+    setCreatedAccountId(null);
+    setSyncProgress(0);
+    setSyncStatus('Ready to start initial sync');
+    setStep('provider');
+  };
 
   const handleSelectProvider = (provider: ProviderOption) => {
     setSelectedProvider(provider);
     setOauthStatus(null);
     setOauthAuthUrl(null);
-    setConnectionChecks([
-      { label: 'Incoming mail', status: 'idle' },
-      { label: 'Outgoing mail', status: 'idle' }
-    ]);
+    setConnectionChecks(createEmptyConnectionChecks());
+    setConnectionStatus(null);
+    setCreatedAccountId(null);
     setSyncProgress(0);
     setSyncStatus('Ready to start initial sync');
 
@@ -265,26 +325,153 @@ export const OnboardingView = () => {
   };
 
   const handleRunChecks = async () => {
-    setConnectionChecks((checks) => checks.map((check) => ({ ...check, status: 'running' })));
-    await sleep(250);
-    setConnectionChecks((checks) => checks.map((check, index) => ({
-      ...check,
-      status:
-        selectedProvider?.kind === 'oauth' && index === 0 && !oauthAuthUrl
-          ? 'idle'
-          : 'success'
-    })));
+    setConnectionStatus(null);
+
+    if (selectedProvider?.kind === 'oauth') {
+      setConnectionChecks((checks) => checks.map((check) => ({ ...check, status: 'running' })));
+      await sleep(250);
+      setConnectionChecks((checks) =>
+        checks.map((check, index) => ({
+          ...check,
+          status: index === 0 && !oauthAuthUrl ? 'error' : 'success'
+        }))
+      );
+      setConnectionStatus(
+        oauthAuthUrl
+          ? 'Browser auth is prepared. OAuth token exchange lands in the next cut.'
+          : 'Prepare the browser auth request before continuing.'
+      );
+      return;
+    }
+
+    const request = {
+      settings: toConnectionSettings(imapForm),
+      credentials: {
+        username: imapForm.email.trim(),
+        password: imapForm.password
+      }
+    } as const;
+
+    setConnectionChecks([
+      { label: 'Incoming mail', status: 'running' },
+      { label: 'Outgoing mail', status: 'idle' }
+    ]);
+
+    if (!tauriRuntime.isAvailable()) {
+      await sleep(250);
+      setConnectionChecks([
+        { label: 'Incoming mail', status: 'success' },
+        { label: 'Outgoing mail', status: 'success' }
+      ]);
+      setConnectionStatus('Web mode preview passed. Desktop runtime will execute the real checks.');
+      return;
+    }
+
+    try {
+      await api.onboarding.testImapConnection(request);
+      setConnectionChecks([
+        { label: 'Incoming mail', status: 'success' },
+        { label: 'Outgoing mail', status: 'running' }
+      ]);
+    } catch (error) {
+      setConnectionChecks([
+        { label: 'Incoming mail', status: 'error' },
+        { label: 'Outgoing mail', status: 'idle' }
+      ]);
+      setConnectionStatus(error instanceof Error ? error.message : 'Could not reach the IMAP server');
+      return;
+    }
+
+    try {
+      await api.onboarding.testSmtpConnection(request);
+      setConnectionChecks([
+        { label: 'Incoming mail', status: 'success' },
+        { label: 'Outgoing mail', status: 'success' }
+      ]);
+      setConnectionStatus('IMAP and SMTP checks passed.');
+    } catch (error) {
+      setConnectionChecks([
+        { label: 'Incoming mail', status: 'success' },
+        { label: 'Outgoing mail', status: 'error' }
+      ]);
+      setConnectionStatus(error instanceof Error ? error.message : 'Could not reach the SMTP server');
+    }
+  };
+
+  const handleContinueFromChecks = async () => {
+    if (selectedProvider?.kind === 'oauth') {
+      setStep('sync');
+      return;
+    }
+
+    if (createdAccountId) {
+      setStep('sync');
+      return;
+    }
+
+    const accountRequest = {
+      name: imapForm.displayName.trim(),
+      email: imapForm.email.trim(),
+      provider: selectedProvider?.provider ?? 'Imap',
+      settings: toConnectionSettings(imapForm),
+      credentials: {
+        username: imapForm.email.trim(),
+        password: imapForm.password
+      }
+    } as const;
+
+    try {
+      if (!tauriRuntime.isAvailable()) {
+        const localAccountId = `acc_local_${Date.now()}`;
+        upsertAccount({
+          id: localAccountId,
+          provider: accountRequest.provider,
+          email: accountRequest.email,
+          displayName: accountRequest.name
+        });
+        selectAccount(localAccountId);
+        setCreatedAccountId(localAccountId);
+        setStep('sync');
+        return;
+      }
+
+      const account = await api.accounts.add(accountRequest);
+      upsertAccount({
+        id: account.id,
+        provider: account.provider,
+        email: account.emailAddress,
+        displayName: account.name
+      });
+      selectAccount(account.id);
+      setCreatedAccountId(account.id);
+      setConnectionStatus('Account saved locally. Ready to start the first sync.');
+      setStep('sync');
+    } catch (error) {
+      setConnectionStatus(error instanceof Error ? error.message : 'Could not save the account');
+    }
   };
 
   const handleRunSync = async () => {
     setSyncStatus('Syncing inbox headers…');
     setSyncProgress(18);
+
+    if (tauriRuntime.isAvailable() && createdAccountId) {
+      try {
+        await api.sync.start(createdAccountId);
+      } catch (error) {
+        setSyncStatus(error instanceof Error ? error.message : 'Could not start background sync');
+        return;
+      }
+    }
+
     await sleep(220);
     setSyncStatus('Applying first thread window…');
     setSyncProgress(54);
     await sleep(220);
     setSyncStatus('Handing the rest to background sync…');
     setSyncProgress(100);
+    await queryClient.invalidateQueries({ queryKey: ['mailbox-overview'] });
+    await queryClient.invalidateQueries({ queryKey: ['sync-status-detail'] });
     setStep('done');
   };
 
@@ -335,6 +522,7 @@ export const OnboardingView = () => {
 
       {step === 'imap' ? (
         <ImapStep
+          canContinue={canReviewImapConnection}
           form={imapForm}
           onBack={() => setStep('provider')}
           onChange={(field, value) =>
@@ -343,7 +531,11 @@ export const OnboardingView = () => {
               [field]: value
             }))
           }
-          onContinue={() => setStep('test')}
+          onContinue={() => {
+            setConnectionChecks(createEmptyConnectionChecks());
+            setConnectionStatus(null);
+            setStep('test');
+          }}
         />
       ) : null}
 
@@ -353,8 +545,9 @@ export const OnboardingView = () => {
           helper={testHelper}
           isReady={checksReady}
           onBack={() => setStep(selectedProvider?.kind === 'oauth' ? 'oauth' : 'imap')}
-          onContinue={() => setStep('sync')}
+          onContinue={() => void handleContinueFromChecks()}
           onRunChecks={handleRunChecks}
+          status={connectionStatus}
         />
       ) : null}
 
@@ -367,24 +560,7 @@ export const OnboardingView = () => {
         />
       ) : null}
 
-      {step === 'done' ? (
-        <DoneStep
-          onAddAnother={() => {
-            setSelectedProvider(null);
-            setOauthClientId('');
-            setOauthStatus(null);
-            setOauthAuthUrl(null);
-            setImapForm(defaultImapForm(null));
-            setConnectionChecks([
-              { label: 'Incoming mail', status: 'idle' },
-              { label: 'Outgoing mail', status: 'idle' }
-            ]);
-            setSyncProgress(0);
-            setSyncStatus('Ready to start initial sync');
-            setStep('provider');
-          }}
-        />
-      ) : null}
+      {step === 'done' ? <DoneStep onAddAnother={resetFlow} /> : null}
     </OnboardingLayout>
   );
 };

@@ -182,6 +182,7 @@ const MailShell = () => {
   const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
+  const setAccounts = useAccountStore((state) => state.setAccounts);
   const upsertAccount = useAccountStore((state) => state.upsertAccount);
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
   const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
@@ -255,6 +256,28 @@ const MailShell = () => {
   const selectedComposerAccount = composerAccounts.find((account) => account.id === selectedAccountId) ?? composerAccounts[0];
   const messagesQuery = useThreadMessages(selectedThread?.id ?? null);
   const syncStatusDetailQuery = useSyncStatusDetail(mailbox?.accountId ?? null);
+
+  useEffect(() => {
+    if (!tauriRuntime.isAvailable()) {
+      return;
+    }
+
+    void api.accounts
+      .list()
+      .then((loadedAccounts) => {
+        setAccounts(
+          loadedAccounts.map((account) => ({
+            id: account.id,
+            provider: account.provider,
+            email: account.emailAddress,
+            displayName: account.name
+          }))
+        );
+      })
+      .catch(() => {
+        setOutboxStatus('Could not load saved accounts');
+      });
+  }, [setAccounts]);
 
   useEffect(() => {
     if (!mailbox?.accountId) {

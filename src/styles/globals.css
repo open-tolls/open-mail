@@ -2310,6 +2310,10 @@ summary.folder-group-title::-webkit-details-marker {
   border-color: rgba(132, 216, 199, 0.24);
 }
 
+.onboarding-check-error {
+  border-color: rgba(255, 122, 122, 0.34);
+}
+
 .onboarding-progress-card {
   display: grid;
   gap: 14px;

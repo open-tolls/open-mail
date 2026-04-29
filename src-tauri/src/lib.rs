@@ -6,12 +6,13 @@ pub mod plugins;
 use std::{path::PathBuf, sync::Arc};
 
 use commands::{
-    build_oauth_authorization_url, delete_signature, download_attachment, enqueue_outbox_message,
-    flush_outbox, force_sync, get_message, get_sync_status, get_sync_status_detail, health_check,
-    list_accounts, list_drafts, list_folders, list_messages, list_signatures, list_threads,
-    mailbox_overview, mark_messages_read, mark_messages_unread, open_external_url,
-    save_account_credentials, save_draft, save_signature, search_threads, set_default_signature,
-    start_sync, stop_sync, delete_draft,
+    add_account, build_oauth_authorization_url, delete_draft, delete_signature,
+    download_attachment, enqueue_outbox_message, flush_outbox, force_sync, get_message,
+    get_sync_status, get_sync_status_detail, health_check, list_accounts, list_drafts,
+    list_folders, list_messages, list_signatures, list_threads, mailbox_overview,
+    mark_messages_read, mark_messages_unread, open_external_url, save_account_credentials,
+    save_draft, save_signature, search_threads, set_default_signature, start_sync, stop_sync,
+    test_imap_connection, test_smtp_connection,
 };
 use domain::events::DomainEvent;
 use domain::repositories::{
@@ -85,6 +86,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             health_check,
             list_accounts,
+            add_account,
             list_folders,
             list_drafts,
             list_threads,
@@ -107,6 +109,8 @@ pub fn run() {
             delete_signature,
             set_default_signature,
             build_oauth_authorization_url,
+            test_imap_connection,
+            test_smtp_connection,
             download_attachment,
             open_external_url,
             mark_messages_read,

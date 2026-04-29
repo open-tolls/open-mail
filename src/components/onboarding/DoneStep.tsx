@@ -9,7 +9,7 @@ export const DoneStep = ({ onAddAnother }: DoneStepProps) => (
     <div className="onboarding-step-copy">
       <p className="eyebrow">Done</p>
       <h2>You&apos;re all set</h2>
-      <p>Your onboarding path is now wired end to end in the UI. The next cuts in phase 6 will replace the simulated bits with persisted accounts and live sync.</p>
+      <p>Your account is saved and the inbox worker is ready. OAuth still needs the callback/token exchange cut, but the manual IMAP path now lands in the real desktop backend.</p>
     </div>
 
     <div className="onboarding-step-actions">

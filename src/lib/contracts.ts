@@ -8,6 +8,46 @@ export type SyncPhase = 'connecting' | 'discovering-folders' | 'syncing-folders'
 
 export type AccountProvider = 'Gmail' | 'Outlook' | 'Yahoo' | 'Imap' | 'Exchange';
 
+export type SecurityType = 'Ssl' | 'StartTls' | 'None';
+
+export type ConnectionSettings = {
+  imapHost: string;
+  imapPort: number;
+  imapSecurity: SecurityType;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecurity: SecurityType;
+};
+
+export type ConnectionCredentials = {
+  username: string;
+  password: string;
+};
+
+export type TestMailConnectionRequest = {
+  settings: ConnectionSettings;
+  credentials: ConnectionCredentials;
+};
+
+export type AccountRecordResponse = {
+  id: string;
+  name: string;
+  emailAddress: string;
+  provider: AccountProvider;
+  connectionSettings: ConnectionSettings;
+  syncState: SyncState;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AddAccountRequest = {
+  name: string;
+  email: string;
+  provider: AccountProvider;
+  settings: ConnectionSettings;
+  credentials: ConnectionCredentials;
+};
+
 export type BuildOAuthAuthorizationUrlRequest = {
   provider: AccountProvider;
   clientId: string;

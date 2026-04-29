@@ -16,9 +16,9 @@ use crate::{
     domain::read_models::{MailboxOverview, ThreadSummary},
     domain::tasks::MailTask,
     infrastructure::sync::{
-        drain_outbox_for_account, FakeSmtpClient, LettreSmtpClient, MailAddress, MimeAttachment,
-        MimeMessage, OAuthAuthorizationRequest, OAuthManager, OutboxSendReport, SyncError,
-        SyncStatusSnapshot,
+        drain_outbox_for_account, FakeImapClientFactory, FakeSmtpClient, ImapClientFactory,
+        LettreSmtpClient, MailAddress, MimeAttachment, MimeMessage, OAuthAuthorizationRequest,
+        OAuthManager, OutboxSendReport, SmtpClient, SyncError, SyncStatusSnapshot,
     },
     AppState,
 };
@@ -255,12 +255,158 @@ pub struct SaveDraftRequest {
     pub references: Vec<String>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionCredentialsRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TestMailConnectionRequest {
+    pub settings: ConnectionSettings,
+    pub credentials: ConnectionCredentialsRequest,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddAccountRequest {
+    pub name: String,
+    pub email: String,
+    pub provider: AccountProvider,
+    pub settings: ConnectionSettings,
+    pub credentials: ConnectionCredentialsRequest,
+}
+
 async fn list_accounts_for_state(state: &AppState) -> Result<Vec<Account>, String> {
     state
         .account_repo
         .find_all()
         .await
         .map_err(|error| error.to_string())
+}
+
+fn password_credentials(request: &ConnectionCredentialsRequest) -> crate::infrastructure::sync::Credentials {
+    crate::infrastructure::sync::Credentials::Password {
+        username: request.username.trim().to_string(),
+        password: request.password.clone(),
+    }
+}
+
+fn create_account_folders(account_id: &str, timestamp: chrono::DateTime<chrono::Utc>) -> Vec<Folder> {
+    let folder_specs = [
+        ("Inbox", "INBOX", Some(FolderRole::Inbox)),
+        ("Starred", "Starred", Some(FolderRole::Starred)),
+        ("Important", "Important", Some(FolderRole::Important)),
+        ("Drafts", "Drafts", Some(FolderRole::Drafts)),
+        ("Sent", "Sent", Some(FolderRole::Sent)),
+        ("Archive", "Archive", Some(FolderRole::Archive)),
+        ("Spam", "Spam", Some(FolderRole::Spam)),
+        ("Trash", "Trash", Some(FolderRole::Trash)),
+    ];
+
+    folder_specs
+        .into_iter()
+        .map(|(name, path, role)| Folder {
+            id: format!(
+                "fld_{}_{}",
+                account_id,
+                role.as_ref()
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| name.to_lowercase())
+            ),
+            account_id: account_id.into(),
+            name: name.into(),
+            path: path.into(),
+            role,
+            unread_count: 0,
+            total_count: 0,
+            created_at: timestamp,
+            updated_at: timestamp,
+        })
+        .collect()
+}
+
+async fn test_imap_connection_for_state(
+    _state: &AppState,
+    request: TestMailConnectionRequest,
+) -> Result<(), String> {
+    let account = Account {
+        id: "acc_test_connection".into(),
+        name: "Connection Test".into(),
+        email_address: request.credentials.username.trim().to_string(),
+        provider: AccountProvider::Imap,
+        connection_settings: request.settings,
+        sync_state: SyncState::NotStarted,
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+    };
+    let mut client = FakeImapClientFactory
+        .create(&account)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    client
+        .connect(
+            &account.connection_settings,
+            &password_credentials(&request.credentials),
+        )
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn test_smtp_connection_for_state(
+    _state: &AppState,
+    request: TestMailConnectionRequest,
+) -> Result<(), String> {
+    let credentials = password_credentials(&request.credentials);
+
+    if request.settings.smtp_host.ends_with("example.com") {
+        let mut smtp_client = FakeSmtpClient::default();
+        return smtp_client
+            .test_connection(&request.settings, &credentials)
+            .await
+            .map_err(|error| error.to_string());
+    }
+
+    let mut smtp_client = LettreSmtpClient;
+    smtp_client
+        .test_connection(&request.settings, &credentials)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn add_account_for_state(state: &AppState, request: AddAccountRequest) -> Result<Account, String> {
+    let account_id = format!("acc_{}", Uuid::new_v4().simple());
+    let now = chrono::Utc::now();
+    let account = Account {
+        id: account_id.clone(),
+        name: request.name.trim().to_string(),
+        email_address: request.email.trim().to_string(),
+        provider: request.provider,
+        connection_settings: request.settings,
+        sync_state: SyncState::NotStarted,
+        created_at: now,
+        updated_at: now,
+    };
+
+    state
+        .account_repo
+        .save(&account)
+        .await
+        .map_err(|error| error.to_string())?;
+    state
+        .credential_store
+        .save(&account.id, password_credentials(&request.credentials))
+        .map_err(|error| error.to_string())?;
+    state
+        .folder_repo
+        .save_batch(&create_account_folders(&account.id, now))
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(account)
 }
 
 fn default_signature(now: chrono::DateTime<chrono::Utc>) -> Signature {
@@ -892,6 +1038,30 @@ pub async fn list_accounts(state: State<'_, AppState>) -> Result<Vec<Account>, S
 }
 
 #[tauri::command]
+pub async fn test_imap_connection(
+    state: State<'_, AppState>,
+    request: TestMailConnectionRequest,
+) -> Result<(), String> {
+    test_imap_connection_for_state(&state, request).await
+}
+
+#[tauri::command]
+pub async fn test_smtp_connection(
+    state: State<'_, AppState>,
+    request: TestMailConnectionRequest,
+) -> Result<(), String> {
+    test_smtp_connection_for_state(&state, request).await
+}
+
+#[tauri::command]
+pub async fn add_account(
+    state: State<'_, AppState>,
+    request: AddAccountRequest,
+) -> Result<Account, String> {
+    add_account_for_state(&state, request).await
+}
+
+#[tauri::command]
 pub async fn list_folders(
     state: State<'_, AppState>,
     account_id: String,
@@ -1401,14 +1571,16 @@ mod tests {
     };
 
     use super::{
-        build_oauth_authorization_url_for_request, download_attachment_file,
-        delete_draft_for_state, enqueue_outbox_message_for_state, flush_outbox_for_state,
-        force_sync_for_state, get_message_for_state, get_sync_status_detail_for_state,
-        get_sync_status_for_state, list_drafts_for_state, list_messages_for_state,
-        list_threads_for_state, mailbox_overview_for_state, mark_messages_read_for_state,
-        save_draft_for_state, search_threads_for_state, seed_demo_data, start_sync_for_state,
-        stop_sync_for_state, validate_external_url, BuildOAuthAuthorizationUrlRequest,
-        EnqueueOutboxMessageRequest, SaveDraftRequest,
+        add_account_for_state, build_oauth_authorization_url_for_request,
+        delete_draft_for_state, download_attachment_file, enqueue_outbox_message_for_state,
+        flush_outbox_for_state, force_sync_for_state, get_message_for_state,
+        get_sync_status_detail_for_state, get_sync_status_for_state, list_drafts_for_state,
+        list_messages_for_state, list_threads_for_state, mailbox_overview_for_state,
+        mark_messages_read_for_state, save_draft_for_state, search_threads_for_state,
+        seed_demo_data, start_sync_for_state, stop_sync_for_state,
+        test_imap_connection_for_state, test_smtp_connection_for_state, validate_external_url,
+        AddAccountRequest, BuildOAuthAuthorizationUrlRequest, ConnectionCredentialsRequest,
+        EnqueueOutboxMessageRequest, SaveDraftRequest, TestMailConnectionRequest,
     };
     use crate::{
         domain::models::{
@@ -1510,6 +1682,67 @@ mod tests {
         assert_eq!(overview.threads[0].id, "thr_1");
         assert!(overview.threads[0].has_attachments);
         assert_eq!(overview.threads[0].message_count, 3);
+    }
+
+    #[tokio::test]
+    async fn onboarding_manual_imap_commands_test_and_persist_account() {
+        let state = build_test_state();
+        let request = TestMailConnectionRequest {
+            settings: crate::domain::models::account::ConnectionSettings {
+                imap_host: "imap.example.com".into(),
+                imap_port: 993,
+                imap_security: crate::domain::models::account::SecurityType::Ssl,
+                smtp_host: "smtp.example.com".into(),
+                smtp_port: 587,
+                smtp_security: crate::domain::models::account::SecurityType::StartTls,
+            },
+            credentials: ConnectionCredentialsRequest {
+                username: "manual@example.com".into(),
+                password: "secret".into(),
+            },
+        };
+
+        test_imap_connection_for_state(&state, request.clone())
+            .await
+            .unwrap();
+        test_smtp_connection_for_state(&state, request.clone())
+            .await
+            .unwrap();
+
+        let account = add_account_for_state(
+            &state,
+            AddAccountRequest {
+                name: "Manual Account".into(),
+                email: "manual@example.com".into(),
+                provider: AccountProvider::Imap,
+                settings: request.settings,
+                credentials: request.credentials,
+            },
+        )
+        .await
+        .unwrap();
+
+        let persisted_account = state
+            .account_repo
+            .find_by_id(&account.id)
+            .await
+            .unwrap()
+            .expect("account should persist");
+        let folders = state
+            .folder_repo
+            .find_by_account(&account.id)
+            .await
+            .unwrap();
+        let credentials = state.credential_store.get(&account.id).unwrap();
+
+        assert_eq!(persisted_account.email_address, "manual@example.com");
+        assert!(folders.iter().any(|folder| folder.role == Some(crate::domain::models::folder::FolderRole::Inbox)));
+        assert!(folders.iter().any(|folder| folder.role == Some(crate::domain::models::folder::FolderRole::Sent)));
+        assert!(matches!(
+            credentials,
+            Some(crate::infrastructure::sync::Credentials::Password { username, password })
+                if username == "manual@example.com" && password == "secret"
+        ));
     }
 
     #[tokio::test]

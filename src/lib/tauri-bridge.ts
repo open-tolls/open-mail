@@ -1,5 +1,7 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type {
+  AccountRecordResponse,
+  AddAccountRequest,
   BuildOAuthAuthorizationUrlRequest,
   EnqueueOutboxMessageRequest,
   MailboxOverview,
@@ -10,6 +12,7 @@ import type {
   SignatureRecord,
   SignatureSettings,
   SyncStatusDetail,
+  TestMailConnectionRequest,
   ThreadSummary
 } from '@lib/contracts';
 
@@ -25,6 +28,10 @@ const invokeOrThrow = async <T>(command: string, args?: Record<string, unknown>)
 };
 
 export const api = {
+  accounts: {
+    list: () => invokeOrThrow<AccountRecordResponse[]>('list_accounts'),
+    add: (request: AddAccountRequest) => invokeOrThrow<AccountRecordResponse>('add_account', { request })
+  },
   mailbox: {
     overview: () => invokeOrThrow<MailboxOverview>('mailbox_overview'),
     listThreads: (accountId: string, folderId: string, offset = 0, limit = 25) =>
@@ -33,7 +40,8 @@ export const api = {
       invokeOrThrow<ThreadSummary[]>('search_threads', { accountId, query })
   },
   sync: {
-    statusDetail: () => invokeOrThrow<Record<string, SyncStatusDetail>>('get_sync_status_detail')
+    statusDetail: () => invokeOrThrow<Record<string, SyncStatusDetail>>('get_sync_status_detail'),
+    start: (accountId: string) => invokeOrThrow<void>('start_sync', { accountId })
   },
   messages: {
     listByThread: (threadId: string) =>
@@ -81,6 +89,12 @@ export const api = {
   auth: {
     buildOAuthAuthorizationUrl: (request: BuildOAuthAuthorizationUrlRequest) =>
       invokeOrThrow<OAuthAuthorizationRequest>('build_oauth_authorization_url', { request })
+  },
+  onboarding: {
+    testImapConnection: (request: TestMailConnectionRequest) =>
+      invokeOrThrow<void>('test_imap_connection', { request }),
+    testSmtpConnection: (request: TestMailConnectionRequest) =>
+      invokeOrThrow<void>('test_smtp_connection', { request })
   },
   drafts: {
     list: (accountId: string) => invokeOrThrow<MessageRecord[]>('list_drafts', { accountId }),

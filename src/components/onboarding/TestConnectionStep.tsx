@@ -1,10 +1,11 @@
 type TestConnectionStepProps = {
-  checks: { label: string; status: 'idle' | 'running' | 'success' }[];
+  checks: { label: string; status: 'idle' | 'running' | 'success' | 'error' }[];
   helper: string;
   isReady: boolean;
   onBack: () => void;
   onRunChecks: () => Promise<void> | void;
   onContinue: () => void;
+  status: string | null;
 };
 
 export const TestConnectionStep = ({
@@ -13,7 +14,8 @@ export const TestConnectionStep = ({
   isReady,
   onBack,
   onRunChecks,
-  onContinue
+  onContinue,
+  status
 }: TestConnectionStepProps) => (
   <section className="onboarding-step-screen">
     <div className="onboarding-step-copy">
@@ -27,11 +29,19 @@ export const TestConnectionStep = ({
         <article className={`onboarding-check-card onboarding-check-${check.status}`} key={check.label}>
           <strong>{check.label}</strong>
           <span>
-            {check.status === 'idle' ? 'Waiting' : check.status === 'running' ? 'Running…' : 'Ready'}
+            {check.status === 'idle'
+              ? 'Waiting'
+              : check.status === 'running'
+                ? 'Running…'
+                : check.status === 'error'
+                  ? 'Needs attention'
+                  : 'Ready'}
           </span>
         </article>
       ))}
     </div>
+
+    {status ? <p className="onboarding-inline-status">{status}</p> : null}
 
     <div className="onboarding-step-actions">
       <button className="onboarding-secondary-button" onClick={onBack} type="button">
