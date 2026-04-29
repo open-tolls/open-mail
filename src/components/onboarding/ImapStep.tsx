@@ -13,6 +13,7 @@ type ImapFormState = {
 type ImapStepProps = {
   canContinue?: boolean;
   form: ImapFormState;
+  helper?: string | null;
   onBack: () => void;
   onChange: <K extends keyof ImapFormState>(field: K, value: ImapFormState[K]) => void;
   onContinue: () => void;
@@ -20,7 +21,7 @@ type ImapStepProps = {
 
 const securityOptions: ImapFormState['imapSecurity'][] = ['SSL', 'StartTLS', 'None'];
 
-export const ImapStep = ({ canContinue = true, form, onBack, onChange, onContinue }: ImapStepProps) => (
+export const ImapStep = ({ canContinue = true, form, helper, onBack, onChange, onContinue }: ImapStepProps) => (
   <section className="onboarding-step-screen">
     <div className="onboarding-step-copy">
       <p className="eyebrow">Manual IMAP</p>
@@ -78,6 +79,8 @@ export const ImapStep = ({ canContinue = true, form, onBack, onChange, onContinu
         </select>
       </label>
     </div>
+
+    {helper ? <p className="onboarding-inline-status">{helper}</p> : null}
 
     <div className="onboarding-step-actions">
       <button className="onboarding-secondary-button" onClick={onBack} type="button">

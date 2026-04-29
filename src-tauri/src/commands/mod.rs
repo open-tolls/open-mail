@@ -209,6 +209,54 @@ pub struct BuildOAuthAuthorizationUrlRequest {
     pub code_challenge: String,
 }
 
+fn autodiscover_settings_for_email(email: &str) -> Option<ConnectionSettings> {
+    let domain = email.trim().split('@').nth(1)?.trim().to_ascii_lowercase();
+
+    match domain.as_str() {
+        "gmail.com" | "googlemail.com" => Some(ConnectionSettings {
+            imap_host: "imap.gmail.com".into(),
+            imap_port: 993,
+            imap_security: SecurityType::Ssl,
+            smtp_host: "smtp.gmail.com".into(),
+            smtp_port: 465,
+            smtp_security: SecurityType::Ssl,
+        }),
+        "outlook.com" | "hotmail.com" | "live.com" | "office365.com" => Some(ConnectionSettings {
+            imap_host: "outlook.office365.com".into(),
+            imap_port: 993,
+            imap_security: SecurityType::Ssl,
+            smtp_host: "smtp.office365.com".into(),
+            smtp_port: 587,
+            smtp_security: SecurityType::StartTls,
+        }),
+        "yahoo.com" | "ymail.com" => Some(ConnectionSettings {
+            imap_host: "imap.mail.yahoo.com".into(),
+            imap_port: 993,
+            imap_security: SecurityType::Ssl,
+            smtp_host: "smtp.mail.yahoo.com".into(),
+            smtp_port: 465,
+            smtp_security: SecurityType::Ssl,
+        }),
+        "icloud.com" | "me.com" | "mac.com" => Some(ConnectionSettings {
+            imap_host: "imap.mail.me.com".into(),
+            imap_port: 993,
+            imap_security: SecurityType::Ssl,
+            smtp_host: "smtp.mail.me.com".into(),
+            smtp_port: 587,
+            smtp_security: SecurityType::StartTls,
+        }),
+        "fastmail.com" | "fastmail.fm" => Some(ConnectionSettings {
+            imap_host: "imap.fastmail.com".into(),
+            imap_port: 993,
+            imap_security: SecurityType::Ssl,
+            smtp_host: "smtp.fastmail.com".into(),
+            smtp_port: 465,
+            smtp_security: SecurityType::Ssl,
+        }),
+        _ => None,
+    }
+}
+
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SignatureSettings {
@@ -938,6 +986,10 @@ async fn list_drafts_for_state(state: &AppState, account_id: &str) -> Result<Vec
         .map_err(|error| error.to_string())
 }
 
+fn autodiscover_settings_for_request(email: String) -> Option<ConnectionSettings> {
+    autodiscover_settings_for_email(&email)
+}
+
 fn build_oauth_authorization_url_for_request(
     request: BuildOAuthAuthorizationUrlRequest,
 ) -> Result<OAuthAuthorizationRequest, String> {
@@ -1139,6 +1191,11 @@ pub async fn health_check() -> Result<String, String> {
 #[tauri::command]
 pub async fn list_accounts(state: State<'_, AppState>) -> Result<Vec<Account>, String> {
     list_accounts_for_state(&state).await
+}
+
+#[tauri::command]
+pub async fn autodiscover_settings(email: String) -> Result<Option<ConnectionSettings>, String> {
+    Ok(autodiscover_settings_for_request(email))
 }
 
 #[tauri::command]
@@ -1683,7 +1740,8 @@ mod tests {
     };
 
     use super::{
-        add_account_for_state, build_oauth_authorization_url_for_request,
+        add_account_for_state, autodiscover_settings_for_request,
+        build_oauth_authorization_url_for_request,
         complete_oauth_account_for_state, delete_draft_for_state, download_attachment_file,
         enqueue_outbox_message_for_state, flush_outbox_for_state, force_sync_for_state,
         get_message_for_state, get_sync_status_detail_for_state, get_sync_status_for_state,
@@ -1891,6 +1949,19 @@ mod tests {
             Some(crate::infrastructure::sync::Credentials::OAuth2 { username, access_token })
                 if username == "oauth@example.com" && access_token.contains("oauth-preview-gmail-sample-code")
         ));
+    }
+
+    #[test]
+    fn autodiscover_returns_known_provider_settings() {
+        let gmail = autodiscover_settings_for_request("user@gmail.com".into()).unwrap();
+        let outlook = autodiscover_settings_for_request("user@outlook.com".into()).unwrap();
+        let unknown = autodiscover_settings_for_request("user@custom.invalid".into());
+
+        assert_eq!(gmail.imap_host, "imap.gmail.com");
+        assert_eq!(gmail.smtp_port, 465);
+        assert_eq!(outlook.smtp_host, "smtp.office365.com");
+        assert_eq!(outlook.smtp_port, 587);
+        assert!(unknown.is_none());
     }
 
     #[tokio::test]

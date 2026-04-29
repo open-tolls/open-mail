@@ -158,13 +158,13 @@ pub async fn add_account(
 - [ ] OAuth funciona com Gmail
 - [ ] OAuth funciona com Outlook
 - [x] IMAP manual funciona
-- [ ] Autodiscover funciona para provedores comuns
+- [x] Autodiscover funciona para provedores comuns
 - [x] Test connection com feedback visual
 - [ ] Initial sync com progresso
 - [ ] Credenciais salvas no keychain
 - [x] Conta persitida no banco
 
-> Status: o onboarding ja tem wizard real de ponta a ponta no frontend, o caminho `IMAP manual` testa `IMAP/SMTP` pelo backend Tauri e persiste conta/credenciais, e o caminho `OAuth` agora tambem avanca alem da URL de autorizacao com captura manual do `authorization code` e persistencia local da conta no desktop. O que segue aberto neste bloco e mais pesado e especifico: troca live do code por tokens no provedor, autodiscover, keychain de verdade e um sync inicial menos simulado.
+> Status: o onboarding ja tem wizard real de ponta a ponta no frontend, o caminho `IMAP manual` testa `IMAP/SMTP` pelo backend Tauri, persiste conta/credenciais e agora tambem faz `autodiscover` para provedores comuns ao digitar o email. O caminho `OAuth` tambem avanca alem da URL de autorizacao com captura manual do `authorization code` e persistencia local da conta no desktop. O que segue aberto neste bloco e mais pesado e especifico: troca live do code por tokens no provedor, keychain de verdade e um sync inicial menos simulado.
 
 ---
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
@@ -227,6 +227,8 @@ export const OnboardingView = () => {
   const [oauthStatus, setOauthStatus] = useState<string | null>(null);
   const [oauthAuthUrl, setOauthAuthUrl] = useState<string | null>(null);
   const [imapForm, setImapForm] = useState<ImapFormState>(defaultImapForm(null));
+  const [imapHelper, setImapHelper] = useState<string | null>(null);
+  const [autodiscoveredEmail, setAutodiscoveredEmail] = useState<string | null>(null);
   const [connectionChecks, setConnectionChecks] = useState<{ label: string; status: ConnectionCheckStatus }[]>(
     createEmptyConnectionChecks()
   );
@@ -269,6 +271,8 @@ export const OnboardingView = () => {
     setOauthStatus(null);
     setOauthAuthUrl(null);
     setImapForm(defaultImapForm(null));
+    setImapHelper(null);
+    setAutodiscoveredEmail(null);
     setConnectionChecks(createEmptyConnectionChecks());
     setConnectionStatus(null);
     setCreatedAccountId(null);
@@ -286,6 +290,8 @@ export const OnboardingView = () => {
     setOauthAuthorizationCode('');
     setConnectionChecks(createEmptyConnectionChecks());
     setConnectionStatus(null);
+    setImapHelper(null);
+    setAutodiscoveredEmail(null);
     setCreatedAccountId(null);
     setSyncProgress(0);
     setSyncStatus('Ready to start initial sync');
@@ -332,6 +338,118 @@ export const OnboardingView = () => {
       setOauthStatus(error instanceof Error ? error.message : 'Could not prepare browser auth');
     }
   };
+
+  useEffect(() => {
+    if (selectedProvider?.kind !== 'imap') {
+      return;
+    }
+
+    const trimmedEmail = imapForm.email.trim();
+    if (!trimmedEmail.includes('@') || trimmedEmail === autodiscoveredEmail) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      const fallbackAutodiscover = (email: string): ConnectionSettings | null => {
+        const domain = email.split('@')[1]?.toLowerCase();
+        switch (domain) {
+          case 'gmail.com':
+          case 'googlemail.com':
+            return {
+              imapHost: 'imap.gmail.com',
+              imapPort: 993,
+              imapSecurity: 'Ssl',
+              smtpHost: 'smtp.gmail.com',
+              smtpPort: 465,
+              smtpSecurity: 'Ssl'
+            };
+          case 'outlook.com':
+          case 'hotmail.com':
+          case 'live.com':
+          case 'office365.com':
+            return {
+              imapHost: 'outlook.office365.com',
+              imapPort: 993,
+              imapSecurity: 'Ssl',
+              smtpHost: 'smtp.office365.com',
+              smtpPort: 587,
+              smtpSecurity: 'StartTls'
+            };
+          case 'yahoo.com':
+          case 'ymail.com':
+            return {
+              imapHost: 'imap.mail.yahoo.com',
+              imapPort: 993,
+              imapSecurity: 'Ssl',
+              smtpHost: 'smtp.mail.yahoo.com',
+              smtpPort: 465,
+              smtpSecurity: 'Ssl'
+            };
+          case 'icloud.com':
+          case 'me.com':
+          case 'mac.com':
+            return {
+              imapHost: 'imap.mail.me.com',
+              imapPort: 993,
+              imapSecurity: 'Ssl',
+              smtpHost: 'smtp.mail.me.com',
+              smtpPort: 587,
+              smtpSecurity: 'StartTls'
+            };
+          case 'fastmail.com':
+          case 'fastmail.fm':
+            return {
+              imapHost: 'imap.fastmail.com',
+              imapPort: 993,
+              imapSecurity: 'Ssl',
+              smtpHost: 'smtp.fastmail.com',
+              smtpPort: 465,
+              smtpSecurity: 'Ssl'
+            };
+          default:
+            return null;
+        }
+      };
+
+      try {
+        const settings = tauriRuntime.isAvailable()
+          ? await api.onboarding.autodiscoverSettings(trimmedEmail)
+          : fallbackAutodiscover(trimmedEmail);
+
+        if (!settings) {
+          setImapHelper('No known provider settings found for this address yet. You can keep filling the server fields manually.');
+          setAutodiscoveredEmail(trimmedEmail);
+          return;
+        }
+
+        setImapForm((current) => ({
+          ...current,
+          imapHost: settings.imapHost,
+          imapPort: String(settings.imapPort),
+          imapSecurity:
+            settings.imapSecurity === 'Ssl'
+              ? 'SSL'
+              : settings.imapSecurity === 'StartTls'
+                ? 'StartTLS'
+                : 'None',
+          smtpHost: settings.smtpHost,
+          smtpPort: String(settings.smtpPort),
+          smtpSecurity:
+            settings.smtpSecurity === 'Ssl'
+              ? 'SSL'
+              : settings.smtpSecurity === 'StartTls'
+                ? 'StartTLS'
+                : 'None'
+        }));
+        setImapHelper(`Detected provider settings for ${trimmedEmail}. Review them before continuing.`);
+        setAutodiscoveredEmail(trimmedEmail);
+      } catch {
+        setImapHelper('Autodiscover could not run right now. You can still finish the setup manually.');
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [autodiscoveredEmail, imapForm.email, selectedProvider?.kind]);
 
   const handleRunChecks = async () => {
     setConnectionStatus(null);
@@ -576,6 +694,7 @@ export const OnboardingView = () => {
         <ImapStep
           canContinue={canReviewImapConnection}
           form={imapForm}
+          helper={imapHelper}
           onBack={() => setStep('provider')}
           onChange={(field, value) =>
             setImapForm((current) => ({

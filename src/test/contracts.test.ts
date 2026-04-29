@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type {
   BuildOAuthAuthorizationUrlRequest,
+  ConnectionSettings,
   CompleteOAuthAccountRequest,
   DomainEvent,
   EnqueueOutboxMessageRequest,
@@ -151,5 +152,19 @@ describe('contracts', () => {
 
     expect(request.authorizationCode).toBe('returned-code');
     expect(request.provider).toBe('Outlook');
+  });
+
+  it('supports autodiscovered connection settings for common providers', () => {
+    const settings: ConnectionSettings = {
+      imapHost: 'imap.fastmail.com',
+      imapPort: 993,
+      imapSecurity: 'Ssl',
+      smtpHost: 'smtp.fastmail.com',
+      smtpPort: 465,
+      smtpSecurity: 'Ssl'
+    };
+
+    expect(settings.imapHost).toContain('fastmail');
+    expect(settings.smtpSecurity).toBe('Ssl');
   });
 });

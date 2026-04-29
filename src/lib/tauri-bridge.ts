@@ -3,6 +3,7 @@ import type {
   AccountRecordResponse,
   AddAccountRequest,
   BuildOAuthAuthorizationUrlRequest,
+  ConnectionSettings,
   CompleteOAuthAccountRequest,
   EnqueueOutboxMessageRequest,
   MailboxOverview,
@@ -94,6 +95,8 @@ export const api = {
       invokeOrThrow<AccountRecordResponse>('complete_oauth_account', { request })
   },
   onboarding: {
+    autodiscoverSettings: (email: string) =>
+      invokeOrThrow<ConnectionSettings | null>('autodiscover_settings', { email }),
     testImapConnection: (request: TestMailConnectionRequest) =>
       invokeOrThrow<void>('test_imap_connection', { request }),
     testSmtpConnection: (request: TestMailConnectionRequest) =>

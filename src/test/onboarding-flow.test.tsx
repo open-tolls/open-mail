@@ -37,6 +37,25 @@ describe('onboarding flow', () => {
     expect(await screen.findByRole('heading', { name: "You're all set" })).toBeInTheDocument();
   });
 
+  it('autodiscovers common provider settings from the manual email field', async () => {
+    window.history.pushState({}, '', '/onboarding/account');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.click(screen.getByRole('button', { name: /Other IMAP/i }));
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'leco@fastmail.com' } });
+
+    expect(await screen.findByText(/Detected provider settings for leco@fastmail.com/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('IMAP server')).toHaveValue('imap.fastmail.com');
+    expect(screen.getByLabelText('SMTP server')).toHaveValue('smtp.fastmail.com');
+  });
+
   it('walks through the oauth onboarding path with the returned code step', async () => {
     window.history.pushState({}, '', '/onboarding/account');
 
