@@ -3,5 +3,11 @@
   "identifier": "default",
   "description": "Default capability for the Open Mail desktop shell.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-save"]
+  "permissions": [
+    "core:default",
+    "dialog:allow-save",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
+  ]
 }

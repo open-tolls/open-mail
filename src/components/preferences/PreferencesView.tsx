@@ -33,6 +33,7 @@ export const PreferencesView = () => {
   const [backendStatus, setBackendStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
   const [backendMessage, setBackendMessage] = useState<string | null>(null);
   const hasHydratedRef = useRef(false);
+  const launchAtLoginHydratedRef = useRef(false);
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
   const selectAccount = useAccountStore((state) => state.selectAccount);
@@ -157,6 +158,22 @@ export const PreferencesView = () => {
           return;
         }
 
+        return api.system.getLaunchAtLogin().then((isEnabled) => {
+          if (!isActive) {
+            return;
+          }
+
+          launchAtLoginHydratedRef.current = true;
+          if (usePreferencesStore.getState().launchAtLogin !== isEnabled) {
+            setPreference('launchAtLogin', isEnabled);
+          }
+        });
+      })
+      .then(() => {
+        if (!isActive) {
+          return;
+        }
+
         hasHydratedRef.current = true;
         setBackendStatus('idle');
       })
@@ -173,7 +190,18 @@ export const PreferencesView = () => {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [setPreference]);
+
+  useEffect(() => {
+    if (!tauriRuntime.isAvailable() || !launchAtLoginHydratedRef.current || !hasHydratedRef.current) {
+      return;
+    }
+
+    void api.system.setLaunchAtLogin(launchAtLogin).catch((error: unknown) => {
+      setBackendStatus('error');
+      setBackendMessage(error instanceof Error ? error.message : 'Failed to update launch at login');
+    });
+  }, [launchAtLogin]);
 
   useEffect(() => {
     if (!tauriRuntime.isAvailable() || !hasHydratedRef.current) {

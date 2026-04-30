@@ -330,9 +330,9 @@ pub async fn update_account(state: State<'_, AppState>, account: Account) -> Res
 - [x] Config persistida no backend
 - [x] Remover conta funciona (com confirmacao)
 - [x] Tema muda imediatamente
-- [ ] Launch at login funciona (macOS, Linux, Windows)
+- [x] Launch at login funciona (macOS, Linux, Windows)
 
-> Status: a rota de `Preferences` agora existe fora do shell do mailbox com layout dedicado, navegação lateral e as 7 seções renderizadas. O app já hidrata e salva o snapshot de preferências no backend Tauri/SQLite no runtime desktop, incluindo conta padrão, tema, layout e largura do painel, e a remoção de conta também passou a limpar conta + credenciais persistidas via confirmação. O item realmente aberto nesta frente agora é a integração de `launch at login` com o sistema operacional.
+> Status: a rota de `Preferences` agora existe fora do shell do mailbox com layout dedicado, navegação lateral e as 7 seções renderizadas. O app já hidrata e salva o snapshot de preferências no backend Tauri/SQLite no runtime desktop, incluindo conta padrão, tema, layout e largura do painel; a remoção de conta limpa conta + credenciais persistidas; e o toggle `launch at login` agora conversa com o plugin oficial de autostart do Tauri. Com isso, a frente 6.3 fica fechada neste corte.
 
 ---
 

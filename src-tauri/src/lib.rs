@@ -38,6 +38,8 @@ use infrastructure::{
     },
 };
 use tauri::Emitter;
+#[cfg(desktop)]
+use tauri_plugin_autostart::MacosLauncher;
 
 pub struct AppState {
     pub db: Database,
@@ -74,6 +76,13 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            #[cfg(target_os = "macos")]
+            MacosLauncher::LaunchAgent,
+            #[cfg(not(target_os = "macos"))]
+            MacosLauncher::LaunchAgent,
+            None::<Vec<&'static str>>,
+        ))
         .setup(move |app| {
             sync_manager.set_event_emitter(Arc::new(TauriSyncEventEmitter {
                 app_handle: app.handle().clone(),

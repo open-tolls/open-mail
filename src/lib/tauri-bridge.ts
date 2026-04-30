@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { disable as disableAutostart, enable as enableAutostart, isEnabled as isAutostartEnabled } from '@tauri-apps/plugin-autostart';
 import type {
   AccountRecordResponse,
   AppConfig,
@@ -129,7 +130,20 @@ export const api = {
   },
   system: {
     openExternalUrl: (url: string) => invokeOrThrow<void>('open_external_url', { url }),
-    toAssetUrl: (filePath: string) => (isTauriRuntimeAvailable() ? convertFileSrc(filePath) : filePath)
+    toAssetUrl: (filePath: string) => (isTauriRuntimeAvailable() ? convertFileSrc(filePath) : filePath),
+    getLaunchAtLogin: async () => (isTauriRuntimeAvailable() ? isAutostartEnabled() : false),
+    setLaunchAtLogin: async (enabled: boolean) => {
+      if (!isTauriRuntimeAvailable()) {
+        return;
+      }
+
+      if (enabled) {
+        await enableAutostart();
+        return;
+      }
+
+      await disableAutostart();
+    }
   }
 };
 

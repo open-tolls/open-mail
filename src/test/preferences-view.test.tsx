@@ -152,6 +152,76 @@ describe('preferences view', () => {
     expect(usePreferencesStore.getState().checkForUpdates).toBe(true);
   });
 
+  it('syncs the launch at login toggle with the desktop autostart plugin', async () => {
+    setTauriRuntime(true);
+    window.history.pushState({}, '', '/preferences');
+
+    let autostartEnabled = true;
+    tauriCoreApi.invoke.mockImplementation(async (command) => {
+      if (command === 'get_config') {
+        return {
+          language: 'English',
+          defaultAccountId: 'acc_demo',
+          markAsReadOnOpen: true,
+          showSnippets: true,
+          autoLoadImages: false,
+          includeSignatureInReplies: true,
+          requestReadReceipts: false,
+          undoSendDelaySeconds: 5,
+          launchAtLogin: false,
+          checkForUpdates: true,
+          theme: 'system',
+          fontSize: 16,
+          layoutMode: 'split',
+          density: 'comfortable',
+          threadPanelWidth: 58,
+          notificationsEnabled: true,
+          notificationSound: true,
+          notificationScope: 'inbox',
+          quietHoursStart: '',
+          quietHoursEnd: '',
+          developerToolsEnabled: false,
+          logLevel: 'info'
+        };
+      }
+
+      if (command === 'update_config') {
+        return undefined;
+      }
+
+      if (command === 'plugin:autostart|is_enabled') {
+        return autostartEnabled;
+      }
+
+      if (command === 'plugin:autostart|enable') {
+        autostartEnabled = true;
+        return undefined;
+      }
+
+      if (command === 'plugin:autostart|disable') {
+        autostartEnabled = false;
+        return undefined;
+      }
+
+      throw new Error(`unexpected command ${command}`);
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => expect(screen.getByLabelText('Launch at login')).toBeChecked());
+
+    fireEvent.click(screen.getByLabelText('Launch at login'));
+
+    await waitFor(() =>
+      expect(tauriCoreApi.invoke).toHaveBeenCalledWith('plugin:autostart|disable', {}, undefined)
+    );
+    expect(usePreferencesStore.getState().launchAtLogin).toBe(false);
+  });
+
   it('removes an account through the desktop backend after confirmation', async () => {
     setTauriRuntime(true);
     tauriCoreApi.invoke.mockImplementation(async (command) => {

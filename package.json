@@ -24,6 +24,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.66.11",
     "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-autostart": "^2.4.1",
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tiptap/extension-link": "^3.22.4",
     "@tiptap/extension-placeholder": "^3.22.4",
