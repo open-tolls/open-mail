@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { save } from '@tauri-apps/plugin-dialog';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
@@ -177,7 +177,6 @@ const MailShell = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   useDomainEvents();
-  useDesktopNotifications();
   const { data, isLoading, isError } = useBackendHealth();
   const mailboxQuery = useMailboxOverview();
   const mailbox = mailboxQuery.data;
@@ -191,6 +190,7 @@ const MailShell = () => {
   const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
+  const selectAccount = useAccountStore((state) => state.selectAccount);
   const setAccounts = useAccountStore((state) => state.setAccounts);
   const upsertAccount = useAccountStore((state) => state.upsertAccount);
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
@@ -583,6 +583,18 @@ const MailShell = () => {
     const folderSegment = selectedFolderId ? getFolderRouteSegment(selectedFolderId) : 'inbox';
     navigate(`/${folderSegment}/${nextThreadId}`);
   };
+  const handleOpenDesktopNotificationMessage = useCallback(
+    ({ accountId, routeSegment, threadId: nextThreadId }: { accountId: string; routeSegment: string; threadId: string }) => {
+      selectAccount(accountId);
+      setSelectedFolderId(null);
+      setSelectedThreadId(nextThreadId);
+      navigate(`/${routeSegment}/${nextThreadId}`);
+    },
+    [navigate, selectAccount]
+  );
+  useDesktopNotifications({
+    onOpenMessage: handleOpenDesktopNotificationMessage
+  });
   const pushThreadUndo = (description: string) => {
     const snapshot = createThreadSnapshot();
 

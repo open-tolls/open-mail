@@ -1,6 +1,9 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { show } from '@tauri-apps/api/app';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   isPermissionGranted,
+  onAction,
   requestPermission,
   sendNotification
 } from '@tauri-apps/plugin-notification';
@@ -9,15 +12,23 @@ import { api, tauriRuntime } from '@lib/tauri-bridge';
 import type { DomainEvent } from '@lib/contracts';
 import {
   isWithinQuietHours,
+  readNotificationTarget,
   shouldNotifyMessage,
+  toNotificationRouteSegment,
   toNotificationBody,
-  toNotificationTitle
+  toNotificationTarget,
+  toNotificationTitle,
+  type DesktopNotificationTarget
 } from '@lib/desktop-notifications';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
 
 const MAX_NOTIFICATIONS_PER_EVENT = 3;
 
-export const useDesktopNotifications = () => {
+type UseDesktopNotificationsOptions = {
+  onOpenMessage?: (target: DesktopNotificationTarget & { routeSegment: string }) => void;
+};
+
+export const useDesktopNotifications = ({ onOpenMessage }: UseDesktopNotificationsOptions = {}) => {
   const notificationsEnabled = usePreferencesStore((state) => state.notificationsEnabled);
   const notificationScope = usePreferencesStore((state) => state.notificationScope);
   const quietHoursStart = usePreferencesStore((state) => state.quietHoursStart);
@@ -70,9 +81,12 @@ export const useDesktopNotifications = () => {
       }
 
       for (const message of candidates.slice(0, MAX_NOTIFICATIONS_PER_EVENT)) {
+        const target = toNotificationTarget(message, folders);
         sendNotification({
           title: toNotificationTitle(message),
-          body: toNotificationBody(message)
+          body: toNotificationBody(message),
+          autoCancel: true,
+          extra: target
         });
         notifiedMessageIdsRef.current.add(message.id);
       }
@@ -87,4 +101,40 @@ export const useDesktopNotifications = () => {
   useTauriEvent<DomainEvent>('domain:event', (payload) => {
     void handleDomainEvent(payload);
   }, { enabled });
+
+  useEffect(() => {
+    if (!tauriRuntime.isAvailable()) {
+      return undefined;
+    }
+
+    let isMounted = true;
+    let unregister: (() => Promise<void>) | undefined;
+
+    void onAction(async (notification) => {
+      const target = readNotificationTarget(notification.extra ?? {});
+      if (!target) {
+        return;
+      }
+
+      await show().catch(() => undefined);
+      await getCurrentWindow().setFocus().catch(() => undefined);
+
+      onOpenMessage?.({
+        ...target,
+        routeSegment: toNotificationRouteSegment(target)
+      });
+    }).then((listener) => {
+      if (isMounted) {
+        unregister = () => listener.unregister();
+        return;
+      }
+
+      void listener.unregister();
+    });
+
+    return () => {
+      isMounted = false;
+      void unregister?.();
+    };
+  }, [onOpenMessage]);
 };

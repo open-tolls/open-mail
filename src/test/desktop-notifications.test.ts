@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { FolderRecord, MessageRecord } from '@lib/contracts';
 import {
   isWithinQuietHours,
+  readNotificationTarget,
   shouldNotifyMessage,
+  toNotificationRouteSegment,
   toNotificationBody,
+  toNotificationTarget,
   toNotificationTitle
 } from '@lib/desktop-notifications';
 
@@ -90,5 +93,32 @@ describe('desktop notifications helpers', () => {
   it('builds notification copy from sender and snippet', () => {
     expect(toNotificationTitle(sampleMessage)).toBe('Infra');
     expect(toNotificationBody(sampleMessage)).toBe('Fresh mailbox payload');
+  });
+
+  it('serializes the notification target used to reopen the message', () => {
+    expect(toNotificationTarget(sampleMessage, [inboxFolder, sentFolder])).toEqual({
+      accountId: 'acc_demo',
+      threadId: 'thr_1',
+      folderId: 'fld_inbox',
+      folderRole: 'inbox'
+    });
+  });
+
+  it('restores the notification target from plugin extras', () => {
+    const target = readNotificationTarget({
+      accountId: 'acc_demo',
+      threadId: 'thr_1',
+      folderId: 'fld_inbox',
+      folderRole: 'inbox'
+    });
+
+    expect(target).toEqual({
+      accountId: 'acc_demo',
+      threadId: 'thr_1',
+      folderId: 'fld_inbox',
+      folderRole: 'inbox'
+    });
+    expect(toNotificationRouteSegment(target!)).toBe('inbox');
+    expect(readNotificationTarget({ threadId: 'thr_1' })).toBeNull();
   });
 });
