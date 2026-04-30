@@ -17,6 +17,7 @@ import { useSyncStatusMap } from '@hooks/useSyncStatusMap';
 import { useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
 import { useUnifiedInboxThreads } from '@hooks/useUnifiedInboxThreads';
+import { useUnreadBadge } from '@hooks/useUnreadBadge';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
@@ -247,6 +248,11 @@ const MailShell = () => {
   const selectedFolder = mailbox?.folders.find((folder) => folder.id === selectedFolderId) ?? null;
   const isUnifiedInboxActive = composerAccounts.length > 1 && selectedFolder?.role === 'inbox';
   const syncStatusMapQuery = useSyncStatusMap(composerAccounts.map((account) => account.id));
+  const unreadBadgeCount = useMemo(
+    () => (mailbox?.folders ?? []).reduce((total, folder) => total + folder.unread_count, 0),
+    [mailbox?.folders]
+  );
+  useUnreadBadge(unreadBadgeCount);
   const unifiedInboxQuery = useUnifiedInboxThreads({
     accounts: composerAccounts,
     fallbackThreads: runtimeAllThreads,
