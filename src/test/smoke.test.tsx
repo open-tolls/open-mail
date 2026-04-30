@@ -43,4 +43,18 @@ describe('App smoke test', () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Mailbox folders')).not.toBeInTheDocument();
   });
+
+  it('renders preferences outside the mailbox shell', () => {
+    window.history.pushState({}, '', '/preferences');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByLabelText('Open Mail preferences')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Preferences' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mailbox folders')).not.toBeInTheDocument();
+  });
 });

@@ -3,6 +3,7 @@ import { beforeEach } from 'vitest';
 import { useAccountStore } from '@stores/useAccountStore';
 import { defaultShortcutBindings, useShortcutStore } from '@stores/useShortcutStore';
 import { useDraftStore } from '@stores/useDraftStore';
+import { usePreferencesStore } from '@stores/usePreferencesStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
 import { useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
@@ -55,6 +56,27 @@ beforeEach(() => {
     ],
     defaultSignatureId: 'sig_default',
     defaultSignatureIdsByAccountId: {}
+  });
+  usePreferencesStore.setState({
+    language: 'English',
+    defaultAccountId: null,
+    markAsReadOnOpen: true,
+    showSnippets: true,
+    autoLoadImages: false,
+    includeSignatureInReplies: true,
+    requestReadReceipts: false,
+    undoSendDelaySeconds: 5,
+    launchAtLogin: true,
+    checkForUpdates: true,
+    fontSize: 16,
+    density: 'comfortable',
+    notificationsEnabled: true,
+    notificationSound: true,
+    notificationScope: 'inbox',
+    quietHoursStart: '',
+    quietHoursEnd: '',
+    developerToolsEnabled: false,
+    logLevel: 'info'
   });
   useThreadStore.setState({
     activeFolderKey: null,

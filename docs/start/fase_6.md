@@ -325,12 +325,14 @@ pub async fn update_account(state: State<'_, AppState>, account: Account) -> Res
 ```
 
 **Criterio de aceite:**
-- [ ] Todas as 7 secoes renderizam
-- [ ] Mudancas aplicadas em tempo real (sem restart)
+- [x] Todas as 7 secoes renderizam
+- [x] Mudancas aplicadas em tempo real (sem restart)
 - [ ] Config persistida no backend
 - [ ] Remover conta funciona (com confirmacao)
-- [ ] Tema muda imediatamente
+- [x] Tema muda imediatamente
 - [ ] Launch at login funciona (macOS, Linux, Windows)
+
+> Status: a rota de `Preferences` agora existe fora do shell do mailbox com layout dedicado, navegação lateral e as 7 seções renderizadas. Este primeiro corte já reaproveita estado real do app para tema, layout, largura do painel, conta padrão, atalhos, assinaturas e preferências locais persistidas no frontend, enquanto a camada de config em backend e integrações de sistema ainda ficam para os próximos cortes.
 
 ---
 

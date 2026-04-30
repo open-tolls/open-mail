@@ -58,6 +58,7 @@ type ShellFrameProps = {
   onLoadMoreThreads?: () => Promise<void> | void;
   onApplyLabels: (threadIds: string[], labelIds: string[]) => void;
   onAddAccount: () => void;
+  onOpenPreferences: () => void;
   onMoveThreads: (threadIds: string[], folderId: string) => void;
   onThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   onSearchQueryChange: (query: string) => void;
@@ -97,6 +98,7 @@ export const ShellFrame = ({
   onLoadMoreThreads,
   onApplyLabels,
   onAddAccount,
+  onOpenPreferences,
   onMoveThreads,
   onThreadAction,
   onSearchQueryChange,
@@ -393,7 +395,7 @@ export const ShellFrame = ({
       'nav.drafts': () => selectSystemFolder('drafts'),
       'nav.inbox': () => selectSystemFolder('inbox'),
       'nav.sent': () => selectSystemFolder('sent'),
-      'preferences.open': () => setShortcutStatusLabel('Preferences shortcut ready'),
+      'preferences.open': onOpenPreferences,
       'search.focus': () => searchInputRef.current?.focus(),
       'thread.archive': () => runSelectedThreadAction('archive', 'Archive shortcut applied'),
       'thread.forward': () => {
@@ -450,6 +452,7 @@ export const ShellFrame = ({
     runSelectedThreadAction,
     runUndoShortcut,
     resetComposerState,
+    onOpenPreferences,
     selectSystemFolder,
     selectThreadByOffset,
     shortcutBindings
@@ -524,6 +527,7 @@ export const ShellFrame = ({
         outboxStatus={outboxStatus}
         onAddAccount={onAddAccount}
         onFlushOutbox={onFlushOutbox}
+        onOpenPreferences={onOpenPreferences}
         onSelectFolder={onSelectFolder}
         syncStatusByAccountId={syncStatusByAccountId}
         onToggleComposer={toggleComposer}

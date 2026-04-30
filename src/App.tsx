@@ -6,6 +6,7 @@ import type { ComposerDraft } from '@components/composer/Composer';
 import { ComponentGallery } from '@components/dev/ComponentGallery';
 import { ShellFrame } from '@components/layout/ShellFrame';
 import { OnboardingView } from '@components/onboarding/OnboardingView';
+import { PreferencesView } from '@components/preferences/PreferencesView';
 import { useBackendHealth } from '@hooks/useBackendHealth';
 import { useDomainEvents } from '@hooks/useDomainEvents';
 import { useMailboxOverview } from '@hooks/useMailboxOverview';
@@ -678,6 +679,7 @@ const MailShell = () => {
       onLoadMoreThreads={isUnifiedInboxActive ? undefined : folderThreadsQuery.loadMore}
       onApplyLabels={handleApplyLabels}
       onAddAccount={() => navigate('/onboarding/add-account')}
+      onOpenPreferences={() => navigate('/preferences')}
       onMoveThreads={handleMoveThreads}
       onThreadAction={handleThreadAction}
       onSelectFolder={handleSelectFolder}
@@ -703,6 +705,7 @@ const App = () => {
         <Route element={<MailShell />} path="/search" />
         <Route element={<MailShell />} path="/compose" />
         <Route element={<OnboardingView />} path="/onboarding/*" />
+        <Route element={<PreferencesView />} path="/preferences" />
         <Route element={<MailShell />} path="/:folderId" />
         <Route element={<MailShell />} path="/:folderId/:threadId" />
         <Route element={<ComponentGallery />} path="/dev" />

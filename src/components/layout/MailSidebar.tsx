@@ -29,6 +29,7 @@ type MailSidebarProps = {
   outboxStatus: string;
   onAddAccount: () => void;
   onFlushOutbox: () => Promise<void>;
+  onOpenPreferences: () => void;
   onSelectFolder: (folderId: string) => void;
   onToggleComposer: () => void;
   onToggleSidebar: () => void;
@@ -63,6 +64,7 @@ export const MailSidebar = ({
   outboxStatus,
   onAddAccount,
   onFlushOutbox,
+  onOpenPreferences,
   onSelectFolder,
   syncStatusByAccountId = {},
   onToggleComposer,
@@ -209,7 +211,7 @@ export const MailSidebar = ({
             <button aria-label="Add account" onClick={onAddAccount} type="button">
               <PencilLine size={15} />
             </button>
-            <button aria-label="Open account settings" type="button">
+            <button aria-label="Open preferences" onClick={onOpenPreferences} type="button">
               <Settings size={15} />
             </button>
           </div>

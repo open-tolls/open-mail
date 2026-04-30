@@ -908,6 +908,206 @@ summary.folder-group-title::-webkit-details-marker {
   background: rgba(246, 182, 111, 0.08);
 }
 
+.preferences-shell {
+  min-height: 100vh;
+  padding: 40px;
+  background: var(--bg-page);
+}
+
+.preferences-header,
+.preferences-layout,
+.preferences-grid,
+.preferences-account-actions,
+.preferences-advanced-actions {
+  display: flex;
+}
+
+.preferences-header,
+.preferences-layout {
+  gap: 24px;
+}
+
+.preferences-header {
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 0 auto 24px;
+  max-width: 1240px;
+}
+
+.preferences-close,
+.preferences-primary-button,
+.preferences-account-actions button,
+.preferences-advanced-actions button,
+.preferences-section button,
+.preferences-theme-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.preferences-close,
+.preferences-primary-button,
+.preferences-account-actions button,
+.preferences-advanced-actions button,
+.preferences-section button {
+  padding: 10px 14px;
+}
+
+.preferences-layout {
+  align-items: flex-start;
+  margin: 0 auto;
+  max-width: 1240px;
+}
+
+.preferences-nav {
+  position: sticky;
+  top: 32px;
+  min-width: 220px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--bg-elevated);
+}
+
+.preferences-nav-link {
+  display: block;
+  padding: 10px 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.preferences-content {
+  flex: 1;
+  display: grid;
+  gap: 18px;
+}
+
+.preferences-section {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--bg-elevated);
+}
+
+.preferences-section h2 {
+  margin-top: 0;
+}
+
+.preferences-grid {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.preferences-field {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 8px;
+}
+
+.preferences-field input,
+.preferences-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.preferences-toggle-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.preferences-toggle-list label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.preferences-account-list,
+.preferences-signature-list,
+.preferences-theme-grid,
+.preferences-shortcuts-table {
+  display: grid;
+  gap: 14px;
+}
+
+.preferences-account-card,
+.preferences-signature-card,
+.preferences-shortcut-row {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.preferences-account-card strong,
+.preferences-signature-card strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.preferences-account-card p,
+.preferences-signature-card p,
+.preferences-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.preferences-account-card span {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--accent);
+}
+
+.preferences-account-actions,
+.preferences-advanced-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.preferences-theme-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 18px;
+}
+
+.preferences-theme-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  text-align: left;
+}
+
+.preferences-theme-card-active {
+  border-color: rgba(246, 182, 111, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(246, 182, 111, 0.18);
+}
+
+.preferences-shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .preferences-shell {
+    padding: 24px;
+  }
+
+  .preferences-layout {
+    flex-direction: column;
+  }
+
+  .preferences-nav {
+    position: static;
+    width: 100%;
+  }
+}
+
 .hero-copy,
 .thread-preview,
 .insight-list,
