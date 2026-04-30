@@ -5,6 +5,7 @@ export type SyncState =
   | { kind: 'error'; message: string };
 
 export type SyncPhase = 'connecting' | 'discovering-folders' | 'syncing-folders' | 'idling';
+export type NotificationScope = 'inbox' | 'all';
 
 export type AccountProvider = 'Gmail' | 'Outlook' | 'Yahoo' | 'Imap' | 'Exchange';
 
@@ -190,7 +191,7 @@ export type AppConfig = {
   threadPanelWidth: number;
   notificationsEnabled: boolean;
   notificationSound: boolean;
-  notificationScope: string;
+  notificationScope: NotificationScope;
   quietHoursStart: string;
   quietHoursEnd: string;
   developerToolsEnabled: boolean;

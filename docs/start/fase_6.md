@@ -397,11 +397,13 @@ tauri-plugin-notification = "2"
 ```
 
 **Criterio de aceite:**
-- [ ] Notificacao desktop ao receber email novo
+- [x] Notificacao desktop ao receber email novo
 - [ ] Click na notificacao abre o app no email
-- [ ] Quiet hours respeitado
+- [x] Quiet hours respeitado
 - [ ] Badge de unread no dock (macOS)
-- [ ] Configuravel em Preferences
+- [x] Configuravel em Preferences
+
+> Status: o app agora dispara notificacoes nativas no runtime desktop a partir de `messages-changed`, com filtro por `notificationScope`, respeito a `notificationsEnabled`, `quiet hours` e dedupe basico por `messageId`. O clique para abrir o email e o badge no dock/taskbar ficam para os proximos cortes.
 
 ---
 

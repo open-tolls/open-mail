@@ -9,6 +9,7 @@ import { OnboardingView } from '@components/onboarding/OnboardingView';
 import { PreferencesView } from '@components/preferences/PreferencesView';
 import { useBackendHealth } from '@hooks/useBackendHealth';
 import { useDomainEvents } from '@hooks/useDomainEvents';
+import { useDesktopNotifications } from '@hooks/useDesktopNotifications';
 import { useMailboxOverview } from '@hooks/useMailboxOverview';
 import { useSearchThreads } from '@hooks/useSearchThreads';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
@@ -175,6 +176,7 @@ const MailShell = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   useDomainEvents();
+  useDesktopNotifications();
   const { data, isLoading, isError } = useBackendHealth();
   const mailboxQuery = useMailboxOverview();
   const mailbox = mailboxQuery.data;
