@@ -24,6 +24,11 @@ pub struct FileCredentialStore {
     path: PathBuf,
 }
 
+#[derive(Debug)]
+pub struct KeychainCredentialStore {
+    service_name: String,
+}
+
 impl InMemoryCredentialStore {
     fn read_credentials(&self) -> Result<HashMap<String, Credentials>, SyncError> {
         self.credentials_by_account
@@ -84,6 +89,19 @@ impl FileCredentialStore {
     }
 }
 
+impl KeychainCredentialStore {
+    pub fn new(service_name: impl Into<String>) -> Self {
+        Self {
+            service_name: service_name.into(),
+        }
+    }
+
+    fn entry(&self, account_id: &str) -> Result<keyring::Entry, SyncError> {
+        keyring::Entry::new(&self.service_name, account_id)
+            .map_err(|error| SyncError::Operation(format!("keychain entry error: {error}")))
+    }
+}
+
 impl CredentialStore for FileCredentialStore {
     fn save(&self, account_id: &str, credentials: Credentials) -> Result<(), SyncError> {
         self.credentials_by_account
@@ -108,6 +126,37 @@ impl CredentialStore for FileCredentialStore {
             .map_err(|_| SyncError::Operation("credential store lock poisoned".into()))?
             .remove(account_id);
         self.persist()
+    }
+}
+
+impl CredentialStore for KeychainCredentialStore {
+    fn save(&self, account_id: &str, credentials: Credentials) -> Result<(), SyncError> {
+        let serialized =
+            serde_json::to_vec(&credentials).map_err(|error| SyncError::Operation(error.to_string()))?;
+        self.entry(account_id)?
+            .set_secret(&serialized)
+            .map_err(|error| SyncError::Operation(format!("keychain save failed: {error}")))
+    }
+
+    fn get(&self, account_id: &str) -> Result<Option<Credentials>, SyncError> {
+        match self.entry(account_id)?.get_secret() {
+            Ok(secret) => serde_json::from_slice::<Credentials>(&secret)
+                .map(Some)
+                .map_err(|error| SyncError::Operation(error.to_string())),
+            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(error) => Err(SyncError::Operation(format!(
+                "keychain read failed: {error}"
+            ))),
+        }
+    }
+
+    fn delete(&self, account_id: &str) -> Result<(), SyncError> {
+        match self.entry(account_id)?.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(error) => Err(SyncError::Operation(format!(
+                "keychain delete failed: {error}"
+            ))),
+        }
     }
 }
 
@@ -178,5 +227,17 @@ mod tests {
         assert_eq!(reloaded_store.get("acc_disk").unwrap(), Some(credentials));
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn serializes_credentials_for_secure_stores() {
+        let credentials = Credentials::OAuth2 {
+            username: "oauth@example.com".into(),
+            access_token: "preview-token".into(),
+        };
+        let serialized = serde_json::to_vec(&credentials).unwrap();
+        let deserialized: Credentials = serde_json::from_slice(&serialized).unwrap();
+
+        assert_eq!(deserialized, credentials);
     }
 }

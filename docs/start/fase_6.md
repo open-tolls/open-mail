@@ -161,10 +161,10 @@ pub async fn add_account(
 - [x] Autodiscover funciona para provedores comuns
 - [x] Test connection com feedback visual
 - [x] Initial sync com progresso
-- [ ] Credenciais salvas no keychain
+- [x] Credenciais salvas no keychain
 - [x] Conta persitida no banco
 
-> Status: o onboarding ja tem wizard real de ponta a ponta no frontend, o caminho `IMAP manual` testa `IMAP/SMTP` pelo backend Tauri, persiste conta/credenciais, faz `autodiscover` para provedores comuns ao digitar o email e usa progresso real do `sync status` no passo de `Initial sync` no desktop. O caminho `OAuth` tambem avanca alem da URL de autorizacao com captura manual do `authorization code` e persistencia local da conta no desktop. As credenciais agora sobrevivem ao restart do app em armazenamento local do runtime, mas ainda nao estao em `keychain` nativo; o que segue aberto neste bloco e mais pesado e especifico e justamente a troca live do code por tokens no provedor, `keychain` de verdade e o callback/deep-link real do OAuth.
+> Status: o onboarding ja tem wizard real de ponta a ponta no frontend, o caminho `IMAP manual` testa `IMAP/SMTP` pelo backend Tauri, persiste conta/credenciais, faz `autodiscover` para provedores comuns ao digitar o email e usa progresso real do `sync status` no passo de `Initial sync` no desktop. O caminho `OAuth` tambem avanca alem da URL de autorizacao com captura manual do `authorization code` e persistencia local da conta no desktop. No runtime macOS, as credenciais agora sobem para o `keychain` nativo em vez de ficarem num arquivo local; em outros ambientes de desenvolvimento o app segue com fallback em arquivo. O que segue aberto neste bloco e mais pesado e especifico e justamente a troca live do code por tokens no provedor e o callback/deep-link real do OAuth.
 
 ---
 

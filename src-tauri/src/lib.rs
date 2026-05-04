@@ -36,10 +36,13 @@ use infrastructure::{
         Database,
     },
     sync::{
-        CredentialStore, FileCredentialStore, InMemoryMailTaskQueue, MailTaskQueue,
-        SyncEventEmitter, SyncManager,
+        CredentialStore, InMemoryMailTaskQueue, MailTaskQueue, SyncEventEmitter, SyncManager,
     },
 };
+#[cfg(not(target_os = "macos"))]
+use infrastructure::sync::FileCredentialStore;
+#[cfg(target_os = "macos")]
+use infrastructure::sync::KeychainCredentialStore;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -245,9 +248,7 @@ fn build_app_state() -> Result<AppState, String> {
             .map(|config| config.minimize_to_tray)
             .unwrap_or(false),
     ));
-    let credential_store_path = default_credential_store_path();
-    let credential_store: Arc<dyn CredentialStore> =
-        Arc::new(FileCredentialStore::new(&credential_store_path).map_err(|error| error.to_string())?);
+    let credential_store = build_desktop_credential_store()?;
     let task_queue: Arc<dyn MailTaskQueue> = Arc::new(InMemoryMailTaskQueue::default());
     let sync_cursor_repo: Arc<dyn SyncCursorRepository> =
         Arc::new(SqliteSyncCursorRepository::new(db.clone()));
@@ -280,8 +281,24 @@ fn default_database_path() -> PathBuf {
     std::env::temp_dir().join("open-mail-dev.sqlite")
 }
 
+#[cfg(not(target_os = "macos"))]
 fn default_credential_store_path() -> PathBuf {
     std::env::temp_dir().join("open-mail-dev-credentials.json")
+}
+
+fn build_desktop_credential_store() -> Result<Arc<dyn CredentialStore>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        Ok(Arc::new(KeychainCredentialStore::new("Open Mail")))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let credential_store_path = default_credential_store_path();
+        Ok(Arc::new(
+            FileCredentialStore::new(&credential_store_path).map_err(|error| error.to_string())?,
+        ))
+    }
 }
 
 #[cfg(test)]
