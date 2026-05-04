@@ -62,6 +62,26 @@ impl SnoozeRepository for SqliteSnoozeRepository {
             .map_err(|error| DomainError::Database(error.to_string()))
     }
 
+    async fn find_due(&self, now: DateTime<Utc>) -> Result<Vec<SnoozedThread>, DomainError> {
+        let connection = self.db.connection()?;
+        let mut statement = connection
+            .prepare(
+                "SELECT id, thread_id, account_id, snooze_until, original_folder_id, created_at
+                 FROM snoozed_threads
+                 WHERE snooze_until <= ?1
+                 ORDER BY snooze_until ASC",
+            )
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+
+        let rows = statement
+            .query_map(params![now.to_rfc3339()], map_snooze)
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+
+        rows
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| DomainError::Database(error.to_string()))
+    }
+
     async fn save(&self, snooze: &SnoozedThread) -> Result<(), DomainError> {
         let connection = self.db.connection()?;
         connection

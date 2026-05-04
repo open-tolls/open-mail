@@ -133,6 +133,10 @@ pub trait SnoozeRepository: Send + Sync {
         account_id: &str,
         now: chrono::DateTime<chrono::Utc>,
     ) -> Result<Vec<SnoozedThread>, DomainError>;
+    async fn find_due(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<SnoozedThread>, DomainError>;
     async fn save(&self, snooze: &SnoozedThread) -> Result<(), DomainError>;
     async fn delete_by_thread_id(&self, thread_id: &str) -> Result<(), DomainError>;
 }

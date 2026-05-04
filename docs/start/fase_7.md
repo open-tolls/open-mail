@@ -39,7 +39,7 @@ No Mailspring, cada feature avancada e um plugin independente em `internal_packa
 
 **Referencia Mailspring:** `app/internal_packages/thread-snooze/`
 
-**Status atual:** primeiro corte entregue com persistencia backend, pasta `Snoozed`, presets, custom datetime, atalho `b` e `unsnooze` manual. Wake-up automatico, unread-on-wake e notificacoes ficam para o proximo corte.
+**Status atual:** fluxo base entregue com persistencia backend, pasta `Snoozed`, presets, custom datetime, atalho `b`, `unsnooze` manual e wake-up automatico em background marcando o thread como unread. Notificacoes ao despertar ficam para o proximo corte.
 
 **Conceito:** Ocultar um thread temporariamente e faze-lo reaparecer no topo do inbox em data/hora especifica.
 
@@ -129,8 +129,8 @@ impl SnoozeService {
 - [x] Snooze thread com opcoes pre-definidas
 - [x] Snooze com data/hora custom (date picker)
 - [x] Thread desaparece do inbox ao snooze
-- [ ] Thread reaparece no topo ao despertar
-- [ ] Thread marcado como unread ao despertar
+- [x] Thread reaparece no topo ao despertar
+- [x] Thread marcado como unread ao despertar
 - [ ] Notificacao ao despertar
 - [x] Lista de threads snoozed acessivel
 - [x] Unsnooze (cancelar snooze)

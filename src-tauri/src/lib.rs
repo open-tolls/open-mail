@@ -17,7 +17,7 @@ use commands::{
     mailbox_overview, mark_messages_read, mark_messages_unread, open_external_url,
     remove_account, save_account_credentials, save_draft, save_signature, search_threads, snooze_thread,
     set_default_signature, set_tray_unread_count, start_sync, stop_sync, test_imap_connection, test_smtp_connection,
-    unsnooze_thread, update_config,
+    unsnooze_thread, update_config, wake_due_snoozed_threads_for_state,
 };
 use domain::events::{AppShellEvent, DomainEvent};
 use domain::repositories::{
@@ -90,6 +90,51 @@ fn focus_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 fn emit_compose_new_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let _ = app.emit("app:event", AppShellEvent::ComposeNew);
+}
+
+fn spawn_snooze_wakeup_loop<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
+    tauri::async_runtime::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(30));
+
+        loop {
+            ticker.tick().await;
+
+            let awakened_threads = {
+                let state = app.state::<AppState>();
+                wake_due_snoozed_threads_for_state(state.inner())
+                    .await
+                    .unwrap_or_default()
+            };
+
+            if awakened_threads.is_empty() {
+                continue;
+            }
+
+            let mut thread_ids_by_account: std::collections::BTreeMap<String, Vec<String>> =
+                std::collections::BTreeMap::new();
+
+            for (account_id, thread_id) in awakened_threads {
+                thread_ids_by_account
+                    .entry(account_id)
+                    .or_default()
+                    .push(thread_id);
+            }
+
+            for (account_id, thread_ids) in thread_ids_by_account {
+                let _ = app.emit(
+                    "domain:event",
+                    DomainEvent::ThreadsChanged {
+                        account_id: account_id.clone(),
+                        thread_ids,
+                    },
+                );
+                let _ = app.emit(
+                    "domain:event",
+                    DomainEvent::FoldersChanged { account_id },
+                );
+            }
+        }
+    });
 }
 
 #[cfg(desktop)]
@@ -178,6 +223,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 let _ = sync_manager.bootstrap_accounts().await;
             });
+            spawn_snooze_wakeup_loop(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {

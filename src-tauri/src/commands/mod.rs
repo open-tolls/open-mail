@@ -847,6 +847,57 @@ async fn unsnooze_thread_for_state(state: &AppState, thread_id: &str) -> Result<
         .map_err(|error| error.to_string())
 }
 
+pub(crate) async fn wake_due_snoozed_threads_for_state(
+    state: &AppState,
+) -> Result<Vec<(String, String)>, String> {
+    let now = chrono::Utc::now();
+    let due_snoozes = state
+        .snooze_repo
+        .find_due(now)
+        .await
+        .map_err(|error| error.to_string())?;
+    let mut awakened_threads = Vec::new();
+
+    for snooze in due_snoozes {
+        let Some(mut thread) = state
+            .thread_repo
+            .find_by_id(&snooze.thread_id)
+            .await
+            .map_err(|error| error.to_string())?
+        else {
+            state
+                .snooze_repo
+                .delete_by_thread_id(&snooze.thread_id)
+                .await
+                .map_err(|error| error.to_string())?;
+            continue;
+        };
+
+        if !thread.folder_ids.contains(&snooze.original_folder_id) {
+            thread.folder_ids.insert(0, snooze.original_folder_id.clone());
+        }
+
+        thread.is_unread = true;
+        thread.last_message_at = now;
+        thread.updated_at = now;
+
+        state
+            .thread_repo
+            .save(&thread)
+            .await
+            .map_err(|error| error.to_string())?;
+        state
+            .snooze_repo
+            .delete_by_thread_id(&snooze.thread_id)
+            .await
+            .map_err(|error| error.to_string())?;
+
+        awakened_threads.push((snooze.account_id, snooze.thread_id));
+    }
+
+    Ok(awakened_threads)
+}
+
 async fn search_threads_for_state(
     state: &AppState,
     account_id: &str,
@@ -2007,6 +2058,7 @@ mod tests {
         BuildOAuthAuthorizationUrlRequest, CompleteOAuthAccountRequest,
         ConnectionCredentialsRequest, EnqueueOutboxMessageRequest, SaveDraftRequest,
         SnoozeThreadRequest, TestMailConnectionRequest, SNOOZED_FOLDER_ID,
+        wake_due_snoozed_threads_for_state,
     };
     use crate::{
         domain::models::{
@@ -2152,6 +2204,45 @@ mod tests {
             .await
             .unwrap();
         assert!(restored_inbox_threads.iter().any(|thread| thread.id == "thr_1"));
+    }
+
+    #[tokio::test]
+    async fn wake_due_snooze_restores_thread_to_inbox_and_marks_it_unread() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        snooze_thread_for_state(
+            &state,
+            SnoozeThreadRequest {
+                thread_id: "thr_2".into(),
+                until: "2020-01-01T08:00:00Z".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let awakened_threads = wake_due_snoozed_threads_for_state(&state).await.unwrap();
+        let restored_thread = state
+            .thread_repo
+            .find_by_id("thr_2")
+            .await
+            .unwrap()
+            .unwrap();
+        let inbox_threads = list_threads_for_state(&state, "acc_demo", "fld_inbox", 0, 25)
+            .await
+            .unwrap();
+
+        assert_eq!(awakened_threads, vec![("acc_demo".into(), "thr_2".into())]);
+        assert!(restored_thread.is_unread);
+        assert!(
+            state
+                .snooze_repo
+                .find_by_thread_id("thr_2")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(inbox_threads.first().map(|thread| thread.id.as_str()), Some("thr_2"));
     }
 
     #[tokio::test]
