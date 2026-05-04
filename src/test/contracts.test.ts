@@ -181,6 +181,7 @@ describe('contracts', () => {
       undoSendDelaySeconds: 5,
       launchAtLogin: true,
       checkForUpdates: true,
+      minimizeToTray: false,
       theme: 'system',
       fontSize: 16,
       layoutMode: 'split',

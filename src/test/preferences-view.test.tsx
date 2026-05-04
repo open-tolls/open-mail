@@ -98,6 +98,7 @@ describe('preferences view', () => {
           undoSendDelaySeconds: 10,
           launchAtLogin: false,
           checkForUpdates: false,
+          minimizeToTray: true,
           theme: 'light',
           fontSize: 18,
           layoutMode: 'list',
@@ -142,6 +143,7 @@ describe('preferences view', () => {
           config: expect.objectContaining({
             language: 'Portuguese',
             checkForUpdates: true,
+            minimizeToTray: true,
             theme: 'light',
             layoutMode: 'list'
           })
@@ -170,6 +172,7 @@ describe('preferences view', () => {
           undoSendDelaySeconds: 5,
           launchAtLogin: false,
           checkForUpdates: true,
+          minimizeToTray: false,
           theme: 'system',
           fontSize: 16,
           layoutMode: 'split',
@@ -237,6 +240,7 @@ describe('preferences view', () => {
           undoSendDelaySeconds: 5,
           launchAtLogin: true,
           checkForUpdates: true,
+          minimizeToTray: false,
           theme: 'system',
           fontSize: 16,
           layoutMode: 'split',

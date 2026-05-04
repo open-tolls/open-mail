@@ -60,6 +60,7 @@ export const PreferencesView = () => {
     undoSendDelaySeconds,
     launchAtLogin,
     checkForUpdates,
+    minimizeToTray,
     fontSize,
     density,
     notificationsEnabled,
@@ -236,6 +237,7 @@ export const PreferencesView = () => {
     layoutMode,
     logLevel,
     markAsReadOnOpen,
+    minimizeToTray,
     notificationScope,
     notificationSound,
     notificationsEnabled,
@@ -308,6 +310,7 @@ export const PreferencesView = () => {
               <label><input checked={requestReadReceipts} onChange={(event) => setPreference('requestReadReceipts', event.target.checked)} type="checkbox" />Request read receipts</label>
               <label><input checked={launchAtLogin} onChange={(event) => setPreference('launchAtLogin', event.target.checked)} type="checkbox" />Launch at login</label>
               <label><input checked={checkForUpdates} onChange={(event) => setPreference('checkForUpdates', event.target.checked)} type="checkbox" />Check for updates</label>
+              <label><input checked={minimizeToTray} onChange={(event) => setPreference('minimizeToTray', event.target.checked)} type="checkbox" />Close window to tray</label>
             </div>
             <label className="preferences-field">
               <span>Undo send delay</span>

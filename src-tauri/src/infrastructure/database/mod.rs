@@ -58,6 +58,12 @@ impl Database {
             .map_err(|error| DomainError::Database(error.to_string()))?;
         ensure_column(&connection, "sync_cursors", "uid_validity", "INTEGER")?;
         ensure_column(&connection, "sync_cursors", "last_seen_uid", "INTEGER")?;
+        ensure_column(
+            &connection,
+            "app_config",
+            "minimize_to_tray",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
 
         Ok(())
     }
@@ -206,6 +212,7 @@ mod tests {
             undo_send_delay_seconds: 10,
             launch_at_login: false,
             check_for_updates: false,
+            minimize_to_tray: true,
             theme: "light".into(),
             font_size: 18,
             layout_mode: "list".into(),

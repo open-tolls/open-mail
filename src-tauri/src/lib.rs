@@ -3,7 +3,10 @@ pub mod domain;
 pub mod infrastructure;
 pub mod plugins;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{atomic::{AtomicBool, Ordering}, Arc},
+};
 
 use commands::{
     add_account, autodiscover_settings, build_oauth_authorization_url, complete_oauth_account,
@@ -54,6 +57,7 @@ pub struct AppState {
     pub outbox_repo: Arc<dyn OutboxRepository>,
     pub signature_repo: Arc<dyn SignatureRepository>,
     pub config_repo: Arc<dyn ConfigRepository>,
+    pub minimize_to_tray: Arc<AtomicBool>,
     pub credential_store: Arc<dyn CredentialStore>,
     pub task_queue: Arc<dyn MailTaskQueue>,
     pub sync_cursor_repo: Arc<dyn SyncCursorRepository>,
@@ -169,6 +173,15 @@ pub fn run() {
             });
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let state = window.state::<AppState>();
+                if state.minimize_to_tray.load(Ordering::Relaxed) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             health_check,
             list_accounts,
@@ -226,6 +239,11 @@ fn build_app_state() -> Result<AppState, String> {
     let signature_repo: Arc<dyn SignatureRepository> =
         Arc::new(SqliteSignatureRepository::new(db.clone()));
     let config_repo: Arc<dyn ConfigRepository> = Arc::new(SqliteConfigRepository::new(db.clone()));
+    let minimize_to_tray = Arc::new(AtomicBool::new(
+        tauri::async_runtime::block_on(config_repo.get())
+            .map(|config| config.minimize_to_tray)
+            .unwrap_or(false),
+    ));
     let credential_store_path = default_credential_store_path();
     let credential_store: Arc<dyn CredentialStore> =
         Arc::new(FileCredentialStore::new(&credential_store_path).map_err(|error| error.to_string())?);
@@ -249,6 +267,7 @@ fn build_app_state() -> Result<AppState, String> {
         outbox_repo,
         signature_repo,
         config_repo,
+        minimize_to_tray,
         credential_store,
         task_queue,
         sync_cursor_repo,

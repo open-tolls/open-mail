@@ -457,10 +457,10 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 - [x] Icone na system tray
 - [x] Menu com acoes basicas
 - [x] Click abre/foca app
-- [ ] Fechar minimiza para tray (se configurado)
+- [x] Fechar minimiza para tray (se configurado)
 - [ ] Unread badge no icone
 
-> Status: o app agora sobe com ícone na system tray, menu nativo `Open / New Message / Quit`, clique esquerdo focando a janela principal e `New Message` chegando ao shell por evento Tauri para abrir o composer. O que segue aberto nesta frente é o comportamento configurável de `minimize to tray` e um indicador próprio de unread no ícone do tray.
+> Status: o app agora sobe com ícone na system tray, menu nativo `Open / New Message / Quit`, clique esquerdo focando a janela principal e `New Message` chegando ao shell por evento Tauri para abrir o composer. O fechamento da janela também já respeita a preferência persistida `Close window to tray`. Com isso, nesta frente fica aberto só um indicador próprio de unread no ícone do tray.
 
 ---
 

@@ -52,6 +52,7 @@ beforeEach(() => {
     undoSendDelaySeconds: 5,
     launchAtLogin: true,
     checkForUpdates: true,
+    minimizeToTray: false,
     fontSize: 16,
     density: 'comfortable',
     notificationsEnabled: true,

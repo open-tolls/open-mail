@@ -186,6 +186,7 @@ export type AppConfig = {
   undoSendDelaySeconds: number;
   launchAtLogin: boolean;
   checkForUpdates: boolean;
+  minimizeToTray: boolean;
   theme: string;
   fontSize: number;
   layoutMode: string;

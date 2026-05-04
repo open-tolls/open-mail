@@ -38,6 +38,7 @@ impl ConfigRepository for SqliteConfigRepository {
                     undo_send_delay_seconds,
                     launch_at_login,
                     check_for_updates,
+                    minimize_to_tray,
                     theme,
                     font_size,
                     layout_mode,
@@ -77,6 +78,7 @@ impl ConfigRepository for SqliteConfigRepository {
                     undo_send_delay_seconds,
                     launch_at_login,
                     check_for_updates,
+                    minimize_to_tray,
                     theme,
                     font_size,
                     layout_mode,
@@ -90,7 +92,7 @@ impl ConfigRepository for SqliteConfigRepository {
                     developer_tools_enabled,
                     log_level
                  ) VALUES (
-                    1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22
+                    1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23
                  )
                  ON CONFLICT(id) DO UPDATE SET
                     language = excluded.language,
@@ -103,6 +105,7 @@ impl ConfigRepository for SqliteConfigRepository {
                     undo_send_delay_seconds = excluded.undo_send_delay_seconds,
                     launch_at_login = excluded.launch_at_login,
                     check_for_updates = excluded.check_for_updates,
+                    minimize_to_tray = excluded.minimize_to_tray,
                     theme = excluded.theme,
                     font_size = excluded.font_size,
                     layout_mode = excluded.layout_mode,
@@ -126,6 +129,7 @@ impl ConfigRepository for SqliteConfigRepository {
                     config.undo_send_delay_seconds,
                     config.launch_at_login,
                     config.check_for_updates,
+                    config.minimize_to_tray,
                     config.theme,
                     config.font_size,
                     config.layout_mode,
@@ -158,17 +162,18 @@ fn map_config(row: &Row<'_>) -> rusqlite::Result<AppConfig> {
         undo_send_delay_seconds: row.get(7)?,
         launch_at_login: row.get(8)?,
         check_for_updates: row.get(9)?,
-        theme: row.get(10)?,
-        font_size: row.get(11)?,
-        layout_mode: row.get(12)?,
-        density: row.get(13)?,
-        thread_panel_width: row.get(14)?,
-        notifications_enabled: row.get(15)?,
-        notification_sound: row.get(16)?,
-        notification_scope: row.get(17)?,
-        quiet_hours_start: row.get(18)?,
-        quiet_hours_end: row.get(19)?,
-        developer_tools_enabled: row.get(20)?,
-        log_level: row.get(21)?,
+        minimize_to_tray: row.get(10)?,
+        theme: row.get(11)?,
+        font_size: row.get(12)?,
+        layout_mode: row.get(13)?,
+        density: row.get(14)?,
+        thread_panel_width: row.get(15)?,
+        notifications_enabled: row.get(16)?,
+        notification_sound: row.get(17)?,
+        notification_scope: row.get(18)?,
+        quiet_hours_start: row.get(19)?,
+        quiet_hours_end: row.get(20)?,
+        developer_tools_enabled: row.get(21)?,
+        log_level: row.get(22)?,
     })
 }

@@ -19,6 +19,7 @@ type PreferencesState = {
   undoSendDelaySeconds: number;
   launchAtLogin: boolean;
   checkForUpdates: boolean;
+  minimizeToTray: boolean;
   fontSize: number;
   density: PreferenceDensity;
   notificationsEnabled: boolean;
@@ -52,6 +53,7 @@ const defaultPreferencesState = {
   undoSendDelaySeconds: 5,
   launchAtLogin: true,
   checkForUpdates: true,
+  minimizeToTray: false,
   fontSize: 16,
   density: 'comfortable',
   notificationsEnabled: true,
@@ -93,6 +95,7 @@ const toPreferencesSnapshot = (config: AppConfig): PreferencesSnapshot => ({
   undoSendDelaySeconds: config.undoSendDelaySeconds,
   launchAtLogin: config.launchAtLogin,
   checkForUpdates: config.checkForUpdates,
+  minimizeToTray: config.minimizeToTray,
   fontSize: config.fontSize,
   density: config.density as PreferenceDensity,
   notificationsEnabled: config.notificationsEnabled,
@@ -137,6 +140,7 @@ export const savePreferencesToBackend = async () => {
     undoSendDelaySeconds: preferences.undoSendDelaySeconds,
     launchAtLogin: preferences.launchAtLogin,
     checkForUpdates: preferences.checkForUpdates,
+    minimizeToTray: preferences.minimizeToTray,
     theme: ui.themeId,
     fontSize: preferences.fontSize,
     layoutMode: ui.layoutMode,

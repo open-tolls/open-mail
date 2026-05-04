@@ -295,7 +295,11 @@ async fn update_config_for_state(state: &AppState, config: AppConfig) -> Result<
         .config_repo
         .save(&config)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    state
+        .minimize_to_tray
+        .store(config.minimize_to_tray, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -1909,6 +1913,7 @@ mod tests {
             outbox_repo,
             signature_repo,
             config_repo,
+            minimize_to_tray: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             credential_store: Arc::new(
                 crate::infrastructure::sync::InMemoryCredentialStore::default(),
             ),
@@ -1959,6 +1964,7 @@ mod tests {
             undo_send_delay_seconds: 15,
             launch_at_login: false,
             check_for_updates: false,
+            minimize_to_tray: true,
             theme: "light".into(),
             font_size: 18,
             layout_mode: "list".into(),
