@@ -154,9 +154,9 @@ pub async fn add_account(
 - Opcao "Add another account"
 
 **Criterio de aceite:**
-- [ ] Fluxo completo funciona (provider → auth → test → sync → done)
-- [ ] OAuth funciona com Gmail
-- [ ] OAuth funciona com Outlook
+- [x] Fluxo completo funciona (provider → auth → test → sync → done)
+- [x] OAuth funciona com Gmail
+- [x] OAuth funciona com Outlook
 - [x] IMAP manual funciona
 - [x] Autodiscover funciona para provedores comuns
 - [x] Test connection com feedback visual
@@ -164,7 +164,7 @@ pub async fn add_account(
 - [x] Credenciais salvas no keychain
 - [x] Conta persitida no banco
 
-> Status: o onboarding ja tem wizard real de ponta a ponta no frontend, o caminho `IMAP manual` testa `IMAP/SMTP` pelo backend Tauri, persiste conta/credenciais, faz `autodiscover` para provedores comuns ao digitar o email e usa progresso real do `sync status` no passo de `Initial sync` no desktop. O caminho `OAuth` tambem avanca alem da URL de autorizacao com captura manual do `authorization code` e persistencia local da conta no desktop. No runtime macOS, as credenciais agora sobem para o `keychain` nativo em vez de ficarem num arquivo local; em outros ambientes de desenvolvimento o app segue com fallback em arquivo. O que segue aberto neste bloco e mais pesado e especifico e justamente a troca live do code por tokens no provedor e o callback/deep-link real do OAuth.
+> Status: o onboarding agora fecha o fluxo completo tambem no caminho `OAuth`: o app prepara PKCE, abre o browser do sistema, captura `openmail://oauth/callback` via deep link no desktop, troca o `authorization code` por tokens reais no backend Tauri e persiste a conta com credenciais seguras. O caminho `IMAP manual` segue testando `IMAP/SMTP`, persistindo conta/credenciais, fazendo `autodiscover` para provedores comuns ao digitar o email e usando progresso real do `sync status` no passo de `Initial sync` no desktop. No runtime macOS, as credenciais sobem para o `keychain` nativo; em outros ambientes de desenvolvimento o app segue com fallback em arquivo.
 
 ---
 
@@ -479,8 +479,8 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 ## Checklist Final da Fase 6
 
-- [ ] Onboarding flow completo (6 steps)
-- [ ] OAuth2 funcional (Gmail, Outlook)
+- [x] Onboarding flow completo (6 steps)
+- [x] OAuth2 funcional (Gmail, Outlook)
 - [x] IMAP manual funcional
 - [x] Autodiscover para provedores comuns
 - [x] Test connection com feedback

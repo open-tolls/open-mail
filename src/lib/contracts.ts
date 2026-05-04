@@ -54,6 +54,7 @@ export type CompleteOAuthAccountRequest = {
   clientId: string;
   redirectUri: string;
   authorizationCode: string;
+  codeVerifier: string;
   email: string;
   name: string;
 };

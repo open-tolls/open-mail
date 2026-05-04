@@ -20,6 +20,7 @@ import { TestConnectionStep } from '@components/onboarding/TestConnectionStep';
 import { WelcomeStep } from '@components/onboarding/WelcomeStep';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import type { AccountProvider, ConnectionSettings, SecurityType } from '@lib/contracts';
+import { getCurrentOAuthCallbacks, listenToOAuthCallbacks } from '@lib/oauth-deep-link';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
 
@@ -120,9 +121,15 @@ const createEmptyConnectionChecks = (): { label: string; status: ConnectionCheck
   { label: 'Outgoing mail', status: 'idle' }
 ];
 
-const createCodeChallenge = () => {
-  const bytes = new Uint8Array(24);
+const createPkceVerifier = () => {
+  const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+};
+
+const createCodeChallenge = async (verifier: string) => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const bytes = Array.from(new Uint8Array(digest));
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 };
 
@@ -228,6 +235,8 @@ export const OnboardingView = () => {
   const [oauthDisplayName, setOauthDisplayName] = useState('');
   const [oauthEmail, setOauthEmail] = useState('');
   const [oauthAuthorizationCode, setOauthAuthorizationCode] = useState('');
+  const [oauthCodeVerifier, setOauthCodeVerifier] = useState('');
+  const [oauthExpectedState, setOauthExpectedState] = useState('');
   const [oauthStatus, setOauthStatus] = useState<string | null>(null);
   const [oauthAuthUrl, setOauthAuthUrl] = useState<string | null>(null);
   const [imapForm, setImapForm] = useState<ImapFormState>(defaultImapForm(null));
@@ -274,6 +283,8 @@ export const OnboardingView = () => {
     setOauthDisplayName('');
     setOauthEmail('');
     setOauthAuthorizationCode('');
+    setOauthCodeVerifier('');
+    setOauthExpectedState('');
     setOauthStatus(null);
     setOauthAuthUrl(null);
     setImapForm(defaultImapForm(null));
@@ -295,6 +306,8 @@ export const OnboardingView = () => {
     setOauthDisplayName('');
     setOauthEmail('');
     setOauthAuthorizationCode('');
+    setOauthCodeVerifier('');
+    setOauthExpectedState('');
     setConnectionChecks(createEmptyConnectionChecks());
     setConnectionStatus(null);
     setImapHelper(null);
@@ -323,15 +336,19 @@ export const OnboardingView = () => {
       return;
     }
 
+    const verifier = createPkceVerifier();
+    const state = crypto.randomUUID();
     const request = {
       provider: selectedProvider.provider,
       clientId: oauthClientId.trim(),
       redirectUri: 'openmail://oauth/callback',
-      state: null,
-      codeChallenge: createCodeChallenge()
+      state,
+      codeChallenge: await createCodeChallenge(verifier)
     } as const;
 
     if (!tauriRuntime.isAvailable()) {
+      setOauthCodeVerifier(verifier);
+      setOauthExpectedState(state);
       setOauthAuthUrl(`preview://${selectedProvider.id}/oauth?client_id=${encodeURIComponent(request.clientId)}`);
       setOauthStatus('Browser auth preview prepared in web mode. Paste the returned code to continue the desktop-style flow.');
       return;
@@ -339,8 +356,10 @@ export const OnboardingView = () => {
 
     try {
       const authRequest = await api.auth.buildOAuthAuthorizationUrl(request);
+      setOauthCodeVerifier(verifier);
+      setOauthExpectedState(authRequest.state);
       setOauthAuthUrl(authRequest.authorizationUrl);
-      setOauthStatus(`Browser auth prepared for ${selectedProvider.title}. Finish consent in the browser, then paste the returned authorization code here.`);
+      setOauthStatus(`Browser auth prepared for ${selectedProvider.title}. Finish consent in the browser and Open Mail will capture the callback automatically, with manual paste still available as fallback.`);
       await api.system.openExternalUrl(authRequest.authorizationUrl);
     } catch (error) {
       setOauthStatus(error instanceof Error ? error.message : 'Could not prepare browser auth');
@@ -352,6 +371,51 @@ export const OnboardingView = () => {
       setStep('provider');
     }
   }, [startsAtProvider, step]);
+
+  useEffect(() => {
+    if (!tauriRuntime.isAvailable()) {
+      return;
+    }
+
+    let isMounted = true;
+    let detach: (() => void) | undefined;
+
+    const applyCallback = (code: string, state: string | null) => {
+      if (oauthExpectedState && state && state !== oauthExpectedState) {
+        if (isMounted) {
+          setOauthStatus('OAuth callback state did not match the request that is currently open.');
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setOauthAuthorizationCode(code);
+        setOauthStatus('Authorization code received from the browser callback. Review the account details and continue.');
+      }
+    };
+
+    const bootstrap = async () => {
+      const currentCallbacks = await getCurrentOAuthCallbacks();
+      const currentPayload = currentCallbacks.at(-1);
+      if (currentPayload) {
+        applyCallback(currentPayload.code, currentPayload.state);
+      }
+
+      detach = await listenToOAuthCallbacks((payloads) => {
+        const latestPayload = payloads.at(-1);
+        if (latestPayload) {
+          applyCallback(latestPayload.code, latestPayload.state);
+        }
+      });
+    };
+
+    void bootstrap();
+
+    return () => {
+      isMounted = false;
+      detach?.();
+    };
+  }, [oauthExpectedState]);
 
   useEffect(() => {
     if (selectedProvider?.kind !== 'imap') {
@@ -619,6 +683,7 @@ export const OnboardingView = () => {
           clientId: oauthClientId.trim(),
           redirectUri: 'openmail://oauth/callback',
           authorizationCode: oauthAuthorizationCode.trim(),
+          codeVerifier: oauthCodeVerifier.trim(),
           email: oauthEmail.trim(),
           name: oauthDisplayName.trim()
         });

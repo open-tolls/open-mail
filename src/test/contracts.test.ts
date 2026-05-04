@@ -147,11 +147,13 @@ describe('contracts', () => {
       clientId: 'outlook-client',
       redirectUri: 'openmail://oauth/callback',
       authorizationCode: 'returned-code',
+      codeVerifier: 'pkce-verifier',
       email: 'outlook@example.com',
       name: 'Outlook User'
     };
 
     expect(request.authorizationCode).toBe('returned-code');
+    expect(request.codeVerifier).toBe('pkce-verifier');
     expect(request.provider).toBe('Outlook');
   });
 

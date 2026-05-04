@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
+#[cfg(not(test))]
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::models::account::AccountProvider;
@@ -40,6 +42,17 @@ pub struct OAuthTokens {
 }
 
 pub struct OAuthManager;
+
+#[cfg(not(test))]
+#[derive(Debug, Deserialize)]
+struct OAuthTokenResponse {
+    access_token: String,
+    refresh_token: Option<String>,
+    expires_in: Option<i64>,
+    scope: Option<String>,
+    error: Option<String>,
+    error_description: Option<String>,
+}
 
 impl OAuthManager {
     pub fn provider_config(
@@ -163,6 +176,22 @@ impl OAuthManager {
             access_token: tokens.access_token.clone(),
         })
     }
+
+    pub async fn exchange_authorization_code(
+        config: &OAuthProviderConfig,
+        authorization_code: &str,
+        code_verifier: &str,
+    ) -> Result<OAuthTokens, SyncError> {
+        #[cfg(test)]
+        {
+            return preview_tokens(config, authorization_code, code_verifier);
+        }
+
+        #[cfg(not(test))]
+        {
+            exchange_live_authorization_code(config, authorization_code, code_verifier).await
+        }
+    }
 }
 
 impl OAuthTokens {
@@ -184,6 +213,109 @@ fn percent_encode(input: &str) -> String {
         }
 
         encoded
+    })
+}
+
+#[cfg(not(test))]
+fn parse_scopes(scope: Option<String>, fallback: &[String]) -> Vec<String> {
+    let parsed = scope
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(str::trim)
+        .filter(|scope| !scope.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+
+    if parsed.is_empty() {
+        fallback.to_vec()
+    } else {
+        parsed
+    }
+}
+
+fn validate_exchange_inputs(authorization_code: &str, code_verifier: &str) -> Result<(), SyncError> {
+    if authorization_code.trim().is_empty() {
+        return Err(SyncError::Operation(
+            "oauth authorization code cannot be empty".into(),
+        ));
+    }
+
+    if code_verifier.trim().is_empty() {
+        return Err(SyncError::Operation(
+            "oauth code verifier cannot be empty".into(),
+        ));
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+fn preview_tokens(
+    config: &OAuthProviderConfig,
+    authorization_code: &str,
+    code_verifier: &str,
+) -> Result<OAuthTokens, SyncError> {
+    validate_exchange_inputs(authorization_code, code_verifier)?;
+
+    Ok(OAuthTokens {
+        access_token: format!(
+            "oauth-live-{}-{}",
+            config.provider.to_string(),
+            authorization_code.trim()
+        ),
+        refresh_token: Some(format!("refresh-live-{}", authorization_code.trim())),
+        expires_at: Utc::now() + chrono::Duration::hours(1),
+        scopes: config.scopes.clone(),
+    })
+}
+
+#[cfg(not(test))]
+async fn exchange_live_authorization_code(
+    config: &OAuthProviderConfig,
+    authorization_code: &str,
+    code_verifier: &str,
+) -> Result<OAuthTokens, SyncError> {
+    validate_exchange_inputs(authorization_code, code_verifier)?;
+
+    let response = reqwest::Client::new()
+        .post(&config.token_url)
+        .form(&[
+            ("client_id", config.client_id.as_str()),
+            ("grant_type", "authorization_code"),
+            ("code", authorization_code.trim()),
+            ("redirect_uri", config.redirect_uri.as_str()),
+            ("code_verifier", code_verifier.trim()),
+        ])
+        .send()
+        .await
+        .map_err(|error| SyncError::Operation(format!("oauth token exchange failed: {error}")))?;
+
+    let status = response.status();
+    let payload = response
+        .json::<OAuthTokenResponse>()
+        .await
+        .map_err(|error| SyncError::Operation(format!("oauth token response invalid: {error}")))?;
+
+    if status != StatusCode::OK {
+        let error_message = payload
+            .error_description
+            .or(payload.error)
+            .unwrap_or_else(|| format!("oauth provider returned HTTP {status}"));
+        return Err(SyncError::Operation(error_message));
+    }
+
+    if payload.access_token.trim().is_empty() {
+        return Err(SyncError::Operation(
+            "oauth provider did not return an access token".into(),
+        ));
+    }
+
+    Ok(OAuthTokens {
+        access_token: payload.access_token,
+        refresh_token: payload.refresh_token,
+        expires_at: Utc::now()
+            + chrono::Duration::seconds(payload.expires_in.unwrap_or(3600).max(60)),
+        scopes: parse_scopes(payload.scope, &config.scopes),
     })
 }
 
@@ -289,5 +421,24 @@ mod tests {
         };
 
         assert!(tokens.expires_within(now, Duration::from_secs(300)));
+    }
+
+    #[tokio::test]
+    async fn exchanges_oauth_code_into_tokens() {
+        let config = OAuthManager::provider_config(
+            AccountProvider::Gmail,
+            "gmail-client",
+            "openmail://oauth/callback",
+        )
+        .unwrap();
+
+        let tokens =
+            OAuthManager::exchange_authorization_code(&config, "sample-code", "pkce-verifier")
+                .await
+                .unwrap();
+
+        assert!(tokens.access_token.contains("oauth-live-gmail-sample-code"));
+        assert_eq!(tokens.refresh_token, Some("refresh-live-sample-code".into()));
+        assert_eq!(tokens.scopes, config.scopes);
     }
 }

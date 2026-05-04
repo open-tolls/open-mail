@@ -70,6 +70,7 @@ describe('onboarding flow', () => {
 
     fireEvent.change(screen.getByLabelText('Gmail client ID'), { target: { value: 'gmail-client' } });
     fireEvent.click(screen.getByRole('button', { name: 'Prepare browser auth' }));
+    await screen.findByText(/Browser auth preview prepared/i);
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Leco OAuth' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'leco@gmail.com' } });

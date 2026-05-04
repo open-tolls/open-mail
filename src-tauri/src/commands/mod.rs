@@ -355,6 +355,7 @@ pub struct CompleteOAuthAccountRequest {
     pub client_id: String,
     pub redirect_uri: String,
     pub authorization_code: String,
+    pub code_verifier: String,
     pub email: String,
     pub name: String,
 }
@@ -1104,32 +1105,6 @@ fn oauth_connection_settings(provider: &AccountProvider) -> Result<ConnectionSet
     }
 }
 
-fn preview_oauth_tokens(
-    provider: &AccountProvider,
-    authorization_code: &str,
-) -> Result<crate::infrastructure::sync::OAuthTokens, String> {
-    let code = authorization_code.trim();
-    if code.is_empty() {
-        return Err("oauth authorization code cannot be empty".into());
-    }
-
-    let now = chrono::Utc::now();
-    Ok(crate::infrastructure::sync::OAuthTokens {
-        access_token: format!("oauth-preview-{}-{code}", provider.to_string()),
-        refresh_token: Some(format!("refresh-preview-{code}")),
-        expires_at: now + chrono::Duration::hours(1),
-        scopes: match provider {
-            AccountProvider::Gmail => vec!["https://mail.google.com/".into()],
-            AccountProvider::Outlook | AccountProvider::Exchange => vec![
-                "https://outlook.office365.com/IMAP.AccessAsUser.All".into(),
-                "https://outlook.office365.com/SMTP.Send".into(),
-                "offline_access".into(),
-            ],
-            _ => vec![],
-        },
-    })
-}
-
 async fn complete_oauth_account_for_state(
     state: &AppState,
     request: CompleteOAuthAccountRequest,
@@ -1140,7 +1115,13 @@ async fn complete_oauth_account_for_state(
         request.redirect_uri.clone(),
     )
     .map_err(|error| error.to_string())?;
-    let tokens = preview_oauth_tokens(&request.provider, &request.authorization_code)?;
+    let tokens = OAuthManager::exchange_authorization_code(
+        &config,
+        &request.authorization_code,
+        &request.code_verifier,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
     let credentials = OAuthManager::credentials_from_tokens(request.email.clone(), &tokens)
         .map_err(|error| error.to_string())?;
     let settings = oauth_connection_settings(&config.provider)?;
@@ -2141,6 +2122,7 @@ mod tests {
                 client_id: "gmail-client".into(),
                 redirect_uri: "openmail://oauth/callback".into(),
                 authorization_code: "sample-code".into(),
+                code_verifier: "pkce-verifier".into(),
                 email: "oauth@example.com".into(),
                 name: "OAuth User".into(),
             },
@@ -2161,7 +2143,7 @@ mod tests {
         assert!(matches!(
             credentials,
             Some(crate::infrastructure::sync::Credentials::OAuth2 { username, access_token })
-                if username == "oauth@example.com" && access_token.contains("oauth-preview-gmail-sample-code")
+                if username == "oauth@example.com" && access_token.contains("oauth-live-gmail-sample-code")
         ));
     }
 
