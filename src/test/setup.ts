@@ -9,22 +9,6 @@ import { useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
 
-if (!window.matchMedia) {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: (query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      dispatchEvent: () => false
-    })
-  });
-}
-
 beforeEach(() => {
   window.history.pushState({}, '', '/');
   window.localStorage.clear();

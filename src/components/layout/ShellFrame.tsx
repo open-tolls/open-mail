@@ -6,6 +6,7 @@ import { MailStatusBar } from '@components/layout/MailStatusBar';
 import { MailTopbar } from '@components/layout/MailTopbar';
 import { MessageReaderPanel } from '@components/layout/MessageReaderPanel';
 import { ThreadListPanel, type ThreadDialogRequest } from '@components/layout/ThreadListPanel';
+import { useAppShellEvents } from '@hooks/useAppShellEvents';
 import { useDraftAutoSave } from '@hooks/useDraftAutoSave';
 import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboardShortcuts';
 import { prepareForwardDraft, prepareReplyDraft } from '@lib/compose-utils';
@@ -333,6 +334,9 @@ export const ShellFrame = ({
 
     openComposerWithDraft(undefined);
   };
+  useAppShellEvents({
+    onComposeNew: () => openComposerWithDraft(undefined)
+  });
   const toggleSidebarAndCloseComposer = () => {
     toggleSidebar();
     resetComposerState();

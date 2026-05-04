@@ -3,6 +3,12 @@ use serde::{Deserialize, Serialize};
 use crate::domain::models::account::SyncState;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum AppShellEvent {
+    ComposeNew,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "kebab-case", rename_all_fields = "camelCase")]
 pub enum DomainEvent {
     ApplicationStarted,
@@ -37,7 +43,7 @@ pub enum DomainEvent {
 
 #[cfg(test)]
 mod tests {
-    use super::DomainEvent;
+    use super::{AppShellEvent, DomainEvent};
     use crate::domain::models::account::SyncState;
 
     #[test]
@@ -50,5 +56,13 @@ mod tests {
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("\"type\":\"sync-status-changed\""));
         assert!(json.contains("\"accountId\":\"acc_1\""));
+    }
+
+    #[test]
+    fn serializes_app_shell_events() {
+        let event = AppShellEvent::ComposeNew;
+
+        let json = serde_json::to_string(&event).unwrap();
+        assert_eq!(json, "{\"type\":\"compose-new\"}");
     }
 }

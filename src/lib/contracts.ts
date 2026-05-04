@@ -107,6 +107,8 @@ export type DomainEvent =
   | { type: 'account-added'; accountId: string }
   | { type: 'account-removed'; accountId: string };
 
+export type AppShellEvent = { type: 'compose-new' };
+
 export type MailAddress = {
   name: string | null;
   email: string;

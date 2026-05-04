@@ -15,7 +15,7 @@ use commands::{
     set_default_signature, start_sync, stop_sync, test_imap_connection, test_smtp_connection,
     update_config,
 };
-use domain::events::DomainEvent;
+use domain::events::{AppShellEvent, DomainEvent};
 use domain::repositories::{
     AccountRepository, ConfigRepository, FolderRepository, MessageRepository, OutboxRepository,
     SignatureRepository, SyncCursorRepository, ThreadRepository,
@@ -37,7 +37,11 @@ use infrastructure::{
         SyncEventEmitter, SyncManager,
     },
 };
-use tauri::Emitter;
+use tauri::{
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager,
+};
 #[cfg(desktop)]
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -66,6 +70,72 @@ impl SyncEventEmitter for TauriSyncEventEmitter {
     }
 }
 
+fn focus_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+fn emit_compose_new_event<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    let _ = app.emit("app:event", AppShellEvent::ComposeNew);
+}
+
+#[cfg(desktop)]
+fn setup_system_tray<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
+    let open_item =
+        MenuItem::with_id(app, "tray-open", "Open Open Mail", true, None::<&str>)
+            .map_err(|error| error.to_string())?;
+    let compose_item = MenuItem::with_id(
+        app,
+        "tray-compose",
+        "New Message",
+        true,
+        Some("CmdOrCtrl+N"),
+    )
+    .map_err(|error| error.to_string())?;
+    let quit_item =
+        MenuItem::with_id(app, "tray-quit", "Quit", true, Some("CmdOrCtrl+Q"))
+            .map_err(|error| error.to_string())?;
+    let separator = PredefinedMenuItem::separator(app).map_err(|error| error.to_string())?;
+    let menu = Menu::with_items(app, &[&open_item, &compose_item, &separator, &quit_item])
+        .map_err(|error| error.to_string())?;
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| "default tray icon unavailable".to_string())?;
+
+    TrayIconBuilder::with_id("main-tray")
+        .icon(icon)
+        .menu(&menu)
+        .tooltip("Open Mail")
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray-open" => focus_main_window(app),
+            "tray-compose" => {
+                focus_main_window(app);
+                emit_compose_new_event(app);
+            }
+            "tray-quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                focus_main_window(tray.app_handle());
+            }
+        })
+        .build(app)
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = build_app_state().expect("failed to initialize application state");
@@ -85,6 +155,9 @@ pub fn run() {
             None::<Vec<&'static str>>,
         ))
         .setup(move |app| {
+            #[cfg(desktop)]
+            setup_system_tray(&app.handle())
+                .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
             sync_manager.set_event_emitter(Arc::new(TauriSyncEventEmitter {
                 app_handle: app.handle().clone(),
             }));
