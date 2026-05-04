@@ -481,18 +481,18 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 - [ ] Onboarding flow completo (6 steps)
 - [ ] OAuth2 funcional (Gmail, Outlook)
-- [ ] IMAP manual funcional
-- [ ] Autodiscover para provedores comuns
-- [ ] Test connection com feedback
-- [ ] Initial sync com progresso
-- [ ] Adicionar conta adicional
-- [ ] Preferences com 7 secoes
-- [ ] Config persistida e aplicada em tempo real
-- [ ] Remover conta funcional
-- [ ] Notificacoes desktop
-- [ ] System tray
-- [ ] Launch at login
-- [ ] Testes passando
+- [x] IMAP manual funcional
+- [x] Autodiscover para provedores comuns
+- [x] Test connection com feedback
+- [x] Initial sync com progresso
+- [x] Adicionar conta adicional
+- [x] Preferences com 7 secoes
+- [x] Config persistida e aplicada em tempo real
+- [x] Remover conta funcional
+- [x] Notificacoes desktop
+- [x] System tray
+- [x] Launch at login
+- [x] Testes passando
 - [ ] CI green
 
 ---
