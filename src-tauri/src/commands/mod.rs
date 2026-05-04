@@ -1484,6 +1484,35 @@ pub async fn open_external_url(url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn set_tray_unread_count(
+    app: tauri::AppHandle,
+    unread_count: u32,
+) -> Result<(), String> {
+    let tray = app
+        .tray_by_id("main-tray")
+        .ok_or_else(|| "main tray icon unavailable".to_string())?;
+
+    let tooltip = if unread_count == 0 {
+        "Open Mail".to_string()
+    } else {
+        format!("Open Mail • {unread_count} unread")
+    };
+
+    tray.set_tooltip(Some(tooltip))
+        .map_err(|error| error.to_string())?;
+
+    #[cfg(not(target_os = "windows"))]
+    tray.set_title(if unread_count == 0 {
+        None::<String>
+    } else {
+        Some(unread_count.to_string())
+    })
+    .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn mark_messages_read(
     state: State<'_, AppState>,
     message_ids: Vec<String>,

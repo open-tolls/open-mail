@@ -15,7 +15,7 @@ use commands::{
     list_accounts, list_drafts, list_folders, list_messages, list_signatures, list_threads,
     mailbox_overview, mark_messages_read, mark_messages_unread, open_external_url,
     remove_account, save_account_credentials, save_draft, save_signature, search_threads,
-    set_default_signature, start_sync, stop_sync, test_imap_connection, test_smtp_connection,
+    set_default_signature, set_tray_unread_count, start_sync, stop_sync, test_imap_connection, test_smtp_connection,
     update_config,
 };
 use domain::events::{AppShellEvent, DomainEvent};
@@ -217,6 +217,7 @@ pub fn run() {
             test_smtp_connection,
             download_attachment,
             open_external_url,
+            set_tray_unread_count,
             mark_messages_read,
             mark_messages_unread
         ])

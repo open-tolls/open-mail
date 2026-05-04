@@ -18,6 +18,7 @@ import { useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
 import { useUnifiedInboxThreads } from '@hooks/useUnifiedInboxThreads';
 import { useUnreadBadge } from '@hooks/useUnreadBadge';
+import { useUnreadTrayIndicator } from '@hooks/useUnreadTrayIndicator';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
@@ -253,6 +254,7 @@ const MailShell = () => {
     [mailbox?.folders]
   );
   useUnreadBadge(unreadBadgeCount);
+  useUnreadTrayIndicator(unreadBadgeCount);
   const unifiedInboxQuery = useUnifiedInboxThreads({
     accounts: composerAccounts,
     fallbackThreads: runtimeAllThreads,

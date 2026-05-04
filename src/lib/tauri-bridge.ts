@@ -130,6 +130,8 @@ export const api = {
   },
   system: {
     openExternalUrl: (url: string) => invokeOrThrow<void>('open_external_url', { url }),
+    setTrayUnreadCount: (unreadCount: number) =>
+      invokeOrThrow<void>('set_tray_unread_count', { unreadCount }),
     toAssetUrl: (filePath: string) => (isTauriRuntimeAvailable() ? convertFileSrc(filePath) : filePath),
     getLaunchAtLogin: async () => (isTauriRuntimeAvailable() ? isAutostartEnabled() : false),
     setLaunchAtLogin: async (enabled: boolean) => {
