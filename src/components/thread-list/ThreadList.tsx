@@ -1,5 +1,5 @@
 import { type MouseEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, MailOpen, Star, Trash2 } from 'lucide-react';
+import { Archive, Clock3, MailOpen, Star, Trash2, Undo2 } from 'lucide-react';
 import type { ThreadSummary } from '@lib/contracts';
 import { ThreadListEmpty } from '@components/thread-list/ThreadListEmpty';
 import { ThreadListItem, type ThreadSelectEvent } from '@components/thread-list/ThreadListItem';
@@ -10,6 +10,7 @@ import { ContextMenu } from '@components/ui';
 
 type ThreadListProps = {
   activeFolderName: string | null;
+  isSnoozedFolder?: boolean;
   hasMore?: boolean;
   isLoading?: boolean;
   isSearchActive: boolean;
@@ -42,11 +43,13 @@ const threadContextActions: Array<{
   { action: 'archive', label: 'Archive', icon: Archive },
   { action: 'trash', label: 'Move to trash', icon: Trash2 },
   { action: 'toggle-read', label: 'Mark read/unread', icon: MailOpen },
-  { action: 'star', label: 'Star', icon: Star }
+  { action: 'star', label: 'Star', icon: Star },
+  { action: 'snooze', label: 'Snooze', icon: Clock3 }
 ];
 
 export const ThreadList = ({
   activeFolderName,
+  isSnoozedFolder = false,
   hasMore = false,
   isLoading = false,
   isSearchActive,
@@ -175,7 +178,11 @@ export const ThreadList = ({
 
   return (
     <div className="thread-list-shell">
-      <ThreadListToolbar selectedCount={selectedIds.size} onAction={(action) => handleAction(action)} />
+      <ThreadListToolbar
+        isSnoozedFolder={isSnoozedFolder}
+        selectedCount={selectedIds.size}
+        onAction={(action) => handleAction(action)}
+      />
       <div
         aria-label="Thread list"
         className="thread-list-viewport"
@@ -214,7 +221,10 @@ export const ThreadList = ({
           onClick={(event) => event.stopPropagation()}
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          {threadContextActions.map(({ action, icon: Icon, label }) => (
+          {(isSnoozedFolder
+            ? [{ action: 'unsnooze' as const, label: 'Unsnooze', icon: Undo2 }]
+            : threadContextActions
+          ).map(({ action, icon: Icon, label }) => (
             <button
               className={action === 'trash' ? 'thread-context-menu-danger' : undefined}
               key={action}

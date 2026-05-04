@@ -12,6 +12,7 @@ use crate::domain::{
         message::Message,
         outbox::{OutboxMessage, OutboxStatus},
         signature::Signature,
+        snooze::SnoozedThread,
         sync_cursor::SyncCursor,
         thread::Thread,
     },
@@ -122,4 +123,16 @@ pub trait SignatureRepository: Send + Sync {
 pub trait ConfigRepository: Send + Sync {
     async fn get(&self) -> Result<AppConfig, DomainError>;
     async fn save(&self, config: &AppConfig) -> Result<(), DomainError>;
+}
+
+#[async_trait]
+pub trait SnoozeRepository: Send + Sync {
+    async fn find_by_thread_id(&self, thread_id: &str) -> Result<Option<SnoozedThread>, DomainError>;
+    async fn find_active_by_account(
+        &self,
+        account_id: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<SnoozedThread>, DomainError>;
+    async fn save(&self, snooze: &SnoozedThread) -> Result<(), DomainError>;
+    async fn delete_by_thread_id(&self, thread_id: &str) -> Result<(), DomainError>;
 }

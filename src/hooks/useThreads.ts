@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useTauriEvent } from '@hooks/useTauriEvent';
 import type { DomainEvent, ThreadRecord } from '@lib/contracts';
+import { tauriRuntime } from '@lib/tauri-bridge';
 import { useThreadStore } from '@stores/useThreadStore';
 
 type UseThreadsOptions = {
@@ -21,7 +22,7 @@ export const useThreads = ({ accountId, folderId, fallbackThreads = [] }: UseThr
       return;
     }
 
-    void fetchThreads(accountId, folderId, fallbackThreads);
+    void fetchThreads(accountId, folderId, fallbackThreads, { force: !tauriRuntime.isAvailable() });
   }, [accountId, fallbackThreads, fetchThreads, folderId]);
 
   const refreshThreads = useCallback(() => {

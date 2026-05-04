@@ -44,6 +44,14 @@ const htmlEscapeMap: Record<string, string> = {
   "'": '&#39;'
 };
 
+const SNOOZED_FOLDER_ID = 'fld_snoozed';
+
+type LocalSnoozeRecord = {
+  accountId: string;
+  originalFolderIds: string[];
+  until: string;
+};
+
 const toSafeHtml = (value: string) =>
   value
     .split(/\n{2,}/)
@@ -189,6 +197,7 @@ const MailShell = () => {
   const [composerToast, setComposerToast] = useState<ComposerToast | null>(null);
   const [, setQueuedOutboxMessages] = useState<OutboxMessage[]>([]);
   const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
+  const [localSnoozes, setLocalSnoozes] = useState<Record<string, LocalSnoozeRecord>>({});
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
   const selectAccount = useAccountStore((state) => state.selectAccount);
@@ -203,8 +212,19 @@ const MailShell = () => {
   const pushUndo = useUndoStore((state) => state.push);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const runtimeAllThreads = useMemo(
-    () => [...localSentThreadRecords, ...(mailbox?.allThreads ?? [])],
-    [localSentThreadRecords, mailbox?.allThreads]
+    () =>
+      [...localSentThreadRecords, ...(mailbox?.allThreads ?? [])].map((thread) => {
+        const snooze = localSnoozes[thread.id];
+        if (!snooze) {
+          return thread;
+        }
+
+        return {
+          ...thread,
+          folder_ids: [SNOOZED_FOLDER_ID]
+        };
+      }),
+    [localSentThreadRecords, localSnoozes, mailbox?.allThreads]
   );
   const folderThreadsQuery = useThreads({
     accountId: mailbox?.accountId ?? null,
@@ -276,8 +296,8 @@ const MailShell = () => {
     );
   }, [composerAccounts, runtimeAllThreads]);
   const runtimeFolders = useMemo(
-    () =>
-      (mailbox?.folders ?? []).map((folder) =>
+    () => {
+      const baseFolders = (mailbox?.folders ?? []).map((folder) =>
         folder.role === 'sent'
           ? {
               ...folder,
@@ -290,12 +310,44 @@ const MailShell = () => {
                 total_count: unifiedInboxQuery.data?.length ?? fallbackUnifiedInboxThreads?.length ?? folder.total_count
               }
             : folder
-      ),
+      );
+      const snoozedCount = Object.keys(localSnoozes).length;
+
+      if (baseFolders.some((folder) => folder.id === SNOOZED_FOLDER_ID)) {
+        return baseFolders.map((folder) =>
+          folder.id === SNOOZED_FOLDER_ID
+            ? {
+                ...folder,
+                total_count: tauriRuntime.isAvailable() ? folder.total_count : snoozedCount,
+                unread_count: tauriRuntime.isAvailable() ? folder.unread_count : 0
+              }
+            : folder
+        );
+      }
+
+      return [
+        ...baseFolders,
+        {
+          id: SNOOZED_FOLDER_ID,
+          account_id: mailbox?.accountId ?? selectedComposerAccount.id,
+          name: 'Snoozed',
+          path: 'Snoozed',
+          role: null,
+          unread_count: 0,
+          total_count: snoozedCount,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ];
+    },
     [
       composerAccounts.length,
       fallbackUnifiedInboxThreads?.length,
       localSentThreadRecords.length,
+      localSnoozes,
       mailbox?.folders,
+      mailbox?.accountId,
+      selectedComposerAccount.id,
       unifiedInboxQuery.data
     ]
   );
@@ -618,6 +670,69 @@ const MailShell = () => {
     pushThreadUndo('Labels applied');
     applyThreadLabels(threadIds, labelIds);
   };
+  const handleSnoozeThreads = async (threadIds: string[], until: string) => {
+    if (!threadIds.length) {
+      return;
+    }
+
+    pushThreadUndo('Threads snoozed');
+
+    if (!tauriRuntime.isAvailable()) {
+      const nextSnoozes = Object.fromEntries(
+        threadIds
+          .map((threadId) => {
+            const thread = runtimeAllThreads.find((candidate) => candidate.id === threadId);
+            if (!thread) {
+              return null;
+            }
+
+            return [
+              threadId,
+              {
+                accountId: thread.account_id,
+                originalFolderIds: thread.folder_ids,
+                until
+              } satisfies LocalSnoozeRecord
+            ];
+          })
+          .filter((entry): entry is [string, LocalSnoozeRecord] => entry !== null)
+      );
+
+      setLocalSnoozes((current) => ({ ...current, ...nextSnoozes }));
+      moveThreadsToFolder(threadIds, SNOOZED_FOLDER_ID);
+      return;
+    }
+
+    await Promise.all(threadIds.map((threadId) => api.scheduling.snoozeThread({ threadId, until })));
+    moveThreadsToFolder(threadIds, SNOOZED_FOLDER_ID);
+    await queryClient.invalidateQueries({ queryKey: ['mailbox-overview'] });
+    folderThreadsQuery.refreshThreads();
+  };
+  const handleUnsnoozeThreads = async (threadIds: string[]) => {
+    if (!threadIds.length) {
+      return;
+    }
+
+    pushThreadUndo('Threads unsnoozed');
+
+    if (!tauriRuntime.isAvailable()) {
+      setLocalSnoozes((current) => {
+        const next = { ...current };
+        for (const threadId of threadIds) {
+          delete next[threadId];
+        }
+        return next;
+      });
+      return;
+    }
+
+    await Promise.all(threadIds.map((threadId) => api.scheduling.unsnoozeThread(threadId)));
+    threadIds.forEach((threadId) => {
+      useThreadStore.getState().removeThread(threadId);
+    });
+    await queryClient.invalidateQueries({ queryKey: ['mailbox-overview'] });
+    folderThreadsQuery.refreshThreads();
+  };
   const handleMoveThreads = (threadIds: string[], folderId: string) => {
     pushThreadUndo('Thread moved');
     moveThreadsToFolder(threadIds, folderId);
@@ -703,6 +818,8 @@ const MailShell = () => {
       onAddAccount={() => navigate('/onboarding/add-account')}
       onOpenPreferences={() => navigate('/preferences')}
       onMoveThreads={handleMoveThreads}
+      onSnoozeThreads={handleSnoozeThreads}
+      onUnsnoozeThreads={handleUnsnoozeThreads}
       onThreadAction={handleThreadAction}
       onSelectFolder={handleSelectFolder}
       onSearchQueryChange={setSearchQuery}

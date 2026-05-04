@@ -161,6 +161,11 @@ export type OutboxSendReport = {
   failed: number;
 };
 
+export type SnoozeThreadRequest = {
+  threadId: string;
+  until: string;
+};
+
 export type SignatureRecord = {
   id: string;
   title: string;

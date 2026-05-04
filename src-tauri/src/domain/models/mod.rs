@@ -7,5 +7,6 @@ pub mod label;
 pub mod message;
 pub mod outbox;
 pub mod signature;
+pub mod snooze;
 pub mod sync_cursor;
 pub mod thread;

@@ -12,12 +12,13 @@ export type ThreadLabelOption = {
 };
 
 export type ThreadDialogRequest = {
-  action: 'move' | 'label';
+  action: 'move' | 'label' | 'snooze';
   requestId: number;
   threadIds: string[];
 };
 
 type ThreadListPanelProps = {
+  activeFolderId: string | null;
   activeFolderName: string | null;
   dialogRequest?: ThreadDialogRequest | null;
   folders: FolderRecord[];
@@ -29,9 +30,11 @@ type ThreadListPanelProps = {
   selectedThreadId: string | null;
   threads: ThreadSummary[];
   onLoadMore?: () => Promise<void> | void;
-  onThreadAction?: (action: Exclude<ThreadAction, 'move' | 'label'>, threadIds: string[]) => void;
+  onThreadAction?: (action: Exclude<ThreadAction, 'move' | 'label' | 'snooze' | 'unsnooze'>, threadIds: string[]) => void;
   onMoveThreads?: (threadIds: string[], folderId: string) => void;
   onApplyLabels?: (threadIds: string[], labelIds: string[]) => void;
+  onSnoozeThreads?: (threadIds: string[], until: string) => void;
+  onUnsnoozeThreads?: (threadIds: string[]) => void;
   onSelectThread: (threadId: string) => void;
 };
 
@@ -44,6 +47,7 @@ const defaultLabels: ThreadLabelOption[] = [
 const toCustomLabelId = (name: string) => `custom:${name.trim().toLowerCase().replace(/\s+/g, '-')}`;
 
 export const ThreadListPanel = ({
+  activeFolderId,
   activeFolderName,
   dialogRequest,
   folders,
@@ -57,28 +61,41 @@ export const ThreadListPanel = ({
   onLoadMore,
   onApplyLabels,
   onMoveThreads,
+  onSnoozeThreads,
+  onUnsnoozeThreads,
   onThreadAction,
   onSelectThread
 }: ThreadListPanelProps) => {
+  const isSnoozedFolder = activeFolderId === 'fld_snoozed';
   const [activeFilter, setActiveFilter] = useState<ThreadFilter>('all');
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [checkedLabelIds, setCheckedLabelIds] = useState<string[]>([]);
   const [customLabelName, setCustomLabelName] = useState('');
   const [labelThreadIds, setLabelThreadIds] = useState<string[] | null>(null);
   const [moveThreadIds, setMoveThreadIds] = useState<string[] | null>(null);
+  const [snoozeThreadIds, setSnoozeThreadIds] = useState<string[] | null>(null);
+  const [customSnoozeAt, setCustomSnoozeAt] = useState('');
   const filteredThreads = useMemo(() => filterThreads(threads, activeFilter), [activeFilter, threads]);
   const title = isSearchActive ? `Search results for "${searchQuery.trim()}"` : activeFolderName ?? 'Message stream';
   const countLabel = isSearchActive ? `${filteredThreads.length} matches` : `${filteredThreads.length} threads`;
 
   const openMoveDialog = (threadIds: string[]) => {
     setLabelThreadIds(null);
+    setSnoozeThreadIds(null);
     setMoveThreadIds(threadIds);
   };
   const openLabelDialog = (threadIds: string[]) => {
     setMoveThreadIds(null);
+    setSnoozeThreadIds(null);
     setLabelThreadIds(threadIds);
     setCheckedLabelIds([]);
     setCustomLabelName('');
+  };
+  const openSnoozeDialog = (threadIds: string[]) => {
+    setMoveThreadIds(null);
+    setLabelThreadIds(null);
+    setSnoozeThreadIds(threadIds);
+    setCustomSnoozeAt('');
   };
   const handleThreadAction = (action: ThreadAction, threadIds: string[]) => {
     if (action === 'move') {
@@ -88,6 +105,17 @@ export const ThreadListPanel = ({
 
     if (action === 'label') {
       openLabelDialog(threadIds);
+      return;
+    }
+
+    if (action === 'snooze') {
+      openSnoozeDialog(threadIds);
+      return;
+    }
+
+    if (action === 'unsnooze') {
+      onUnsnoozeThreads?.(threadIds);
+      setActionStatus(`unsnoozed ${threadIds.length} thread${threadIds.length === 1 ? '' : 's'}`);
       return;
     }
 
@@ -103,6 +131,11 @@ export const ThreadListPanel = ({
 
     if (dialogRequest.action === 'move') {
       openMoveDialog(dialogRequest.threadIds);
+      return;
+    }
+
+    if (dialogRequest.action === 'snooze') {
+      openSnoozeDialog(dialogRequest.threadIds);
       return;
     }
 
@@ -141,6 +174,35 @@ export const ThreadListPanel = ({
     setActionStatus(`moved to ${folder.name}`);
     setMoveThreadIds(null);
   };
+  const handleSnooze = (threadIds: string[], until: string) => {
+    onSnoozeThreads?.(threadIds, until);
+    setActionStatus(`snoozed ${threadIds.length} thread${threadIds.length === 1 ? '' : 's'}`);
+    setSnoozeThreadIds(null);
+    setCustomSnoozeAt('');
+  };
+  const buildSnoozePresets = () => {
+    const now = new Date();
+    const laterToday = new Date(now);
+    laterToday.setHours(18, 0, 0, 0);
+    if (laterToday <= now) {
+      laterToday.setDate(laterToday.getDate() + 1);
+    }
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0);
+
+    const nextWeek = new Date(now);
+    nextWeek.setDate(nextWeek.getDate() + ((8 - nextWeek.getDay()) % 7 || 7));
+    nextWeek.setHours(8, 0, 0, 0);
+
+    return [
+      { id: 'later-today', label: 'Later today', until: laterToday.toISOString() },
+      { id: 'tomorrow', label: 'Tomorrow', until: tomorrow.toISOString() },
+      { id: 'next-week', label: 'Next week', until: nextWeek.toISOString() }
+    ];
+  };
+  const snoozePresets = buildSnoozePresets();
 
   return (
     <div className="thread-panel">
@@ -155,6 +217,7 @@ export const ThreadListPanel = ({
       <ThreadListFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
       <ThreadList
         activeFolderName={activeFolderName}
+        isSnoozedFolder={isSnoozedFolder}
         hasMore={hasMore}
         isLoading={isLoading}
         isSearchActive={isSearchActive}
@@ -178,6 +241,39 @@ export const ThreadListPanel = ({
                 {folder.name}
               </button>
             ))}
+          </div>
+        </div>
+      ) : null}
+      {snoozeThreadIds ? (
+        <div aria-label="Snooze threads dialog" className="thread-action-dialog" role="dialog">
+          <div>
+            <strong>Snooze {snoozeThreadIds.length} thread{snoozeThreadIds.length === 1 ? '' : 's'} until...</strong>
+            <button aria-label="Close snooze dialog" onClick={() => setSnoozeThreadIds(null)} type="button">
+              Close
+            </button>
+          </div>
+          <div className="thread-action-dialog-options">
+            {snoozePresets.map((preset) => (
+              <button key={preset.id} onClick={() => handleSnooze(snoozeThreadIds, preset.until)} type="button">
+                {preset.label}
+              </button>
+            ))}
+            <label className="thread-action-field">
+              <span>Pick date & time</span>
+              <input
+                aria-label="Pick snooze date and time"
+                onChange={(event) => setCustomSnoozeAt(event.target.value)}
+                type="datetime-local"
+                value={customSnoozeAt}
+              />
+            </label>
+            <button
+              disabled={!customSnoozeAt}
+              onClick={() => handleSnooze(snoozeThreadIds, new Date(customSnoozeAt).toISOString())}
+              type="button"
+            >
+              Snooze custom time
+            </button>
           </div>
         </div>
       ) : null}

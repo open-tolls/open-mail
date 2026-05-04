@@ -21,6 +21,7 @@ export type ShortcutAction =
   | 'thread.reply'
   | 'thread.replyAll'
   | 'thread.star'
+  | 'thread.snooze'
   | 'thread.trash'
   | 'ui.back';
 
@@ -46,6 +47,7 @@ export const defaultShortcutBindings: ShortcutBindings = {
   'thread.reply': 'r',
   'thread.replyAll': 'a',
   'thread.star': 's',
+  'thread.snooze': 'b',
   'thread.trash': '#',
   'ui.back': 'escape'
 };

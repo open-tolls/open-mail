@@ -61,6 +61,8 @@ type ShellFrameProps = {
   onAddAccount: () => void;
   onOpenPreferences: () => void;
   onMoveThreads: (threadIds: string[], folderId: string) => void;
+  onSnoozeThreads: (threadIds: string[], until: string) => void;
+  onUnsnoozeThreads: (threadIds: string[]) => void;
   onThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   onSearchQueryChange: (query: string) => void;
   onSelectThread: (threadId: string) => void;
@@ -101,6 +103,8 @@ export const ShellFrame = ({
   onAddAccount,
   onOpenPreferences,
   onMoveThreads,
+  onSnoozeThreads,
+  onUnsnoozeThreads,
   onThreadAction,
   onSearchQueryChange,
   onSelectThread,
@@ -431,6 +435,7 @@ export const ShellFrame = ({
         handleReplyMessage(activeMessage, true);
       },
       'thread.star': () => runSelectedThreadAction('star', 'Star shortcut applied'),
+      'thread.snooze': () => openSelectedThreadDialog('snooze', 'Snooze shortcut opened'),
       'thread.trash': () => runSelectedThreadAction('trash', 'Trash shortcut applied'),
       'ui.back': () => {
         resetComposerState();
@@ -627,6 +632,7 @@ export const ShellFrame = ({
           style={workspaceStyle}
         >
           <ThreadListPanel
+            activeFolderId={activeFolder?.id ?? null}
             activeFolderName={activeFolder?.name ?? null}
             dialogRequest={threadDialogRequest}
             folders={runtimeFolders}
@@ -636,6 +642,8 @@ export const ShellFrame = ({
             onApplyLabels={onApplyLabels}
             onLoadMore={onLoadMoreThreads}
             onMoveThreads={onMoveThreads}
+            onSnoozeThreads={onSnoozeThreads}
+            onUnsnoozeThreads={onUnsnoozeThreads}
             onThreadAction={onThreadAction}
             searchQuery={searchQuery}
             selectedThreadId={visibleSelectedThreadId}

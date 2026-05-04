@@ -1,13 +1,14 @@
-import { Archive, FolderInput, MailOpen, Star, Tag, Trash2 } from 'lucide-react';
+import { Archive, Clock3, FolderInput, MailOpen, Star, Tag, Trash2, Undo2 } from 'lucide-react';
 
-export type ThreadAction = 'archive' | 'trash' | 'toggle-read' | 'star' | 'move' | 'label';
+export type ThreadAction = 'archive' | 'trash' | 'toggle-read' | 'star' | 'move' | 'label' | 'snooze' | 'unsnooze';
 
 type ThreadListToolbarProps = {
+  isSnoozedFolder?: boolean;
   selectedCount: number;
   onAction: (action: ThreadAction) => void;
 };
 
-export const ThreadListToolbar = ({ selectedCount, onAction }: ThreadListToolbarProps) => {
+export const ThreadListToolbar = ({ isSnoozedFolder = false, selectedCount, onAction }: ThreadListToolbarProps) => {
   if (!selectedCount) {
     return null;
   }
@@ -30,6 +31,14 @@ export const ThreadListToolbar = ({ selectedCount, onAction }: ThreadListToolbar
       <button aria-label="Star selected threads" onClick={() => onAction('star')} type="button">
         <Star size={15} />
         Star
+      </button>
+      <button
+        aria-label={isSnoozedFolder ? 'Unsnooze selected threads' : 'Snooze selected threads'}
+        onClick={() => onAction(isSnoozedFolder ? 'unsnooze' : 'snooze')}
+        type="button"
+      >
+        {isSnoozedFolder ? <Undo2 size={15} /> : <Clock3 size={15} />}
+        {isSnoozedFolder ? 'Unsnooze' : 'Snooze'}
       </button>
       <button aria-label="Move selected threads to folder" onClick={() => onAction('move')} type="button">
         <FolderInput size={15} />

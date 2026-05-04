@@ -12,16 +12,17 @@ use commands::{
     add_account, autodiscover_settings, build_oauth_authorization_url, complete_oauth_account,
     delete_draft, delete_signature, download_attachment, enqueue_outbox_message, flush_outbox,
     force_sync, get_config, get_message, get_sync_status, get_sync_status_detail, health_check,
-    list_accounts, list_drafts, list_folders, list_messages, list_signatures, list_threads,
+    list_accounts, list_drafts, list_folders, list_messages, list_signatures, list_snoozed,
+    list_threads,
     mailbox_overview, mark_messages_read, mark_messages_unread, open_external_url,
-    remove_account, save_account_credentials, save_draft, save_signature, search_threads,
+    remove_account, save_account_credentials, save_draft, save_signature, search_threads, snooze_thread,
     set_default_signature, set_tray_unread_count, start_sync, stop_sync, test_imap_connection, test_smtp_connection,
-    update_config,
+    unsnooze_thread, update_config,
 };
 use domain::events::{AppShellEvent, DomainEvent};
 use domain::repositories::{
     AccountRepository, ConfigRepository, FolderRepository, MessageRepository, OutboxRepository,
-    SignatureRepository, SyncCursorRepository, ThreadRepository,
+    SignatureRepository, SnoozeRepository, SyncCursorRepository, ThreadRepository,
 };
 use infrastructure::{
     database::{
@@ -30,6 +31,7 @@ use infrastructure::{
             config_repository::SqliteConfigRepository,
             message_repository::SqliteMessageRepository, outbox_repository::SqliteOutboxRepository,
             signature_repository::SqliteSignatureRepository,
+            snooze_repository::SqliteSnoozeRepository,
             sync_cursor_repository::SqliteSyncCursorRepository,
             thread_repository::SqliteThreadRepository,
         },
@@ -60,6 +62,7 @@ pub struct AppState {
     pub outbox_repo: Arc<dyn OutboxRepository>,
     pub signature_repo: Arc<dyn SignatureRepository>,
     pub config_repo: Arc<dyn ConfigRepository>,
+    pub snooze_repo: Arc<dyn SnoozeRepository>,
     pub minimize_to_tray: Arc<AtomicBool>,
     pub credential_store: Arc<dyn CredentialStore>,
     pub task_queue: Arc<dyn MailTaskQueue>,
@@ -196,6 +199,7 @@ pub fn run() {
             list_folders,
             list_drafts,
             list_threads,
+            list_snoozed,
             search_threads,
             list_messages,
             get_message,
@@ -219,6 +223,8 @@ pub fn run() {
             build_oauth_authorization_url,
             test_imap_connection,
             test_smtp_connection,
+            snooze_thread,
+            unsnooze_thread,
             download_attachment,
             open_external_url,
             set_tray_unread_count,
@@ -244,6 +250,7 @@ fn build_app_state() -> Result<AppState, String> {
     let signature_repo: Arc<dyn SignatureRepository> =
         Arc::new(SqliteSignatureRepository::new(db.clone()));
     let config_repo: Arc<dyn ConfigRepository> = Arc::new(SqliteConfigRepository::new(db.clone()));
+    let snooze_repo: Arc<dyn SnoozeRepository> = Arc::new(SqliteSnoozeRepository::new(db.clone()));
     let minimize_to_tray = Arc::new(AtomicBool::new(
         tauri::async_runtime::block_on(config_repo.get())
             .map(|config| config.minimize_to_tray)
@@ -270,6 +277,7 @@ fn build_app_state() -> Result<AppState, String> {
         outbox_repo,
         signature_repo,
         config_repo,
+        snooze_repo,
         minimize_to_tray,
         credential_store,
         task_queue,

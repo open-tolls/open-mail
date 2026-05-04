@@ -14,6 +14,7 @@ import type {
   OAuthAuthorizationRequest,
   OutboxMessage,
   OutboxSendReport,
+  SnoozeThreadRequest,
   SignatureRecord,
   SignatureSettings,
   SyncStatusDetail,
@@ -44,6 +45,8 @@ export const api = {
       invokeOrThrow<FolderRecord[]>('list_folders', { accountId }),
     listThreads: (accountId: string, folderId: string, offset = 0, limit = 25) =>
       invokeOrThrow<ThreadSummary[]>('list_threads', { accountId, folderId, offset, limit }),
+    listSnoozed: (accountId: string) =>
+      invokeOrThrow<ThreadSummary[]>('list_snoozed', { accountId }),
     searchThreads: (accountId: string, query: string) =>
       invokeOrThrow<ThreadSummary[]>('search_threads', { accountId, query })
   },
@@ -111,6 +114,12 @@ export const api = {
       invokeOrThrow<void>('test_imap_connection', { request }),
     testSmtpConnection: (request: TestMailConnectionRequest) =>
       invokeOrThrow<void>('test_smtp_connection', { request })
+  },
+  scheduling: {
+    snoozeThread: (request: SnoozeThreadRequest) =>
+      invokeOrThrow<void>('snooze_thread', { request }),
+    unsnoozeThread: (threadId: string) =>
+      invokeOrThrow<void>('unsnooze_thread', { threadId })
   },
   drafts: {
     list: (accountId: string) => invokeOrThrow<MessageRecord[]>('list_drafts', { accountId }),

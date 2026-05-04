@@ -412,6 +412,44 @@ describe('mailbox overview integration', () => {
     expect(screen.queryByRole('dialog', { name: 'Move threads dialog' })).not.toBeInTheDocument();
   });
 
+  it('snoozes a thread from the shell and restores it from the Snoozed folder', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'b' });
+    expect(await screen.findByRole('dialog', { name: 'Snooze threads dialog' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Later today' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Snooze threads dialog' })).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole('heading', { name: 'Premium motion system approved' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
+
+    const folderNav = await screen.findByLabelText('Mailbox folders');
+    fireEvent.click(within(folderNav).getByRole('button', { name: /snoozed/i }));
+
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+
+    fireEvent.click(
+      within(screen.getByRole('listbox', { name: 'Thread list' })).getByText('Premium motion system approved')
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Unsnooze selected threads' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Premium motion system approved' })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(within(folderNav).getByRole('button', { name: /inbox/i }));
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+  });
+
   it('persists custom phase 3 shortcut bindings', async () => {
     useShortcutStore.getState().setShortcutBinding('thread.star', 'x');
 

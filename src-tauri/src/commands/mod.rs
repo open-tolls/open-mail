@@ -12,6 +12,7 @@ use crate::{
         message::Message,
         outbox::{OutboxMessage, OutboxStatus},
         signature::Signature,
+        snooze::SnoozedThread,
         thread::Thread,
     },
     domain::read_models::{MailboxOverview, ThreadSummary},
@@ -23,6 +24,8 @@ use crate::{
     },
     AppState,
 };
+
+const SNOOZED_FOLDER_ID: &str = "fld_snoozed";
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -360,6 +363,13 @@ pub struct CompleteOAuthAccountRequest {
     pub name: String,
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnoozeThreadRequest {
+    pub thread_id: String,
+    pub until: String,
+}
+
 async fn list_accounts_for_state(state: &AppState) -> Result<Vec<Account>, String> {
     state
         .account_repo
@@ -689,11 +699,54 @@ fn download_attachment_file(
 }
 
 async fn list_folders_for_state(state: &AppState, account_id: &str) -> Result<Vec<Folder>, String> {
-    state
+    let mut folders = state
         .folder_repo
         .find_by_account(account_id)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    let active_snoozes = state
+        .snooze_repo
+        .find_active_by_account(account_id, chrono::Utc::now())
+        .await
+        .map_err(|error| error.to_string())?;
+    let mut snoozed_unread_count = 0;
+
+    if !active_snoozes.is_empty() {
+        for snooze in &active_snoozes {
+            if let Some(thread) = state
+                .thread_repo
+                .find_by_id(&snooze.thread_id)
+                .await
+                .map_err(|error| error.to_string())?
+            {
+                if thread.is_unread {
+                    snoozed_unread_count += 1;
+                }
+                for folder in &mut folders {
+                    if thread.folder_ids.contains(&folder.id) {
+                        folder.total_count = folder.total_count.saturating_sub(1);
+                        if thread.is_unread {
+                            folder.unread_count = folder.unread_count.saturating_sub(1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let timestamp = chrono::Utc::now();
+    folders.push(Folder {
+        id: SNOOZED_FOLDER_ID.into(),
+        account_id: account_id.into(),
+        name: "Snoozed".into(),
+        path: "Snoozed".into(),
+        role: None,
+        unread_count: snoozed_unread_count,
+        total_count: active_snoozes.len() as u32,
+        created_at: timestamp,
+        updated_at: timestamp,
+    });
+
+    Ok(folders)
 }
 
 async fn list_threads_for_state(
@@ -703,11 +756,94 @@ async fn list_threads_for_state(
     offset: u32,
     limit: u32,
 ) -> Result<Vec<ThreadSummary>, String> {
+    if folder_id == SNOOZED_FOLDER_ID {
+        return list_snoozed_for_state(state, account_id).await;
+    }
+
+    let snoozed_thread_ids = state
+        .snooze_repo
+        .find_active_by_account(account_id, chrono::Utc::now())
+        .await
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .map(|snooze| snooze.thread_id)
+        .collect::<Vec<_>>();
+
     state
         .thread_repo
-        .find_by_folder(account_id, folder_id, offset, limit)
+        .find_by_folder(account_id, folder_id, offset, limit.saturating_add(snoozed_thread_ids.len() as u32))
         .await
-        .map(|threads| threads.into_iter().map(ThreadSummary::from).collect())
+        .map(|threads| {
+            threads
+                .into_iter()
+                .filter(|thread| !snoozed_thread_ids.contains(&thread.id))
+                .take(limit as usize)
+                .map(ThreadSummary::from)
+                .collect()
+        })
+        .map_err(|error| error.to_string())
+}
+
+async fn list_snoozed_for_state(state: &AppState, account_id: &str) -> Result<Vec<ThreadSummary>, String> {
+    let active_snoozes = state
+        .snooze_repo
+        .find_active_by_account(account_id, chrono::Utc::now())
+        .await
+        .map_err(|error| error.to_string())?;
+    let mut summaries = Vec::new();
+
+    for snooze in active_snoozes {
+        if let Some(thread) = state
+            .thread_repo
+            .find_by_id(&snooze.thread_id)
+            .await
+            .map_err(|error| error.to_string())?
+        {
+            summaries.push(ThreadSummary::from(thread));
+        }
+    }
+
+    Ok(summaries)
+}
+
+async fn snooze_thread_for_state(state: &AppState, request: SnoozeThreadRequest) -> Result<(), String> {
+    let thread = state
+        .thread_repo
+        .find_by_id(&request.thread_id)
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("thread not found: {}", request.thread_id))?;
+    let snooze_until = chrono::DateTime::parse_from_rfc3339(&request.until)
+        .map(|value| value.with_timezone(&chrono::Utc))
+        .map_err(|error| error.to_string())?;
+    let original_folder_id = thread
+        .folder_ids
+        .iter()
+        .find(|folder_id| folder_id.to_lowercase().contains("inbox"))
+        .cloned()
+        .or_else(|| thread.folder_ids.first().cloned())
+        .ok_or_else(|| "thread does not belong to a folder".to_string())?;
+    let snooze = SnoozedThread {
+        id: format!("snz_{}", Uuid::new_v4().simple()),
+        thread_id: thread.id.clone(),
+        account_id: thread.account_id.clone(),
+        snooze_until,
+        original_folder_id,
+        created_at: chrono::Utc::now(),
+    };
+
+    state
+        .snooze_repo
+        .save(&snooze)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn unsnooze_thread_for_state(state: &AppState, thread_id: &str) -> Result<(), String> {
+    state
+        .snooze_repo
+        .delete_by_thread_id(thread_id)
+        .await
         .map_err(|error| error.to_string())
 }
 
@@ -1339,6 +1475,30 @@ pub async fn list_threads(
 }
 
 #[tauri::command]
+pub async fn list_snoozed(
+    state: State<'_, AppState>,
+    account_id: String,
+) -> Result<Vec<ThreadSummary>, String> {
+    list_snoozed_for_state(&state, &account_id).await
+}
+
+#[tauri::command]
+pub async fn snooze_thread(
+    state: State<'_, AppState>,
+    request: SnoozeThreadRequest,
+) -> Result<(), String> {
+    snooze_thread_for_state(&state, request).await
+}
+
+#[tauri::command]
+pub async fn unsnooze_thread(
+    state: State<'_, AppState>,
+    thread_id: String,
+) -> Result<(), String> {
+    unsnooze_thread_for_state(&state, &thread_id).await
+}
+
+#[tauri::command]
 pub async fn search_threads(
     state: State<'_, AppState>,
     account_id: String,
@@ -1837,15 +1997,16 @@ mod tests {
         complete_oauth_account_for_state, delete_draft_for_state, download_attachment_file,
         enqueue_outbox_message_for_state, flush_outbox_for_state, force_sync_for_state,
         get_config_for_state, get_message_for_state, get_sync_status_detail_for_state,
-        get_sync_status_for_state, list_drafts_for_state, list_messages_for_state,
-        list_threads_for_state, mailbox_overview_for_state, mark_messages_read_for_state,
-        remove_account_for_state, save_draft_for_state, search_threads_for_state,
-        seed_demo_data, start_sync_for_state, stop_sync_for_state,
+        get_sync_status_for_state, list_drafts_for_state, list_folders_for_state,
+        list_messages_for_state, list_snoozed_for_state, list_threads_for_state,
+        mailbox_overview_for_state, mark_messages_read_for_state, remove_account_for_state,
+        save_draft_for_state, search_threads_for_state, seed_demo_data,
+        snooze_thread_for_state, start_sync_for_state, stop_sync_for_state,
         test_imap_connection_for_state, test_smtp_connection_for_state, update_config_for_state,
-        validate_external_url, AddAccountRequest,
+        unsnooze_thread_for_state, validate_external_url, AddAccountRequest,
         BuildOAuthAuthorizationUrlRequest, CompleteOAuthAccountRequest,
         ConnectionCredentialsRequest, EnqueueOutboxMessageRequest, SaveDraftRequest,
-        TestMailConnectionRequest,
+        SnoozeThreadRequest, TestMailConnectionRequest, SNOOZED_FOLDER_ID,
     };
     use crate::{
         domain::models::{
@@ -1855,7 +2016,7 @@ mod tests {
         },
         domain::repositories::{
             AccountRepository, ConfigRepository, FolderRepository, MessageRepository,
-            OutboxRepository, SignatureRepository, SyncCursorRepository, ThreadRepository,
+            OutboxRepository, SignatureRepository, SnoozeRepository, SyncCursorRepository, ThreadRepository,
         },
         infrastructure::{
             database::{
@@ -1866,6 +2027,7 @@ mod tests {
                     message_repository::SqliteMessageRepository,
                     outbox_repository::SqliteOutboxRepository,
                     signature_repository::SqliteSignatureRepository,
+                    snooze_repository::SqliteSnoozeRepository,
                     sync_cursor_repository::SqliteSyncCursorRepository,
                     thread_repository::SqliteThreadRepository,
                 },
@@ -1904,6 +2066,8 @@ mod tests {
             Arc::new(SqliteSignatureRepository::new(db.clone()));
         let config_repo: Arc<dyn ConfigRepository> =
             Arc::new(SqliteConfigRepository::new(db.clone()));
+        let snooze_repo: Arc<dyn SnoozeRepository> =
+            Arc::new(SqliteSnoozeRepository::new(db.clone()));
         let sync_cursor_repo: Arc<dyn SyncCursorRepository> =
             Arc::new(SqliteSyncCursorRepository::new(db.clone()));
         let sync_manager = Arc::new(SyncManager::new(
@@ -1923,6 +2087,7 @@ mod tests {
             outbox_repo,
             signature_repo,
             config_repo,
+            snooze_repo,
             minimize_to_tray: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             credential_store: Arc::new(
                 crate::infrastructure::sync::InMemoryCredentialStore::default(),
@@ -1953,6 +2118,40 @@ mod tests {
         assert_eq!(overview.threads[0].id, "thr_1");
         assert!(overview.threads[0].has_attachments);
         assert_eq!(overview.threads[0].message_count, 3);
+    }
+
+    #[tokio::test]
+    async fn snooze_hides_thread_from_inbox_and_lists_it_in_snoozed_folder() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        snooze_thread_for_state(
+            &state,
+            SnoozeThreadRequest {
+                thread_id: "thr_1".into(),
+                until: "2026-06-01T18:00:00Z".into(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let inbox_threads = list_threads_for_state(&state, "acc_demo", "fld_inbox", 0, 25)
+            .await
+            .unwrap();
+        let snoozed_threads = list_snoozed_for_state(&state, "acc_demo").await.unwrap();
+        let folders = list_folders_for_state(&state, "acc_demo").await.unwrap();
+        let snoozed_folder = folders.iter().find(|folder| folder.id == SNOOZED_FOLDER_ID).unwrap();
+
+        assert!(inbox_threads.iter().all(|thread| thread.id != "thr_1"));
+        assert!(snoozed_threads.iter().any(|thread| thread.id == "thr_1"));
+        assert_eq!(snoozed_folder.total_count, 1);
+
+        unsnooze_thread_for_state(&state, "thr_1").await.unwrap();
+
+        let restored_inbox_threads = list_threads_for_state(&state, "acc_demo", "fld_inbox", 0, 25)
+            .await
+            .unwrap();
+        assert!(restored_inbox_threads.iter().any(|thread| thread.id == "thr_1"));
     }
 
     #[tokio::test]

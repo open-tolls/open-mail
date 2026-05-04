@@ -160,6 +160,7 @@ describe('ThreadList', () => {
 
     render(
       <ThreadListPanel
+        activeFolderId="fld_inbox"
         activeFolderName="Inbox"
         folders={[folder('fld_inbox', 'Inbox'), folder('fld_archive', 'Archive')]}
         isSearchActive={false}
@@ -187,6 +188,7 @@ describe('ThreadList', () => {
 
     render(
       <ThreadListPanel
+        activeFolderId="fld_inbox"
         activeFolderName="Inbox"
         folders={[folder('fld_inbox', 'Inbox')]}
         isSearchActive={false}
@@ -210,5 +212,58 @@ describe('ThreadList', () => {
 
     expect(onApplyLabels).toHaveBeenCalledWith(['thr_0'], ['lbl_design', 'custom:vip']);
     expect(screen.queryByRole('dialog', { name: 'Label threads dialog' })).not.toBeInTheDocument();
+  });
+
+  it('opens a snooze dialog and reports the selected preset', () => {
+    const onSnoozeThreads = vi.fn();
+
+    render(
+      <ThreadListPanel
+        activeFolderId="fld_inbox"
+        activeFolderName="Inbox"
+        folders={[folder('fld_inbox', 'Inbox')]}
+        isSearchActive={false}
+        onSnoozeThreads={onSnoozeThreads}
+        onSelectThread={vi.fn()}
+        searchQuery=""
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Thread 0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Snooze selected threads' }));
+
+    expect(screen.getByRole('dialog', { name: 'Snooze threads dialog' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Later today' }));
+
+    expect(onSnoozeThreads).toHaveBeenCalledTimes(1);
+    expect(onSnoozeThreads.mock.calls[0]?.[0]).toEqual(['thr_0']);
+    expect(typeof onSnoozeThreads.mock.calls[0]?.[1]).toBe('string');
+    expect(screen.queryByRole('dialog', { name: 'Snooze threads dialog' })).not.toBeInTheDocument();
+  });
+
+  it('shows unsnooze actions inside the snoozed folder', () => {
+    const onUnsnoozeThreads = vi.fn();
+
+    render(
+      <ThreadListPanel
+        activeFolderId="fld_snoozed"
+        activeFolderName="Snoozed"
+        folders={[folder('fld_snoozed', 'Snoozed')]}
+        isSearchActive={false}
+        onSelectThread={vi.fn()}
+        onUnsnoozeThreads={onUnsnoozeThreads}
+        searchQuery=""
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Thread 0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Unsnooze selected threads' }));
+
+    expect(onUnsnoozeThreads).toHaveBeenCalledWith(['thr_0']);
   });
 });
