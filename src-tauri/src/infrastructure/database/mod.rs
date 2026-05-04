@@ -14,6 +14,7 @@ const OUTBOX_MESSAGES_MIGRATION: &str = include_str!("migrations/004_outbox_mess
 const SIGNATURES_MIGRATION: &str = include_str!("migrations/005_signatures.sql");
 const APP_CONFIG_MIGRATION: &str = include_str!("migrations/006_app_config.sql");
 const SNOOZED_THREADS_MIGRATION: &str = include_str!("migrations/007_snoozed_threads.sql");
+const SCHEDULED_SENDS_MIGRATION: &str = include_str!("migrations/008_scheduled_sends.sql");
 pub mod repositories;
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,9 @@ impl Database {
             .map_err(|error| DomainError::Database(error.to_string()))?;
         connection
             .execute_batch(SNOOZED_THREADS_MIGRATION)
+            .map_err(|error| DomainError::Database(error.to_string()))?;
+        connection
+            .execute_batch(SCHEDULED_SENDS_MIGRATION)
             .map_err(|error| DomainError::Database(error.to_string()))?;
         ensure_column(&connection, "sync_cursors", "uid_validity", "INTEGER")?;
         ensure_column(&connection, "sync_cursors", "last_seen_uid", "INTEGER")?;

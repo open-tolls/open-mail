@@ -5,11 +5,12 @@ type ComposerFooterProps = {
   onEditSignature: () => void;
   onDiscard: () => void;
   onFlushOutbox: () => Promise<void>;
+  onOpenSchedule: () => void;
   onSend: () => Promise<void>;
   status: string;
 };
 
-export const ComposerFooter = ({ isSending, onEditSignature, onDiscard, onFlushOutbox, onSend, status }: ComposerFooterProps) => (
+export const ComposerFooter = ({ isSending, onEditSignature, onDiscard, onFlushOutbox, onOpenSchedule, onSend, status }: ComposerFooterProps) => (
   <footer className="composer-panel-footer">
     <div className="composer-actions">
       <button className="composer-secondary" disabled={isSending} onClick={onEditSignature} type="button">
@@ -20,6 +21,9 @@ export const ComposerFooter = ({ isSending, onEditSignature, onDiscard, onFlushO
       </button>
       <button className="composer-secondary" disabled={isSending} onClick={() => void onFlushOutbox()} type="button">
         Flush outbox
+      </button>
+      <button className="composer-secondary" disabled={isSending} onClick={onOpenSchedule} type="button">
+        Send later
       </button>
       <button className="composer-primary" disabled={isSending} onClick={() => void onSend()} type="button">
         {isSending ? (

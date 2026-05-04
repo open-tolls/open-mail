@@ -38,6 +38,7 @@ type ComposerProps = {
   onDiscard?: () => void;
   onDraftChange?: (draft: ComposerDraft) => void;
   onFlushOutbox: () => Promise<void>;
+  onSchedule: (draft: ComposerDraft, sendAt: string) => Promise<boolean>;
   onSend: (draft: ComposerDraft) => Promise<boolean>;
 };
 
@@ -74,6 +75,7 @@ export const Composer = ({
   onDiscard,
   onDraftChange,
   onFlushOutbox,
+  onSchedule,
   onSend
 }: ComposerProps) => {
   const mergedDraft = useMemo(
@@ -89,6 +91,8 @@ export const Composer = ({
   const [isSignaturePanelOpen, setIsSignaturePanelOpen] = useState(false);
   const [activeSignatureId, setActiveSignatureId] = useState<string | null>(null);
   const [isQuotedTextCollapsed, setIsQuotedTextCollapsed] = useState(hasQuotedContent(mergedDraft.body));
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [customSendAt, setCustomSendAt] = useState('');
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const signatures = useSignatureStore((state) => state.signatures);
   const defaultSignatureId = useSignatureStore((state) => state.defaultSignatureId);
@@ -229,11 +233,52 @@ export const Composer = ({
     await onSend(draft);
   };
 
+  const buildSchedulePresets = () => {
+    const now = new Date();
+    const tomorrowMorning = new Date(now);
+    tomorrowMorning.setDate(tomorrowMorning.getDate() + 1);
+    tomorrowMorning.setHours(8, 0, 0, 0);
+
+    const tomorrowAfternoon = new Date(now);
+    tomorrowAfternoon.setDate(tomorrowAfternoon.getDate() + 1);
+    tomorrowAfternoon.setHours(13, 0, 0, 0);
+
+    const mondayMorning = new Date(now);
+    mondayMorning.setDate(mondayMorning.getDate() + ((8 - mondayMorning.getDay()) % 7 || 7));
+    mondayMorning.setHours(8, 0, 0, 0);
+
+    return [
+      { id: 'tomorrow-morning', label: 'Tomorrow morning', sendAt: tomorrowMorning.toISOString() },
+      { id: 'tomorrow-afternoon', label: 'Tomorrow afternoon', sendAt: tomorrowAfternoon.toISOString() },
+      { id: 'monday-morning', label: 'Monday morning', sendAt: mondayMorning.toISOString() }
+    ];
+  };
+
+  const handleSchedule = async (sendAt: string) => {
+    const recipients = [...draft.to, ...draft.cc, ...draft.bcc];
+    if (!recipients.length) {
+      setLocalStatus('Please add at least one recipient');
+      return;
+    }
+
+    if (!draft.subject.trim() && !window.confirm('Schedule without subject?')) {
+      setLocalStatus('Schedule canceled');
+      return;
+    }
+
+    const didSchedule = await onSchedule(draft, sendAt);
+    if (didSchedule) {
+      setIsScheduleDialogOpen(false);
+      setCustomSendAt('');
+    }
+  };
+
   const applySignature = (signatureId: string | null) => {
     const signature = useSignatureStore.getState().signatures.find((candidate) => candidate.id === signatureId) ?? null;
     updateDraft('body', applySignatureHtml(draft.body, signature?.body ?? null));
     setActiveSignatureId(signature?.id ?? null);
   };
+  const schedulePresets = buildSchedulePresets();
 
   return (
     <section
@@ -356,9 +401,43 @@ export const Composer = ({
         onEditSignature={() => setIsSignaturePanelOpen((current) => !current)}
         onDiscard={handleDiscard}
         onFlushOutbox={onFlushOutbox}
+        onOpenSchedule={() => setIsScheduleDialogOpen(true)}
         onSend={handleSend}
         status={localStatus ?? status}
       />
+      {isScheduleDialogOpen ? (
+        <div aria-label="Send later dialog" className="thread-action-dialog" role="dialog">
+          <div>
+            <strong>Schedule this message</strong>
+            <button aria-label="Close send later dialog" onClick={() => setIsScheduleDialogOpen(false)} type="button">
+              Close
+            </button>
+          </div>
+          <div className="thread-action-dialog-options">
+            {schedulePresets.map((preset) => (
+              <button key={preset.id} onClick={() => void handleSchedule(preset.sendAt)} type="button">
+                {preset.label}
+              </button>
+            ))}
+            <label className="thread-action-field">
+              <span>Pick date & time</span>
+              <input
+                aria-label="Pick send later date and time"
+                onChange={(event) => setCustomSendAt(event.target.value)}
+                type="datetime-local"
+                value={customSendAt}
+              />
+            </label>
+            <button
+              disabled={!customSendAt}
+              onClick={() => void handleSchedule(new Date(customSendAt).toISOString())}
+              type="button"
+            >
+              Schedule custom time
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 };

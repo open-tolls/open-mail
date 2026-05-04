@@ -101,6 +101,14 @@ export type DomainEvent =
   | { type: 'application-started' }
   | { type: 'threads-changed'; accountId: string; threadIds: string[] }
   | { type: 'snooze-woke'; accountId: string; threadId: string }
+  | {
+      type: 'scheduled-send-processed';
+      accountId: string;
+      scheduledSendId: string;
+      subject: string;
+      success: boolean;
+      errorMessage: string | null;
+    }
   | { type: 'messages-changed'; accountId: string; messageIds: string[] }
   | { type: 'folders-changed'; accountId: string }
   | { type: 'labels-changed'; accountId: string }
@@ -165,6 +173,36 @@ export type OutboxSendReport = {
 export type SnoozeThreadRequest = {
   threadId: string;
   until: string;
+};
+
+export type ScheduledSendStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'cancelled';
+
+export type ScheduleSendRequest = {
+  accountId: string;
+  from: MailAddress;
+  to: MailAddress[];
+  cc: MailAddress[];
+  bcc: MailAddress[];
+  replyTo: MailAddress | null;
+  subject: string;
+  htmlBody: string;
+  plainBody: string | null;
+  inReplyTo: string | null;
+  references: string[];
+  attachments: MimeAttachment[];
+  sendAt: string;
+};
+
+export type ScheduledSendRecord = {
+  id: string;
+  accountId: string;
+  mimeMessage: MimeMessage;
+  sendAt: string;
+  status: ScheduledSendStatus;
+  lastError: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type SignatureRecord = {

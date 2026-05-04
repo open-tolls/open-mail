@@ -19,6 +19,7 @@ describe('Composer send flow', () => {
         status="Composer ready"
         onClose={() => undefined}
         onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
         onSend={onSend}
       />
     );
@@ -42,6 +43,7 @@ describe('Composer send flow', () => {
         status="Composer ready"
         onClose={() => undefined}
         onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
         onSend={onSend}
       />
     );
@@ -66,6 +68,7 @@ describe('Composer send flow', () => {
         onClose={() => undefined}
         onDiscard={onDiscard}
         onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
         onSend={vi.fn().mockResolvedValue(true)}
       />
     );
@@ -98,6 +101,7 @@ describe('Composer send flow', () => {
         status="Composer ready"
         onClose={() => undefined}
         onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
         onSend={onSend}
       />
     );
@@ -118,11 +122,48 @@ describe('Composer send flow', () => {
         status="Queueing message..."
         onClose={() => undefined}
         onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
         onSend={vi.fn().mockResolvedValue(true)}
       />
     );
 
     expect(screen.getByRole('button', { name: /queueing/i })).toBeDisabled();
     expect(screen.getByLabelText('Loading')).toBeInTheDocument();
+  });
+
+  it('opens send later presets and schedules a draft', async () => {
+    const onSchedule = vi.fn().mockResolvedValue(true);
+
+    render(
+      <Composer
+        from="leco@example.com"
+        initialDraft={{
+          attachments: [],
+          bcc: [],
+          body: '<p>Hello</p>',
+          cc: [],
+          subject: 'Schedule me',
+          to: ['atlas@example.com']
+        }}
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={onSchedule}
+        onSend={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+    expect(screen.getByRole('dialog', { name: 'Send later dialog' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tomorrow morning' }));
+
+    await waitFor(() => {
+      expect(onSchedule).toHaveBeenCalledTimes(1);
+    });
+    expect(onSchedule.mock.calls[0]?.[0].subject).toBe('Schedule me');
+    expect(typeof onSchedule.mock.calls[0]?.[1]).toBe('string');
   });
 });

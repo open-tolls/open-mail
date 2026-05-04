@@ -20,6 +20,13 @@ pub enum DomainEvent {
         account_id: String,
         thread_id: String,
     },
+    ScheduledSendProcessed {
+        account_id: String,
+        scheduled_send_id: String,
+        subject: String,
+        success: bool,
+        error_message: Option<String>,
+    },
     MessagesChanged {
         account_id: String,
         message_ids: Vec<String>,

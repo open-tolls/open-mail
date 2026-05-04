@@ -3,6 +3,7 @@ pub mod config_repository;
 pub mod folder_repository;
 pub mod message_repository;
 pub mod outbox_repository;
+pub mod scheduled_send_repository;
 pub mod signature_repository;
 pub mod snooze_repository;
 pub mod sync_cursor_repository;

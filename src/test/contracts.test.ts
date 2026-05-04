@@ -10,6 +10,8 @@ import type {
   OAuthAuthorizationRequest,
   OutboxMessage,
   OutboxSendReport,
+  ScheduledSendRecord,
+  ScheduleSendRequest,
   SyncStatusDetail
 } from '@lib/contracts';
 
@@ -118,6 +120,50 @@ describe('contracts', () => {
     };
 
     expect(report.attempted).toBe(report.sent + report.failed);
+  });
+
+  it('supports scheduled send contracts for phase 7', () => {
+    const request: ScheduleSendRequest = {
+      accountId: 'acc_demo',
+      from: { name: null, email: 'leco@example.com' },
+      to: [{ name: 'Team', email: 'team@example.com' }],
+      cc: [],
+      bcc: [],
+      replyTo: null,
+      subject: 'Send later',
+      htmlBody: '<p>Tomorrow</p>',
+      plainBody: 'Tomorrow',
+      inReplyTo: null,
+      references: [],
+      attachments: [],
+      sendAt: '2026-05-05T11:00:00Z'
+    };
+    const scheduled: ScheduledSendRecord = {
+      id: 'sched_1',
+      accountId: request.accountId,
+      mimeMessage: {
+        from: request.from,
+        to: request.to,
+        cc: request.cc,
+        bcc: request.bcc,
+        replyTo: request.replyTo,
+        subject: request.subject,
+        htmlBody: request.htmlBody,
+        plainBody: request.plainBody,
+        inReplyTo: request.inReplyTo,
+        references: request.references,
+        attachments: request.attachments
+      },
+      sendAt: request.sendAt,
+      status: 'pending',
+      lastError: null,
+      sentAt: null,
+      createdAt: '2026-05-04T10:00:00Z',
+      updatedAt: '2026-05-04T10:00:00Z'
+    };
+
+    expect(scheduled.status).toBe('pending');
+    expect(scheduled.mimeMessage.subject).toBe('Send later');
   });
 
   it('supports oauth authorization requests for phase 2 onboarding', () => {

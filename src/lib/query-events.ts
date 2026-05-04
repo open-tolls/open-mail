@@ -16,6 +16,8 @@ export const getInvalidationKeysForDomainEvent = (event: DomainEvent): QueryKey[
       return [...mailboxKeys, ...threadKeys, ...messageKeys];
     case 'snooze-woke':
       return [...mailboxKeys, ...threadKeys, ...messageKeys];
+    case 'scheduled-send-processed':
+      return [...mailboxKeys, ...threadKeys, ...messageKeys];
     case 'messages-changed':
       return [...mailboxKeys, ...threadKeys, ...messageKeys];
     case 'labels-changed':

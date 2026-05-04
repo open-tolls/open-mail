@@ -11,6 +11,7 @@ use crate::domain::{
         folder::{Folder, FolderRole},
         message::Message,
         outbox::{OutboxMessage, OutboxStatus},
+        scheduled_send::{ScheduledSend, ScheduledSendStatus},
         signature::Signature,
         snooze::SnoozedThread,
         sync_cursor::SyncCursor,
@@ -103,6 +104,21 @@ pub trait OutboxRepository: Send + Sync {
         status: OutboxStatus,
     ) -> Result<Vec<OutboxMessage>, DomainError>;
     async fn save(&self, message: &OutboxMessage) -> Result<(), DomainError>;
+}
+
+#[async_trait]
+pub trait ScheduledSendRepository: Send + Sync {
+    async fn find_by_id(&self, id: &str) -> Result<Option<ScheduledSend>, DomainError>;
+    async fn find_by_status(
+        &self,
+        account_id: &str,
+        status: ScheduledSendStatus,
+    ) -> Result<Vec<ScheduledSend>, DomainError>;
+    async fn find_due(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<ScheduledSend>, DomainError>;
+    async fn save(&self, scheduled_send: &ScheduledSend) -> Result<(), DomainError>;
 }
 
 #[async_trait]

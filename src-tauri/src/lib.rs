@@ -13,16 +13,16 @@ use commands::{
     delete_draft, delete_signature, download_attachment, enqueue_outbox_message, flush_outbox,
     force_sync, get_config, get_message, get_sync_status, get_sync_status_detail, health_check,
     list_accounts, list_drafts, list_folders, list_messages, list_signatures, list_snoozed,
-    list_threads,
+    list_threads, list_scheduled_sends,
     mailbox_overview, mark_messages_read, mark_messages_unread, open_external_url,
-    remove_account, save_account_credentials, save_draft, save_signature, search_threads, snooze_thread,
+    remove_account, save_account_credentials, save_draft, save_signature, schedule_send, cancel_scheduled_send, search_threads, snooze_thread,
     set_default_signature, set_tray_unread_count, start_sync, stop_sync, test_imap_connection, test_smtp_connection,
-    unsnooze_thread, update_config, wake_due_snoozed_threads_for_state,
+    unsnooze_thread, update_config, wake_due_snoozed_threads_for_state, process_due_scheduled_sends_for_state,
 };
 use domain::events::{AppShellEvent, DomainEvent};
 use domain::repositories::{
     AccountRepository, ConfigRepository, FolderRepository, MessageRepository, OutboxRepository,
-    SignatureRepository, SnoozeRepository, SyncCursorRepository, ThreadRepository,
+    ScheduledSendRepository, SignatureRepository, SnoozeRepository, SyncCursorRepository, ThreadRepository,
 };
 use infrastructure::{
     database::{
@@ -30,6 +30,7 @@ use infrastructure::{
             account_repository::SqliteAccountRepository, folder_repository::SqliteFolderRepository,
             config_repository::SqliteConfigRepository,
             message_repository::SqliteMessageRepository, outbox_repository::SqliteOutboxRepository,
+            scheduled_send_repository::SqliteScheduledSendRepository,
             signature_repository::SqliteSignatureRepository,
             snooze_repository::SqliteSnoozeRepository,
             sync_cursor_repository::SqliteSyncCursorRepository,
@@ -61,6 +62,7 @@ pub struct AppState {
     pub message_repo: Arc<dyn MessageRepository>,
     pub outbox_repo: Arc<dyn OutboxRepository>,
     pub signature_repo: Arc<dyn SignatureRepository>,
+    pub scheduled_send_repo: Arc<dyn ScheduledSendRepository>,
     pub config_repo: Arc<dyn ConfigRepository>,
     pub snooze_repo: Arc<dyn SnoozeRepository>,
     pub minimize_to_tray: Arc<AtomicBool>,
@@ -140,6 +142,37 @@ fn spawn_snooze_wakeup_loop<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
                 let _ = app.emit(
                     "domain:event",
                     DomainEvent::FoldersChanged { account_id },
+                );
+            }
+        }
+    });
+}
+
+fn spawn_scheduled_send_loop<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
+    tauri::async_runtime::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(30));
+
+        loop {
+            ticker.tick().await;
+
+            let processed_sends = {
+                let state = app.state::<AppState>();
+                process_due_scheduled_sends_for_state(state.inner())
+                    .await
+                    .unwrap_or_default()
+            };
+
+            for processed_send in processed_sends {
+                let _ = app.emit(
+                    "domain:event",
+                    DomainEvent::ScheduledSendProcessed {
+                        account_id: processed_send.account_id.clone(),
+                        scheduled_send_id: processed_send.id,
+                        subject: processed_send.mime_message.subject,
+                        success: processed_send.status
+                            == crate::domain::models::scheduled_send::ScheduledSendStatus::Sent,
+                        error_message: processed_send.last_error,
+                    },
                 );
             }
         }
@@ -233,6 +266,7 @@ pub fn run() {
                 let _ = sync_manager.bootstrap_accounts().await;
             });
             spawn_snooze_wakeup_loop(app.handle().clone());
+            spawn_scheduled_send_loop(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -254,6 +288,7 @@ pub fn run() {
             list_folders,
             list_drafts,
             list_threads,
+            list_scheduled_sends,
             list_snoozed,
             search_threads,
             list_messages,
@@ -266,6 +301,8 @@ pub fn run() {
             get_sync_status_detail,
             enqueue_outbox_message,
             flush_outbox,
+            schedule_send,
+            cancel_scheduled_send,
             save_account_credentials,
             save_draft,
             delete_draft,
@@ -304,6 +341,8 @@ fn build_app_state() -> Result<AppState, String> {
     let outbox_repo: Arc<dyn OutboxRepository> = Arc::new(SqliteOutboxRepository::new(db.clone()));
     let signature_repo: Arc<dyn SignatureRepository> =
         Arc::new(SqliteSignatureRepository::new(db.clone()));
+    let scheduled_send_repo: Arc<dyn ScheduledSendRepository> =
+        Arc::new(SqliteScheduledSendRepository::new(db.clone()));
     let config_repo: Arc<dyn ConfigRepository> = Arc::new(SqliteConfigRepository::new(db.clone()));
     let snooze_repo: Arc<dyn SnoozeRepository> = Arc::new(SqliteSnoozeRepository::new(db.clone()));
     let minimize_to_tray = Arc::new(AtomicBool::new(
@@ -331,6 +370,7 @@ fn build_app_state() -> Result<AppState, String> {
         message_repo,
         outbox_repo,
         signature_repo,
+        scheduled_send_repo,
         config_repo,
         snooze_repo,
         minimize_to_tray,

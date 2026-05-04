@@ -6,6 +6,7 @@ pub mod folder;
 pub mod label;
 pub mod message;
 pub mod outbox;
+pub mod scheduled_send;
 pub mod signature;
 pub mod snooze;
 pub mod sync_cursor;

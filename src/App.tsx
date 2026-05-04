@@ -16,13 +16,21 @@ import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useSyncStatusMap } from '@hooks/useSyncStatusMap';
 import { useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
+import { useTauriEvent } from '@hooks/useTauriEvent';
 import { useUnifiedInboxThreads } from '@hooks/useUnifiedInboxThreads';
 import { useUnreadBadge } from '@hooks/useUnreadBadge';
 import { useUnreadTrayIndicator } from '@hooks/useUnreadTrayIndicator';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
-import type { AttachmentRecord, EnqueueOutboxMessageRequest, OutboxMessage, OutboxSendReport, ThreadRecord } from '@lib/contracts';
+import type {
+  AttachmentRecord,
+  DomainEvent,
+  EnqueueOutboxMessageRequest,
+  OutboxMessage,
+  OutboxSendReport,
+  ThreadRecord
+} from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
@@ -50,6 +58,13 @@ type LocalSnoozeRecord = {
   accountId: string;
   originalFolderIds: string[];
   until: string;
+};
+
+type LocalScheduledSendRecord = {
+  id: string;
+  accountId: string;
+  mimeMessage: EnqueueOutboxMessageRequest;
+  sendAt: string;
 };
 
 const toSafeHtml = (value: string) =>
@@ -198,6 +213,7 @@ const MailShell = () => {
   const [, setQueuedOutboxMessages] = useState<OutboxMessage[]>([]);
   const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
   const [localSnoozes, setLocalSnoozes] = useState<Record<string, LocalSnoozeRecord>>({});
+  const [localScheduledSends, setLocalScheduledSends] = useState<LocalScheduledSendRecord[]>([]);
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
   const selectAccount = useAccountStore((state) => state.selectAccount);
@@ -561,6 +577,53 @@ const MailShell = () => {
       return false;
     }
   };
+  const handleScheduleDraft = async (draft: ComposerDraft, sendAt: string) => {
+    try {
+      const accountId = draft.fromAccountId || selectedComposerAccount.id;
+      const fromAccount = composerAccounts.find((account) => account.id === accountId) ?? selectedComposerAccount;
+      const request: EnqueueOutboxMessageRequest = {
+        accountId,
+        from: { name: fromAccount.displayName, email: fromAccount.email },
+        to: toMailAddresses(draft.to),
+        cc: toMailAddresses(draft.cc),
+        bcc: toMailAddresses(draft.bcc),
+        replyTo: null,
+        subject: draft.subject,
+        htmlBody: draft.body.trim().startsWith('<') ? draft.body : toSafeHtml(draft.body),
+        plainBody: htmlToPlainText(draft.body),
+        inReplyTo: draft.inReplyTo,
+        references: draft.references,
+        attachments: await toMimeAttachments(draft.attachments)
+      };
+
+      if (!tauriRuntime.isAvailable()) {
+        setLocalScheduledSends((current) => [
+          ...current,
+          {
+            id: `sched_${Date.now()}`,
+            accountId,
+            mimeMessage: request,
+            sendAt
+          }
+        ]);
+      } else {
+        await api.scheduled.schedule({
+          ...request,
+          sendAt
+        });
+      }
+
+      const successMessage = `Scheduled for ${new Date(sendAt).toLocaleString()}`;
+      setOutboxStatus(successMessage);
+      setComposerToast({ kind: 'success', message: successMessage });
+      return true;
+    } catch (error) {
+      const errorMessage = `Could not schedule message: ${toErrorMessage(error)}`;
+      setOutboxStatus(errorMessage);
+      setComposerToast({ kind: 'error', message: errorMessage });
+      return false;
+    }
+  };
   const applyFlushReport = (report: OutboxSendReport) => {
     setQueuedOutboxMessages((current) => {
       const sentMessages = current.slice(0, report.sent);
@@ -624,6 +687,65 @@ const MailShell = () => {
       setComposerToast({ kind: 'error', message: errorMessage });
     }
   };
+
+  useEffect(() => {
+    if (tauriRuntime.isAvailable() || localScheduledSends.length === 0) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      const dueSends = localScheduledSends.filter((scheduledSend) => new Date(scheduledSend.sendAt).getTime() <= now);
+
+      if (dueSends.length === 0) {
+        return;
+      }
+
+      setLocalScheduledSends((current) =>
+        current.filter((scheduledSend) => new Date(scheduledSend.sendAt).getTime() > now)
+      );
+      setLocalSentThreadRecords((existing) => [
+        ...dueSends.map((scheduledSend, index) =>
+          toLocalSentThreadRecord({
+            id: `scheduled_${scheduledSend.id}_${index}`,
+            accountId: scheduledSend.accountId,
+            mimeMessage: scheduledSend.mimeMessage,
+            status: 'sent',
+            retryCount: 0,
+            lastError: null,
+            queuedAt: scheduledSend.sendAt,
+            updatedAt: new Date().toISOString()
+          })
+        ),
+        ...existing
+      ]);
+      setOutboxStatus(`Sent ${dueSends.length} scheduled message${dueSends.length === 1 ? '' : 's'}`);
+      setComposerToast({
+        kind: 'success',
+        message: `Scheduled send delivered: ${dueSends[0]?.mimeMessage.subject.trim() || '(no subject)'}`
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [localScheduledSends]);
+
+  useTauriEvent<DomainEvent>(
+    'domain:event',
+    (event) => {
+      if (event.type !== 'scheduled-send-processed') {
+        return;
+      }
+
+      const message = event.success
+        ? `Scheduled send delivered: ${event.subject.trim() || '(no subject)'}`
+        : `Scheduled send failed: ${event.errorMessage ?? event.subject}`;
+      setOutboxStatus(message);
+      setComposerToast({ kind: event.success ? 'success' : 'error', message });
+    },
+    { enabled: tauriRuntime.isAvailable() }
+  );
   const getFolderRouteSegment = (folderIdToRoute: string) => {
     const folder = mailbox?.folders.find((candidate) => candidate.id === folderIdToRoute);
     return folder?.role ?? folder?.id ?? folderIdToRoute;
@@ -828,6 +950,7 @@ const MailShell = () => {
       onOpenExternalLink={handleOpenExternalLink}
       onDownloadAttachment={handleDownloadAttachment}
       resolveInlineImageUrl={resolveInlineImageUrl}
+      onScheduleDraft={handleScheduleDraft}
       onSendDraft={handleSendDraft}
       onFlushOutbox={handleFlushOutbox}
     />

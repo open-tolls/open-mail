@@ -70,6 +70,7 @@ type ShellFrameProps = {
   onOpenExternalLink: (url: string) => void;
   onDownloadAttachment: (attachment: AttachmentRecord) => void;
   resolveInlineImageUrl: (localPath: string) => string;
+  onScheduleDraft: (draft: ComposerDraft, sendAt: string) => Promise<boolean>;
   onSendDraft: (draft: ComposerDraft) => Promise<boolean>;
   onFlushOutbox: () => Promise<void>;
 };
@@ -112,6 +113,7 @@ export const ShellFrame = ({
   onOpenExternalLink,
   onDownloadAttachment,
   resolveInlineImageUrl,
+  onScheduleDraft,
   onSendDraft,
   onFlushOutbox
 }: ShellFrameProps) => {
@@ -603,6 +605,20 @@ export const ShellFrame = ({
             }}
             onDraftChange={setComposerLiveDraft}
             onFlushOutbox={onFlushOutbox}
+            onSchedule={async (draft, sendAt) => {
+              const didSchedule = await onScheduleDraft(draft, sendAt);
+              if (didSchedule) {
+                if (composerDraftId) {
+                  removeDraft(composerDraftId);
+                  void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
+                    setShortcutStatusLabel('Scheduled message, but draft cleanup stayed local');
+                  });
+                }
+                selectDraft(null);
+                resetComposerState();
+              }
+              return didSchedule;
+            }}
             onSend={async (draft) => {
               const didQueue = await onSendDraft(draft);
               if (didQueue) {

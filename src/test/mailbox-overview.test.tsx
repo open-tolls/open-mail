@@ -630,6 +630,31 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Sent');
   });
 
+  it('schedules a local message from the shell and surfaces scheduled status', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Scheduled follow-up' } });
+    fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'release@example.com' } });
+    fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+    fireEvent.change(screen.getByLabelText('Pick send later date and time'), {
+      target: { value: '2026-05-04T09:01' }
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Schedule custom time' }));
+      await Promise.resolve();
+    });
+
+    expect(screen.getAllByText(/Scheduled for/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent(/Scheduled for/i);
+  });
+
   it('restores a locally autosaved draft when reopening the composer', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

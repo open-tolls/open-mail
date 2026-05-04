@@ -11,6 +11,7 @@ use crate::{
         folder::{Folder, FolderRole},
         message::Message,
         outbox::{OutboxMessage, OutboxStatus},
+        scheduled_send::{ScheduledSend, ScheduledSendStatus},
         signature::Signature,
         snooze::SnoozedThread,
         thread::Thread,
@@ -42,6 +43,24 @@ pub struct EnqueueOutboxMessageRequest {
     pub in_reply_to: Option<String>,
     pub references: Vec<String>,
     pub attachments: Vec<MimeAttachment>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleSendRequest {
+    pub account_id: String,
+    pub from: MailAddress,
+    pub to: Vec<MailAddress>,
+    pub cc: Vec<MailAddress>,
+    pub bcc: Vec<MailAddress>,
+    pub reply_to: Option<MailAddress>,
+    pub subject: String,
+    pub html_body: String,
+    pub plain_body: Option<String>,
+    pub in_reply_to: Option<String>,
+    pub references: Vec<String>,
+    pub attachments: Vec<MimeAttachment>,
+    pub send_at: String,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -120,6 +139,21 @@ fn thread_search_seed(parsed: &ParsedThreadSearch) -> String {
         .map(escape_fts_term)
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn build_outbox_message(account_id: String, mime_message: MimeMessage) -> OutboxMessage {
+    let now = chrono::Utc::now();
+
+    OutboxMessage {
+        id: format!("out_{}", Uuid::new_v4()),
+        account_id,
+        mime_message,
+        status: OutboxStatus::Queued,
+        retry_count: 0,
+        last_error: None,
+        queued_at: now,
+        updated_at: now,
+    }
 }
 
 fn parse_thread_search_date(
@@ -1001,9 +1035,54 @@ async fn enqueue_outbox_message_for_state(
         .map_err(|error| error.to_string())?
         .ok_or_else(|| format!("account not found: {}", request.account_id))?;
 
+    let outbox_message = build_outbox_message(
+        request.account_id,
+        MimeMessage {
+            from: request.from,
+            to: request.to,
+            cc: request.cc,
+            bcc: request.bcc,
+            reply_to: request.reply_to,
+            subject: request.subject,
+            html_body: request.html_body,
+            plain_body: request.plain_body,
+            in_reply_to: request.in_reply_to,
+            references: request.references,
+            attachments: request.attachments,
+        },
+    );
+
+    state
+        .outbox_repo
+        .save(&outbox_message)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    Ok(outbox_message)
+}
+
+async fn schedule_send_for_state(
+    state: &AppState,
+    request: ScheduleSendRequest,
+) -> Result<ScheduledSend, String> {
+    state
+        .account_repo
+        .find_by_id(&request.account_id)
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("account not found: {}", request.account_id))?;
+
     let now = chrono::Utc::now();
-    let outbox_message = OutboxMessage {
-        id: format!("out_{}", Uuid::new_v4()),
+    let send_at = chrono::DateTime::parse_from_rfc3339(&request.send_at)
+        .map_err(|error| error.to_string())?
+        .with_timezone(&chrono::Utc);
+
+    if send_at <= now {
+        return Err("send_at must be in the future".into());
+    }
+
+    let scheduled_send = ScheduledSend {
+        id: format!("sched_{}", Uuid::new_v4()),
         account_id: request.account_id,
         mime_message: MimeMessage {
             from: request.from,
@@ -1018,20 +1097,108 @@ async fn enqueue_outbox_message_for_state(
             references: request.references,
             attachments: request.attachments,
         },
-        status: OutboxStatus::Queued,
-        retry_count: 0,
+        send_at,
+        status: ScheduledSendStatus::Pending,
         last_error: None,
-        queued_at: now,
+        sent_at: None,
+        created_at: now,
         updated_at: now,
     };
 
     state
-        .outbox_repo
-        .save(&outbox_message)
+        .scheduled_send_repo
+        .save(&scheduled_send)
         .await
         .map_err(|error| error.to_string())?;
 
-    Ok(outbox_message)
+    Ok(scheduled_send)
+}
+
+async fn cancel_scheduled_send_for_state(
+    state: &AppState,
+    scheduled_send_id: &str,
+) -> Result<(), String> {
+    let Some(mut scheduled_send) = state
+        .scheduled_send_repo
+        .find_by_id(scheduled_send_id)
+        .await
+        .map_err(|error| error.to_string())?
+    else {
+        return Err(format!("scheduled send not found: {scheduled_send_id}"));
+    };
+
+    scheduled_send.status = ScheduledSendStatus::Cancelled;
+    scheduled_send.updated_at = chrono::Utc::now();
+
+    state
+        .scheduled_send_repo
+        .save(&scheduled_send)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn list_scheduled_sends_for_state(
+    state: &AppState,
+    account_id: &str,
+) -> Result<Vec<ScheduledSend>, String> {
+    state
+        .scheduled_send_repo
+        .find_by_status(account_id, ScheduledSendStatus::Pending)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+pub(crate) async fn process_due_scheduled_sends_for_state(
+    state: &AppState,
+) -> Result<Vec<ScheduledSend>, String> {
+    let due_sends = state
+        .scheduled_send_repo
+        .find_due(chrono::Utc::now())
+        .await
+        .map_err(|error| error.to_string())?;
+    let mut processed_sends = Vec::new();
+
+    for mut scheduled_send in due_sends {
+        scheduled_send.status = ScheduledSendStatus::Sending;
+        scheduled_send.updated_at = chrono::Utc::now();
+        state
+            .scheduled_send_repo
+            .save(&scheduled_send)
+            .await
+            .map_err(|error| error.to_string())?;
+
+        let outbox_message = build_outbox_message(
+            scheduled_send.account_id.clone(),
+            scheduled_send.mime_message.clone(),
+        );
+        state
+            .outbox_repo
+            .save(&outbox_message)
+            .await
+            .map_err(|error| error.to_string())?;
+
+        match flush_outbox_for_state(state, &scheduled_send.account_id).await {
+            Ok(_) => {
+                scheduled_send.status = ScheduledSendStatus::Sent;
+                scheduled_send.last_error = None;
+                scheduled_send.sent_at = Some(chrono::Utc::now());
+            }
+            Err(error) => {
+                scheduled_send.status = ScheduledSendStatus::Failed;
+                scheduled_send.last_error = Some(error);
+            }
+        }
+
+        scheduled_send.updated_at = chrono::Utc::now();
+        state
+            .scheduled_send_repo
+            .save(&scheduled_send)
+            .await
+            .map_err(|error| error.to_string())?;
+        processed_sends.push(scheduled_send);
+    }
+
+    Ok(processed_sends)
 }
 
 async fn flush_outbox_for_state(
@@ -1625,6 +1792,30 @@ pub async fn flush_outbox(
 }
 
 #[tauri::command]
+pub async fn schedule_send(
+    state: State<'_, AppState>,
+    request: ScheduleSendRequest,
+) -> Result<ScheduledSend, String> {
+    schedule_send_for_state(&state, request).await
+}
+
+#[tauri::command]
+pub async fn cancel_scheduled_send(
+    state: State<'_, AppState>,
+    scheduled_send_id: String,
+) -> Result<(), String> {
+    cancel_scheduled_send_for_state(&state, &scheduled_send_id).await
+}
+
+#[tauri::command]
+pub async fn list_scheduled_sends(
+    state: State<'_, AppState>,
+    account_id: String,
+) -> Result<Vec<ScheduledSend>, String> {
+    list_scheduled_sends_for_state(&state, &account_id).await
+}
+
+#[tauri::command]
 pub async fn save_account_credentials(
     state: State<'_, AppState>,
     request: SaveAccountCredentialsRequest,
@@ -2049,15 +2240,15 @@ mod tests {
         enqueue_outbox_message_for_state, flush_outbox_for_state, force_sync_for_state,
         get_config_for_state, get_message_for_state, get_sync_status_detail_for_state,
         get_sync_status_for_state, list_drafts_for_state, list_folders_for_state,
-        list_messages_for_state, list_snoozed_for_state, list_threads_for_state,
+        list_messages_for_state, list_scheduled_sends_for_state, list_snoozed_for_state, list_threads_for_state,
         mailbox_overview_for_state, mark_messages_read_for_state, remove_account_for_state,
-        save_draft_for_state, search_threads_for_state, seed_demo_data,
+        save_draft_for_state, schedule_send_for_state, cancel_scheduled_send_for_state, process_due_scheduled_sends_for_state, search_threads_for_state, seed_demo_data,
         snooze_thread_for_state, start_sync_for_state, stop_sync_for_state,
         test_imap_connection_for_state, test_smtp_connection_for_state, update_config_for_state,
         unsnooze_thread_for_state, validate_external_url, AddAccountRequest,
         BuildOAuthAuthorizationUrlRequest, CompleteOAuthAccountRequest,
         ConnectionCredentialsRequest, EnqueueOutboxMessageRequest, SaveDraftRequest,
-        SnoozeThreadRequest, TestMailConnectionRequest, SNOOZED_FOLDER_ID,
+        ScheduleSendRequest, SnoozeThreadRequest, TestMailConnectionRequest, SNOOZED_FOLDER_ID,
         wake_due_snoozed_threads_for_state,
     };
     use crate::{
@@ -2065,10 +2256,11 @@ mod tests {
             account::{AccountProvider, SyncState},
             config::AppConfig,
             outbox::OutboxStatus,
+            scheduled_send::ScheduledSendStatus,
         },
         domain::repositories::{
             AccountRepository, ConfigRepository, FolderRepository, MessageRepository,
-            OutboxRepository, SignatureRepository, SnoozeRepository, SyncCursorRepository, ThreadRepository,
+            OutboxRepository, ScheduledSendRepository, SignatureRepository, SnoozeRepository, SyncCursorRepository, ThreadRepository,
         },
         infrastructure::{
             database::{
@@ -2078,6 +2270,7 @@ mod tests {
                     folder_repository::SqliteFolderRepository,
                     message_repository::SqliteMessageRepository,
                     outbox_repository::SqliteOutboxRepository,
+                    scheduled_send_repository::SqliteScheduledSendRepository,
                     signature_repository::SqliteSignatureRepository,
                     snooze_repository::SqliteSnoozeRepository,
                     sync_cursor_repository::SqliteSyncCursorRepository,
@@ -2116,6 +2309,8 @@ mod tests {
             Arc::new(SqliteOutboxRepository::new(db.clone()));
         let signature_repo: Arc<dyn SignatureRepository> =
             Arc::new(SqliteSignatureRepository::new(db.clone()));
+        let scheduled_send_repo: Arc<dyn ScheduledSendRepository> =
+            Arc::new(SqliteScheduledSendRepository::new(db.clone()));
         let config_repo: Arc<dyn ConfigRepository> =
             Arc::new(SqliteConfigRepository::new(db.clone()));
         let snooze_repo: Arc<dyn SnoozeRepository> =
@@ -2138,6 +2333,7 @@ mod tests {
             message_repo,
             outbox_repo,
             signature_repo,
+            scheduled_send_repo,
             config_repo,
             snooze_repo,
             minimize_to_tray: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -2154,6 +2350,24 @@ mod tests {
         MailAddress {
             name: None,
             email: email.into(),
+        }
+    }
+
+    fn schedule_send_request(send_at: chrono::DateTime<chrono::Utc>) -> ScheduleSendRequest {
+        ScheduleSendRequest {
+            account_id: "acc_demo".into(),
+            from: mail_address("leco@example.com"),
+            to: vec![mail_address("team@example.com")],
+            cc: vec![],
+            bcc: vec![],
+            reply_to: None,
+            subject: "Scheduled desktop alpha".into(),
+            html_body: "<p>Ready later</p>".into(),
+            plain_body: Some("Ready later".into()),
+            in_reply_to: None,
+            references: vec![],
+            attachments: vec![],
+            send_at: send_at.to_rfc3339(),
         }
     }
 
@@ -2677,6 +2891,107 @@ mod tests {
         assert_eq!(report.sent, 1);
         assert_eq!(report.failed, 0);
         assert_eq!(persisted.status, OutboxStatus::Sent);
+    }
+
+    #[tokio::test]
+    async fn schedule_send_command_persists_pending_message() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        let scheduled = schedule_send_for_state(
+            &state,
+            schedule_send_request(chrono::Utc::now() + chrono::Duration::hours(2)),
+        )
+        .await
+        .unwrap();
+
+        let persisted = state
+            .scheduled_send_repo
+            .find_by_id(&scheduled.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let pending = list_scheduled_sends_for_state(&state, "acc_demo")
+            .await
+            .unwrap();
+
+        assert_eq!(persisted.status, ScheduledSendStatus::Pending);
+        assert_eq!(persisted.mime_message.subject, "Scheduled desktop alpha");
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].id, scheduled.id);
+    }
+
+    #[tokio::test]
+    async fn cancel_scheduled_send_command_marks_item_cancelled() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        let scheduled = schedule_send_for_state(
+            &state,
+            schedule_send_request(chrono::Utc::now() + chrono::Duration::hours(2)),
+        )
+        .await
+        .unwrap();
+
+        cancel_scheduled_send_for_state(&state, &scheduled.id)
+            .await
+            .unwrap();
+
+        let persisted = state
+            .scheduled_send_repo
+            .find_by_id(&scheduled.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let pending = list_scheduled_sends_for_state(&state, "acc_demo")
+            .await
+            .unwrap();
+
+        assert_eq!(persisted.status, ScheduledSendStatus::Cancelled);
+        assert!(pending.is_empty());
+    }
+
+    #[tokio::test]
+    async fn process_due_scheduled_sends_moves_due_message_through_outbox() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+
+        let scheduled = schedule_send_for_state(
+            &state,
+            schedule_send_request(chrono::Utc::now() + chrono::Duration::hours(2)),
+        )
+        .await
+        .unwrap();
+        let mut persisted = state
+            .scheduled_send_repo
+            .find_by_id(&scheduled.id)
+            .await
+            .unwrap()
+            .unwrap();
+        persisted.send_at = chrono::Utc::now() - chrono::Duration::minutes(1);
+        state.scheduled_send_repo.save(&persisted).await.unwrap();
+
+        let processed = process_due_scheduled_sends_for_state(&state)
+            .await
+            .unwrap();
+        let updated = state
+            .scheduled_send_repo
+            .find_by_id(&scheduled.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let sent_outbox = state
+            .outbox_repo
+            .find_by_status("acc_demo", OutboxStatus::Sent)
+            .await
+            .unwrap();
+
+        assert_eq!(processed.len(), 1);
+        assert_eq!(processed[0].id, scheduled.id);
+        assert_eq!(updated.status, ScheduledSendStatus::Sent);
+        assert!(updated.sent_at.is_some());
+        assert_eq!(sent_outbox.len(), 1);
+        assert_eq!(sent_outbox[0].mime_message.subject, "Scheduled desktop alpha");
     }
 
     #[tokio::test]

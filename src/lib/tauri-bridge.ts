@@ -14,6 +14,8 @@ import type {
   OAuthAuthorizationRequest,
   OutboxMessage,
   OutboxSendReport,
+  ScheduledSendRecord,
+  ScheduleSendRequest,
   SnoozeThreadRequest,
   SignatureRecord,
   SignatureSettings,
@@ -73,6 +75,14 @@ export const api = {
       invokeOrThrow<OutboxMessage>('enqueue_outbox_message', { request }),
     flush: (accountId: string) =>
       invokeOrThrow<OutboxSendReport>('flush_outbox', { accountId })
+  },
+  scheduled: {
+    list: (accountId: string) =>
+      invokeOrThrow<ScheduledSendRecord[]>('list_scheduled_sends', { accountId }),
+    schedule: (request: ScheduleSendRequest) =>
+      invokeOrThrow<ScheduledSendRecord>('schedule_send', { request }),
+    cancel: (scheduledSendId: string) =>
+      invokeOrThrow<void>('cancel_scheduled_send', { scheduledSendId })
   },
   credentials: {
     saveAccountPassword: (accountId: string, username: string, password: string) =>
