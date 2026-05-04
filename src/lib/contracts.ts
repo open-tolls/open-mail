@@ -100,6 +100,7 @@ export type SyncStatusDetail = {
 export type DomainEvent =
   | { type: 'application-started' }
   | { type: 'threads-changed'; accountId: string; threadIds: string[] }
+  | { type: 'snooze-woke'; accountId: string; threadId: string }
   | { type: 'messages-changed'; accountId: string; messageIds: string[] }
   | { type: 'folders-changed'; accountId: string }
   | { type: 'labels-changed'; accountId: string }

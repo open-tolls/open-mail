@@ -19,6 +19,23 @@ describe('query event invalidation', () => {
     ]);
   });
 
+  it('invalidates mailbox and thread queries when a snoozed thread wakes up', () => {
+    const keys = getInvalidationKeysForDomainEvent({
+      type: 'snooze-woke',
+      accountId: 'acc_1',
+      threadId: 'thr_1'
+    });
+
+    expect(keys).toEqual([
+      ['mailbox-overview'],
+      ['sync-status-detail'],
+      ['folder-threads'],
+      ['search-threads'],
+      ['thread-messages'],
+      ['message-detail']
+    ]);
+  });
+
   it('keeps sync status changes scoped to mailbox overview', () => {
     const keys = getInvalidationKeysForDomainEvent({
       type: 'sync-status-changed',

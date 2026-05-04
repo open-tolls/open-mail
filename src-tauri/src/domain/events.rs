@@ -16,6 +16,10 @@ pub enum DomainEvent {
         account_id: String,
         thread_ids: Vec<String>,
     },
+    SnoozeWoke {
+        account_id: String,
+        thread_id: String,
+    },
     MessagesChanged {
         account_id: String,
         message_ids: Vec<String>,

@@ -121,6 +121,15 @@ fn spawn_snooze_wakeup_loop<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
             }
 
             for (account_id, thread_ids) in thread_ids_by_account {
+                for thread_id in &thread_ids {
+                    let _ = app.emit(
+                        "domain:event",
+                        DomainEvent::SnoozeWoke {
+                            account_id: account_id.clone(),
+                            thread_id: thread_id.clone(),
+                        },
+                    );
+                }
                 let _ = app.emit(
                     "domain:event",
                     DomainEvent::ThreadsChanged {

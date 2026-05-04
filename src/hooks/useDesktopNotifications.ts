@@ -42,11 +42,40 @@ export const useDesktopNotifications = ({ onOpenMessage }: UseDesktopNotificatio
 
   const handleDomainEvent = useCallback(
     async (event: DomainEvent) => {
-      if (event.type !== 'messages-changed' || event.messageIds.length === 0) {
+      if (isWithinQuietHours(new Date(), quietHoursStart, quietHoursEnd)) {
         return;
       }
 
-      if (isWithinQuietHours(new Date(), quietHoursStart, quietHoursEnd)) {
+      if (event.type === 'snooze-woke') {
+        let permissionGranted = await isPermissionGranted();
+        if (!permissionGranted) {
+          permissionGranted = (await requestPermission()) === 'granted';
+        }
+
+        if (!permissionGranted) {
+          return;
+        }
+
+        const folders = await api.mailbox.listFolders(event.accountId);
+        const messages = await api.messages.listByThread(event.threadId);
+        const latestMessage = [...messages]
+          .filter((message) => !message.is_draft)
+          .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())[0];
+
+        if (!latestMessage) {
+          return;
+        }
+
+        sendNotification({
+          title: `Snooze ended: ${latestMessage.subject.trim() || 'Untitled thread'}`,
+          body: toNotificationBody(latestMessage),
+          autoCancel: true,
+          extra: toNotificationTarget(latestMessage, folders)
+        });
+        return;
+      }
+
+      if (event.type !== 'messages-changed' || event.messageIds.length === 0) {
         return;
       }
 
