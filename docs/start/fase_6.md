@@ -493,7 +493,7 @@ fn setup_tray(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 - [x] System tray
 - [x] Launch at login
 - [x] Testes passando
-- [ ] CI green
+- [x] CI green
 
 ---
 
