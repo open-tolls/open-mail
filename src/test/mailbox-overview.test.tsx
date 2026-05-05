@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '@/App';
@@ -8,8 +8,29 @@ import { useShortcutStore } from '@stores/useShortcutStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
 
 describe('mailbox overview integration', () => {
+  beforeEach(() => {
+    const print = vi.fn();
+    const focus = vi.fn();
+    const close = vi.fn();
+    const document = {
+      open: vi.fn(),
+      write: vi.fn(),
+      close: vi.fn()
+    };
+
+    vi.spyOn(window, 'open').mockImplementation(() =>
+      ({
+        print,
+        focus,
+        close,
+        document
+      }) as unknown as Window
+    );
+  });
+
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('renders mailbox data in the shell', async () => {
@@ -826,5 +847,25 @@ describe('mailbox overview integration', () => {
     expect(within(composer).getByRole('button', { name: 'Show quoted text' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('Forwarded message');
     expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('From: Atlas Design');
+  });
+
+  it('opens a clean print dialog from the reader action and the keyboard shortcut', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+
+    expect(window.open).toHaveBeenCalledTimes(1);
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Print dialog opened');
+
+    fireEvent.keyDown(window, { key: 'p', metaKey: true });
+
+    expect(window.open).toHaveBeenCalledTimes(2);
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Print dialog opened');
   });
 });

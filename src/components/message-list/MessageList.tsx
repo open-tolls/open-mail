@@ -11,6 +11,7 @@ type MessageListProps = {
   threadSubject: string;
   onDownloadAttachment?: (attachment: AttachmentRecord) => void;
   onForward?: (message: MessageRecord) => void;
+  onPrint?: (message: MessageRecord) => void;
   onReply?: (message: MessageRecord) => void;
   onReplyAll?: (message: MessageRecord) => void;
   onSelectMessage: (messageId: string) => void;
@@ -25,6 +26,7 @@ export const MessageList = ({
   threadSubject,
   onDownloadAttachment,
   onForward,
+  onPrint,
   onReply,
   onReplyAll,
   onSelectMessage,
@@ -54,6 +56,7 @@ export const MessageList = ({
             onDownloadAttachment={onDownloadAttachment}
             onForward={onForward}
             onOpenExternalLink={onOpenExternalLink}
+            onPrint={onPrint}
             onReply={onReply}
             onReplyAll={onReplyAll}
             onSelectMessage={onSelectMessage}

@@ -562,11 +562,13 @@ pub async fn print_message(
 - Preview antes de imprimir
 - Atalho: `Cmd+P`
 
+**Status atual:** primeiro corte entregue, com acao `Print` no reader, atalho `Cmd+P`, geracao de HTML dedicado para impressao sem UI do app, headers principais incluidos e lista de attachments no rodape do documento.
+
 **Criterio de aceite:**
-- [ ] Print dialog nativo abre
-- [ ] HTML formatado para impressao (limpo, sem UI)
-- [ ] Headers do email incluidos (From, To, Date, Subject)
-- [ ] Attachments listados (nao impressos)
+- [x] Print dialog nativo abre
+- [x] HTML formatado para impressao (limpo, sem UI)
+- [x] Headers do email incluidos (From, To, Date, Subject)
+- [x] Attachments listados (nao impressos)
 
 ---
 
@@ -630,13 +632,13 @@ pub enum ReminderStatus {
 ## Checklist Final da Fase 7
 
 - [x] Snooze funcional (snooze, wake-up, notifications)
-- [ ] Send Later funcional (schedule, auto-send, cancel)
+- [x] Send Later funcional (schedule, auto-send, cancel)
 - [x] Templates CRUD + aplicacao no composer
 - [x] Mail Rules builder + auto-processamento
 - [x] Contacts manager com busca e historico
-- [ ] Phishing detection com warnings visuais
-- [ ] List-Unsubscribe funcional
-- [ ] Print com formatacao limpa
+- [x] Phishing detection com warnings visuais
+- [x] List-Unsubscribe funcional
+- [x] Print com formatacao limpa
 - [ ] Send Reminders com auto-cancel
 - [ ] Background services rodando (snooze loop, send later loop, reminder loop)
 - [x] Testes passando

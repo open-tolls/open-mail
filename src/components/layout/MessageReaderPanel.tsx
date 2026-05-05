@@ -11,6 +11,7 @@ type MessageReaderPanelProps = {
   selectedThread: ThreadSummary | null;
   onForwardMessage: (message: MessageRecord) => void;
   onOpenExternalLink: (url: string) => void;
+  onPrintMessage: (message: MessageRecord) => void;
   onReplyAllMessage: (message: MessageRecord) => void;
   onReplyMessage: (message: MessageRecord) => void;
   onSelectMessage: (messageId: string) => void;
@@ -26,6 +27,7 @@ export const MessageReaderPanel = ({
   selectedThread,
   onForwardMessage,
   onOpenExternalLink,
+  onPrintMessage,
   onReplyAllMessage,
   onReplyMessage,
   onSelectMessage,
@@ -56,6 +58,7 @@ export const MessageReaderPanel = ({
           threadSubject={selectedThread.subject}
           onForward={onForwardMessage}
           onOpenExternalLink={onOpenExternalLink}
+          onPrint={onPrintMessage}
           onReply={onReplyMessage}
           onReplyAll={onReplyAllMessage}
           onSelectMessage={onSelectMessage}

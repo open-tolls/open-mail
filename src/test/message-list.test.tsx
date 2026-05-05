@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MessageList } from '@components/message-list/MessageList';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, ContactRecord, MessageRecord } from '@lib/contracts';
+import { buildPrintableMessageHtml } from '@lib/message-print';
 
 const contact = (id: string, email: string, name: string | null = null): ContactRecord => ({
   id,
@@ -250,6 +251,47 @@ describe('MessageList', () => {
       'https://cdn.example.com/chart.png'
     );
     expect(screen.queryByRole('img', { name: 'tracking pixel' })).not.toBeInTheDocument();
+  });
+
+  it('renders clean printable HTML with headers and attachments', () => {
+    const html = buildPrintableMessageHtml(
+      makeMessage({
+        subject: 'Print-ready thread',
+        body: '<p>Hello print</p><script>alert("xss")</script>',
+        attachments: [
+          makeAttachment({
+            filename: 'brief.pdf',
+            size: 4096,
+            is_inline: false,
+            content_id: null
+          })
+        ]
+      })
+    );
+
+    expect(html).toContain('Print-ready thread');
+    expect(html).toContain('Message headers');
+    expect(html).toContain('brief.pdf');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('Attachments');
+  });
+
+  it('offers a print action in the message reader', async () => {
+    const onPrint = vi.fn();
+
+    render(
+      <MessageList
+        messages={[makeMessage({ id: 'msg_print_action' })]}
+        selectedMessageId="msg_print_action"
+        threadSubject="Thread subject"
+        onPrint={onPrint}
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+
+    expect(onPrint).toHaveBeenCalledWith(expect.objectContaining({ id: 'msg_print_action' }));
   });
 
   it('renders inline CID images from matching inline attachments', () => {

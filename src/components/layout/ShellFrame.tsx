@@ -11,6 +11,7 @@ import { useDraftAutoSave } from '@hooks/useDraftAutoSave';
 import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboardShortcuts';
 import { prepareForwardDraft, prepareReplyDraft } from '@lib/compose-utils';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
+import { printMessage } from '@lib/message-print';
 import { tauriRuntime } from '@lib/tauri-bridge';
 import type { AttachmentRecord, FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 import { applySignatureHtml } from '@lib/signature-utils';
@@ -394,6 +395,10 @@ export const ShellFrame = ({
     openComposerWithDraft(prepareForwardDraft(message));
     setShortcutStatusLabel('Forward draft ready');
   }, [openComposerWithDraft]);
+  const handlePrintMessage = useCallback((message: MessageRecord) => {
+    const opened = printMessage(message);
+    setShortcutStatusLabel(opened ? 'Print dialog opened' : 'Print dialog blocked');
+  }, []);
   const reportThreadShortcut = useCallback((label: string) => {
     setShortcutStatusLabel(
       selectedThread ? `${label}: ${selectedThread.subject}` : `${label}: no thread selected`
@@ -448,6 +453,14 @@ export const ShellFrame = ({
       'thread.label': () => openSelectedThreadDialog('label', 'Label shortcut opened'),
       'thread.move': () => openSelectedThreadDialog('move', 'Move shortcut opened'),
       'thread.next': () => selectThreadByOffset(1),
+      'thread.print': () => {
+        if (!activeMessage) {
+          reportThreadShortcut('Print shortcut queued');
+          return;
+        }
+
+        handlePrintMessage(activeMessage);
+      },
       'thread.prev': () => selectThreadByOffset(-1),
       'thread.reply': () => {
         if (!activeMessage) {
@@ -485,6 +498,7 @@ export const ShellFrame = ({
   }, [
     activeMessage,
     handleForwardMessage,
+    handlePrintMessage,
     handleReplyMessage,
     openComposerWithDraft,
     openSelectedThreadDialog,
@@ -748,6 +762,7 @@ export const ShellFrame = ({
             selectedThread={isScheduledFolder ? null : selectedThread}
             onForwardMessage={handleForwardMessage}
             onOpenExternalLink={onOpenExternalLink}
+            onPrintMessage={handlePrintMessage}
             onReplyAllMessage={(message) => handleReplyMessage(message, true)}
             onReplyMessage={(message) => handleReplyMessage(message, false)}
             onSelectMessage={onSelectMessage}

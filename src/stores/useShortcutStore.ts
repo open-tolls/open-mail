@@ -17,6 +17,7 @@ export type ShortcutAction =
   | 'thread.label'
   | 'thread.move'
   | 'thread.next'
+  | 'thread.print'
   | 'thread.prev'
   | 'thread.reply'
   | 'thread.replyAll'
@@ -43,6 +44,7 @@ export const defaultShortcutBindings: ShortcutBindings = {
   'thread.label': 'l',
   'thread.move': 'v',
   'thread.next': 'j',
+  'thread.print': 'mod+p',
   'thread.prev': 'k',
   'thread.reply': 'r',
   'thread.replyAll': 'a',

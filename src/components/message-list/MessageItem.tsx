@@ -17,6 +17,7 @@ type MessageItemProps = {
   onDownloadAttachment?: (attachment: AttachmentRecord) => void;
   onOpenExternalLink?: (url: string) => void;
   onForward?: (message: MessageRecord) => void;
+  onPrint?: (message: MessageRecord) => void;
   onReply?: (message: MessageRecord) => void;
   onReplyAll?: (message: MessageRecord) => void;
   onSelectMessage: (messageId: string) => void;
@@ -31,6 +32,7 @@ export const MessageItem = ({
   onDownloadAttachment,
   onOpenExternalLink,
   onForward,
+  onPrint,
   onReply,
   onReplyAll,
   onSelectMessage,
@@ -80,6 +82,7 @@ export const MessageItem = ({
       ) : null}
       <MessageActions
         onForward={onForward ? () => onForward(message) : undefined}
+        onPrint={onPrint ? () => onPrint(message) : undefined}
         onReply={onReply ? () => onReply(message) : undefined}
         onReplyAll={onReplyAll ? () => onReplyAll(message) : undefined}
       />
