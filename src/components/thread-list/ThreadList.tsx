@@ -1,5 +1,5 @@
 import { type MouseEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, Clock3, MailOpen, Star, Trash2, Undo2 } from 'lucide-react';
+import { Archive, Clock3, MailOpen, Star, Trash2, Undo2, XCircle } from 'lucide-react';
 import type { ThreadSummary } from '@lib/contracts';
 import { ThreadListEmpty } from '@components/thread-list/ThreadListEmpty';
 import { ThreadListItem, type ThreadSelectEvent } from '@components/thread-list/ThreadListItem';
@@ -11,6 +11,7 @@ import { ContextMenu } from '@components/ui';
 type ThreadListProps = {
   activeFolderName: string | null;
   isSnoozedFolder?: boolean;
+  isScheduledFolder?: boolean;
   hasMore?: boolean;
   isLoading?: boolean;
   isSearchActive: boolean;
@@ -50,6 +51,7 @@ const threadContextActions: Array<{
 export const ThreadList = ({
   activeFolderName,
   isSnoozedFolder = false,
+  isScheduledFolder = false,
   hasMore = false,
   isLoading = false,
   isSearchActive,
@@ -179,6 +181,7 @@ export const ThreadList = ({
   return (
     <div className="thread-list-shell">
       <ThreadListToolbar
+        isScheduledFolder={isScheduledFolder}
         isSnoozedFolder={isSnoozedFolder}
         selectedCount={selectedIds.size}
         onAction={(action) => handleAction(action)}
@@ -221,9 +224,11 @@ export const ThreadList = ({
           onClick={(event) => event.stopPropagation()}
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          {(isSnoozedFolder
-            ? [{ action: 'unsnooze' as const, label: 'Unsnooze', icon: Undo2 }]
-            : threadContextActions
+          {(isScheduledFolder
+            ? [{ action: 'cancel-schedule' as const, label: 'Cancel schedule', icon: XCircle }]
+            : isSnoozedFolder
+              ? [{ action: 'unsnooze' as const, label: 'Unsnooze', icon: Undo2 }]
+              : threadContextActions
           ).map(({ action, icon: Icon, label }) => (
             <button
               className={action === 'trash' ? 'thread-context-menu-danger' : undefined}

@@ -32,6 +32,8 @@ const stripHtmlPreview = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const SCHEDULED_FOLDER_ID = 'fld_scheduled';
+
 type ShellFrameProps = {
   accounts: AccountRecord[];
   backendStatus: string;
@@ -43,6 +45,7 @@ type ShellFrameProps = {
   hasMoreThreads?: boolean;
   selectedThreadId: string | null;
   selectedThread: ThreadSummary | null;
+  scheduledThreads: ThreadSummary[];
   messages: MessageRecord[];
   selectedMessageId: string | null;
   syncStatusDetail: SyncStatusDetail | null;
@@ -63,6 +66,7 @@ type ShellFrameProps = {
   onMoveThreads: (threadIds: string[], folderId: string) => void;
   onSnoozeThreads: (threadIds: string[], until: string) => void;
   onUnsnoozeThreads: (threadIds: string[]) => void;
+  onCancelScheduledSends: (scheduledSendIds: string[]) => void;
   onThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   onSearchQueryChange: (query: string) => void;
   onSelectThread: (threadId: string) => void;
@@ -86,6 +90,7 @@ export const ShellFrame = ({
   hasMoreThreads = false,
   selectedThreadId,
   selectedThread,
+  scheduledThreads,
   messages,
   selectedMessageId,
   syncStatusDetail,
@@ -106,6 +111,7 @@ export const ShellFrame = ({
   onMoveThreads,
   onSnoozeThreads,
   onUnsnoozeThreads,
+  onCancelScheduledSends,
   onThreadAction,
   onSearchQueryChange,
   onSelectThread,
@@ -125,6 +131,7 @@ export const ShellFrame = ({
   const [composerLiveDraft, setComposerLiveDraft] = useState<ComposerDraft | null>(null);
   const [isResizingThreadPanel, setIsResizingThreadPanel] = useState(false);
   const [selectedDraftThreadId, setSelectedDraftThreadId] = useState<string | null>(null);
+  const [selectedScheduledThreadId, setSelectedScheduledThreadId] = useState<string | null>(null);
   const [shortcutStatusLabel, setShortcutStatusLabel] = useState<string | null>(null);
   const [threadDialogRequest, setThreadDialogRequest] = useState<ThreadDialogRequest | null>(null);
   const [visibleComposerToast, setVisibleComposerToast] = useState(composerToast);
@@ -191,8 +198,13 @@ export const ShellFrame = ({
     [accountId, drafts]
   );
   const isDraftsFolder = activeFolder?.role === 'drafts';
-  const visibleThreads = isDraftsFolder ? draftThreads : threads;
-  const visibleSelectedThreadId = isDraftsFolder ? selectedDraftThreadId : selectedThreadId;
+  const isScheduledFolder = activeFolder?.id === SCHEDULED_FOLDER_ID || activeFolder?.role === 'scheduled';
+  const visibleThreads = isDraftsFolder ? draftThreads : isScheduledFolder ? scheduledThreads : threads;
+  const visibleSelectedThreadId = isDraftsFolder
+    ? selectedDraftThreadId
+    : isScheduledFolder
+      ? selectedScheduledThreadId
+      : selectedThreadId;
   const resetComposerState = useCallback(() => {
     setIsComposerOpen(false);
     setComposerInitialDraft(undefined);
@@ -361,6 +373,18 @@ export const ShellFrame = ({
       current && draftThreads.some((draft) => draft.id === current) ? current : draftThreads[0]?.id ?? null
     );
   }, [draftThreads, isDraftsFolder]);
+  useEffect(() => {
+    if (!isScheduledFolder) {
+      setSelectedScheduledThreadId(null);
+      return;
+    }
+
+    setSelectedScheduledThreadId((current) =>
+      current && scheduledThreads.some((scheduledThread) => scheduledThread.id === current)
+        ? current
+        : scheduledThreads[0]?.id ?? null
+    );
+  }, [isScheduledFolder, scheduledThreads]);
   const handleForwardMessage = useCallback((message: MessageRecord) => {
     openComposerWithDraft(prepareForwardDraft(message));
     setShortcutStatusLabel('Forward draft ready');
@@ -655,7 +679,9 @@ export const ShellFrame = ({
             hasMore={hasMoreThreads}
             isSearchActive={isSearchActive}
             isLoading={isThreadsLoading}
+            isScheduledFolder={isScheduledFolder}
             onApplyLabels={onApplyLabels}
+            onCancelScheduledSends={onCancelScheduledSends}
             onLoadMore={onLoadMoreThreads}
             onMoveThreads={onMoveThreads}
             onSnoozeThreads={onSnoozeThreads}
@@ -674,6 +700,12 @@ export const ShellFrame = ({
                 setSelectedDraftThreadId(threadId);
                 openComposerFromSavedDraft(savedDraft);
                 setShortcutStatusLabel('Draft restored');
+                return;
+              }
+
+              if (isScheduledFolder) {
+                setSelectedScheduledThreadId(threadId);
+                setShortcutStatusLabel('Scheduled message selected');
                 return;
               }
 
@@ -696,10 +728,10 @@ export const ShellFrame = ({
           </button>
 
           <MessageReaderPanel
-            isMessagesLoading={isMessagesLoading}
-            messages={messages}
+            isMessagesLoading={isScheduledFolder ? false : isMessagesLoading}
+            messages={isScheduledFolder ? [] : messages}
             selectedMessageId={selectedMessageId}
-            selectedThread={selectedThread}
+            selectedThread={isScheduledFolder ? null : selectedThread}
             onForwardMessage={handleForwardMessage}
             onOpenExternalLink={onOpenExternalLink}
             onReplyAllMessage={(message) => handleReplyMessage(message, true)}

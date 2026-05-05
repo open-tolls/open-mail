@@ -1,16 +1,43 @@
-import { Archive, Clock3, FolderInput, MailOpen, Star, Tag, Trash2, Undo2 } from 'lucide-react';
+import { Archive, Clock3, FolderInput, MailOpen, Star, Tag, Trash2, Undo2, XCircle } from 'lucide-react';
 
-export type ThreadAction = 'archive' | 'trash' | 'toggle-read' | 'star' | 'move' | 'label' | 'snooze' | 'unsnooze';
+export type ThreadAction =
+  | 'archive'
+  | 'trash'
+  | 'toggle-read'
+  | 'star'
+  | 'move'
+  | 'label'
+  | 'snooze'
+  | 'unsnooze'
+  | 'cancel-schedule';
 
 type ThreadListToolbarProps = {
   isSnoozedFolder?: boolean;
+  isScheduledFolder?: boolean;
   selectedCount: number;
   onAction: (action: ThreadAction) => void;
 };
 
-export const ThreadListToolbar = ({ isSnoozedFolder = false, selectedCount, onAction }: ThreadListToolbarProps) => {
+export const ThreadListToolbar = ({
+  isSnoozedFolder = false,
+  isScheduledFolder = false,
+  selectedCount,
+  onAction
+}: ThreadListToolbarProps) => {
   if (!selectedCount) {
     return null;
+  }
+
+  if (isScheduledFolder) {
+    return (
+      <div className="thread-selection-toolbar" aria-label="Thread selection actions">
+        <strong>{selectedCount} selected</strong>
+        <button aria-label="Cancel selected scheduled messages" onClick={() => onAction('cancel-schedule')} type="button">
+          <XCircle size={15} />
+          Cancel schedule
+        </button>
+      </div>
+    );
   }
 
   return (

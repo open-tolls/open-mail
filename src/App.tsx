@@ -29,6 +29,7 @@ import type {
   EnqueueOutboxMessageRequest,
   OutboxMessage,
   OutboxSendReport,
+  ScheduledSendRecord,
   ThreadRecord
 } from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
@@ -53,18 +54,12 @@ const htmlEscapeMap: Record<string, string> = {
 };
 
 const SNOOZED_FOLDER_ID = 'fld_snoozed';
+const SCHEDULED_FOLDER_ID = 'fld_scheduled';
 
 type LocalSnoozeRecord = {
   accountId: string;
   originalFolderIds: string[];
   until: string;
-};
-
-type LocalScheduledSendRecord = {
-  id: string;
-  accountId: string;
-  mimeMessage: EnqueueOutboxMessageRequest;
-  sendAt: string;
 };
 
 const toSafeHtml = (value: string) =>
@@ -178,6 +173,23 @@ const toLocalSentThreadRecord = (message: OutboxMessage): ThreadRecord => {
   };
 };
 
+const formatScheduledSnippet = (scheduledSend: ScheduledSendRecord) => {
+  const recipientLabel = scheduledSend.mimeMessage.to.map((recipient) => recipient.email).join(', ') || 'No recipients';
+  return `Scheduled for ${new Date(scheduledSend.sendAt).toLocaleString()} · To ${recipientLabel}`;
+};
+
+const toScheduledThreadSummary = (scheduledSend: ScheduledSendRecord) => ({
+  id: scheduledSend.id,
+  subject: scheduledSend.mimeMessage.subject.trim() || '(no subject)',
+  snippet: formatScheduledSnippet(scheduledSend),
+  participants: scheduledSend.mimeMessage.to.map((recipient) => recipient.email),
+  isUnread: false,
+  isStarred: false,
+  hasAttachments: scheduledSend.mimeMessage.attachments.length > 0,
+  messageCount: 1,
+  lastMessageAt: scheduledSend.sendAt
+});
+
 const isInboxFolderId = (folderId: string) => folderId.toLowerCase().includes('inbox');
 
 const useApplySelectedTheme = () => {
@@ -213,7 +225,7 @@ const MailShell = () => {
   const [, setQueuedOutboxMessages] = useState<OutboxMessage[]>([]);
   const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
   const [localSnoozes, setLocalSnoozes] = useState<Record<string, LocalSnoozeRecord>>({});
-  const [localScheduledSends, setLocalScheduledSends] = useState<LocalScheduledSendRecord[]>([]);
+  const [scheduledSends, setScheduledSends] = useState<ScheduledSendRecord[]>([]);
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
   const selectAccount = useAccountStore((state) => state.selectAccount);
@@ -258,6 +270,10 @@ const MailShell = () => {
       return null;
     }
 
+    if (folderId === SNOOZED_FOLDER_ID || folderId === SCHEDULED_FOLDER_ID) {
+      return folderId;
+    }
+
     const normalizedFolderId = folderId.toLowerCase();
     return (
       mailbox.folders.find(
@@ -282,8 +298,16 @@ const MailShell = () => {
     [accounts, fallbackComposerAccount]
   );
   const selectedComposerAccount = composerAccounts.find((account) => account.id === selectedAccountId) ?? composerAccounts[0];
-  const selectedFolder = mailbox?.folders.find((folder) => folder.id === selectedFolderId) ?? null;
-  const isUnifiedInboxActive = composerAccounts.length > 1 && selectedFolder?.role === 'inbox';
+  const scheduledThreads = useMemo(
+    () =>
+      scheduledSends
+        .filter((scheduledSend) => scheduledSend.accountId === selectedComposerAccount.id)
+        .sort((first, second) => new Date(first.sendAt).getTime() - new Date(second.sendAt).getTime())
+        .map(toScheduledThreadSummary),
+    [scheduledSends, selectedComposerAccount.id]
+  );
+  const selectedMailboxFolder = mailbox?.folders.find((folder) => folder.id === selectedFolderId) ?? null;
+  const isUnifiedInboxActive = composerAccounts.length > 1 && selectedMailboxFolder?.role === 'inbox';
   const syncStatusMapQuery = useSyncStatusMap(composerAccounts.map((account) => account.id));
   const unreadBadgeCount = useMemo(
     () => (mailbox?.folders ?? []).reduce((total, folder) => total + folder.unread_count, 0),
@@ -328,18 +352,7 @@ const MailShell = () => {
             : folder
       );
       const snoozedCount = Object.keys(localSnoozes).length;
-
-      if (baseFolders.some((folder) => folder.id === SNOOZED_FOLDER_ID)) {
-        return baseFolders.map((folder) =>
-          folder.id === SNOOZED_FOLDER_ID
-            ? {
-                ...folder,
-                total_count: tauriRuntime.isAvailable() ? folder.total_count : snoozedCount,
-                unread_count: tauriRuntime.isAvailable() ? folder.unread_count : 0
-              }
-            : folder
-        );
-      }
+      const scheduledCount = scheduledSends.filter((scheduledSend) => scheduledSend.accountId === selectedComposerAccount.id).length;
 
       return [
         ...baseFolders,
@@ -348,9 +361,20 @@ const MailShell = () => {
           account_id: mailbox?.accountId ?? selectedComposerAccount.id,
           name: 'Snoozed',
           path: 'Snoozed',
-          role: null,
+          role: 'snoozed',
           unread_count: 0,
           total_count: snoozedCount,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        {
+          id: SCHEDULED_FOLDER_ID,
+          account_id: mailbox?.accountId ?? selectedComposerAccount.id,
+          name: 'Scheduled',
+          path: 'Scheduled',
+          role: 'scheduled',
+          unread_count: 0,
+          total_count: scheduledCount,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
@@ -363,6 +387,7 @@ const MailShell = () => {
       localSnoozes,
       mailbox?.folders,
       mailbox?.accountId,
+      scheduledSends,
       selectedComposerAccount.id,
       unifiedInboxQuery.data
     ]
@@ -373,6 +398,8 @@ const MailShell = () => {
         ? searchThreadsQuery.data
         : isUnifiedInboxActive
           ? unifiedInboxQuery.data ?? fallbackUnifiedInboxThreads
+          : selectedFolderId === SCHEDULED_FOLDER_ID
+            ? scheduledThreads
           : folderThreadsQuery.threads) ??
       mailbox?.threads ??
       [],
@@ -383,6 +410,8 @@ const MailShell = () => {
       mailbox?.threads,
       searchThreadsQuery.data,
       fallbackUnifiedInboxThreads,
+      scheduledThreads,
+      selectedFolderId,
       unifiedInboxQuery.data
     ]
   );
@@ -434,6 +463,26 @@ const MailShell = () => {
       setOutboxStatus('Could not load saved signatures');
     });
   }, []);
+
+  useEffect(() => {
+    if (!tauriRuntime.isAvailable()) {
+      return;
+    }
+
+    const accountId = selectedComposerAccount.id;
+    void api.scheduled
+      .list(accountId)
+      .then((records) => {
+        setScheduledSends((current) => [
+          ...current.filter((scheduledSend) => scheduledSend.accountId !== accountId),
+          ...records
+        ]);
+      })
+      .catch(() => {
+        setOutboxStatus('Could not load scheduled sends');
+      });
+  }, [selectedComposerAccount.id]);
+
   const enqueueOutboxMutation = useMutation({
     mutationFn: async (draft: ComposerDraft): Promise<OutboxMessage> => {
       const accountId = draft.fromAccountId || selectedComposerAccount.id;
@@ -482,7 +531,7 @@ const MailShell = () => {
   });
 
   useEffect(() => {
-    if (!mailbox?.folders.length) {
+    if (!mailbox) {
       setSelectedFolderId(null);
       return;
     }
@@ -492,11 +541,11 @@ const MailShell = () => {
         return routeFolderId;
       }
 
-      return currentFolderId && mailbox.folders.some((folder) => folder.id === currentFolderId)
+      return currentFolderId && runtimeFolders.some((folder) => folder.id === currentFolderId)
         ? currentFolderId
         : mailbox.activeFolder;
     });
-  }, [mailbox, routeFolderId]);
+  }, [mailbox, routeFolderId, runtimeFolders]);
 
   useEffect(() => {
     if (!threads.length) {
@@ -596,22 +645,28 @@ const MailShell = () => {
         attachments: await toMimeAttachments(draft.attachments)
       };
 
+      let scheduledRecord: ScheduledSendRecord;
       if (!tauriRuntime.isAvailable()) {
-        setLocalScheduledSends((current) => [
-          ...current,
-          {
-            id: `sched_${Date.now()}`,
-            accountId,
-            mimeMessage: request,
-            sendAt
-          }
-        ]);
+        const timestamp = new Date().toISOString();
+        scheduledRecord = {
+          id: `sched_${Date.now()}`,
+          accountId,
+          mimeMessage: request,
+          sendAt,
+          status: 'pending',
+          lastError: null,
+          sentAt: null,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        };
       } else {
-        await api.scheduled.schedule({
+        scheduledRecord = await api.scheduled.schedule({
           ...request,
           sendAt
         });
       }
+
+      setScheduledSends((current) => [...current, scheduledRecord]);
 
       const successMessage = `Scheduled for ${new Date(sendAt).toLocaleString()}`;
       setOutboxStatus(successMessage);
@@ -622,6 +677,28 @@ const MailShell = () => {
       setOutboxStatus(errorMessage);
       setComposerToast({ kind: 'error', message: errorMessage });
       return false;
+    }
+  };
+  const handleCancelScheduledSends = async (scheduledSendIds: string[]) => {
+    if (!scheduledSendIds.length) {
+      return;
+    }
+
+    try {
+      if (tauriRuntime.isAvailable()) {
+        await Promise.all(scheduledSendIds.map((scheduledSendId) => api.scheduled.cancel(scheduledSendId)));
+      }
+
+      setScheduledSends((current) =>
+        current.filter((scheduledSend) => !scheduledSendIds.includes(scheduledSend.id))
+      );
+      const successMessage = `Canceled ${scheduledSendIds.length} scheduled message${scheduledSendIds.length === 1 ? '' : 's'}`;
+      setOutboxStatus(successMessage);
+      setComposerToast({ kind: 'success', message: successMessage });
+    } catch (error) {
+      const errorMessage = `Could not cancel scheduled message: ${toErrorMessage(error)}`;
+      setOutboxStatus(errorMessage);
+      setComposerToast({ kind: 'error', message: errorMessage });
     }
   };
   const applyFlushReport = (report: OutboxSendReport) => {
@@ -689,19 +766,21 @@ const MailShell = () => {
   };
 
   useEffect(() => {
-    if (tauriRuntime.isAvailable() || localScheduledSends.length === 0) {
+    if (tauriRuntime.isAvailable() || scheduledSends.length === 0) {
       return;
     }
 
     const intervalId = window.setInterval(() => {
       const now = Date.now();
-      const dueSends = localScheduledSends.filter((scheduledSend) => new Date(scheduledSend.sendAt).getTime() <= now);
+      const dueSends = scheduledSends.filter(
+        (scheduledSend) => scheduledSend.status === 'pending' && new Date(scheduledSend.sendAt).getTime() <= now
+      );
 
       if (dueSends.length === 0) {
         return;
       }
 
-      setLocalScheduledSends((current) =>
+      setScheduledSends((current) =>
         current.filter((scheduledSend) => new Date(scheduledSend.sendAt).getTime() > now)
       );
       setLocalSentThreadRecords((existing) => [
@@ -729,7 +808,7 @@ const MailShell = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [localScheduledSends]);
+  }, [scheduledSends]);
 
   useTauriEvent<DomainEvent>(
     'domain:event',
@@ -741,6 +820,9 @@ const MailShell = () => {
       const message = event.success
         ? `Scheduled send delivered: ${event.subject.trim() || '(no subject)'}`
         : `Scheduled send failed: ${event.errorMessage ?? event.subject}`;
+      setScheduledSends((current) =>
+        current.filter((scheduledSend) => scheduledSend.id !== event.scheduledSendId)
+      );
       setOutboxStatus(message);
       setComposerToast({ kind: event.success ? 'success' : 'error', message });
     },
@@ -950,6 +1032,8 @@ const MailShell = () => {
       onOpenExternalLink={handleOpenExternalLink}
       onDownloadAttachment={handleDownloadAttachment}
       resolveInlineImageUrl={resolveInlineImageUrl}
+      scheduledThreads={scheduledThreads}
+      onCancelScheduledSends={handleCancelScheduledSends}
       onScheduleDraft={handleScheduleDraft}
       onSendDraft={handleSendDraft}
       onFlushOutbox={handleFlushOutbox}

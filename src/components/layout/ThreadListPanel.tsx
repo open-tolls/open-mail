@@ -22,6 +22,7 @@ type ThreadListPanelProps = {
   activeFolderName: string | null;
   dialogRequest?: ThreadDialogRequest | null;
   folders: FolderRecord[];
+  isScheduledFolder?: boolean;
   isSearchActive: boolean;
   labels?: ThreadLabelOption[];
   isLoading?: boolean;
@@ -30,11 +31,12 @@ type ThreadListPanelProps = {
   selectedThreadId: string | null;
   threads: ThreadSummary[];
   onLoadMore?: () => Promise<void> | void;
-  onThreadAction?: (action: Exclude<ThreadAction, 'move' | 'label' | 'snooze' | 'unsnooze'>, threadIds: string[]) => void;
+  onThreadAction?: (action: Exclude<ThreadAction, 'move' | 'label' | 'snooze' | 'unsnooze' | 'cancel-schedule'>, threadIds: string[]) => void;
   onMoveThreads?: (threadIds: string[], folderId: string) => void;
   onApplyLabels?: (threadIds: string[], labelIds: string[]) => void;
   onSnoozeThreads?: (threadIds: string[], until: string) => void;
   onUnsnoozeThreads?: (threadIds: string[]) => void;
+  onCancelScheduledSends?: (scheduledSendIds: string[]) => void;
   onSelectThread: (threadId: string) => void;
 };
 
@@ -51,6 +53,7 @@ export const ThreadListPanel = ({
   activeFolderName,
   dialogRequest,
   folders,
+  isScheduledFolder = false,
   hasMore = false,
   isLoading = false,
   isSearchActive,
@@ -63,6 +66,7 @@ export const ThreadListPanel = ({
   onMoveThreads,
   onSnoozeThreads,
   onUnsnoozeThreads,
+  onCancelScheduledSends,
   onThreadAction,
   onSelectThread
 }: ThreadListPanelProps) => {
@@ -116,6 +120,12 @@ export const ThreadListPanel = ({
     if (action === 'unsnooze') {
       onUnsnoozeThreads?.(threadIds);
       setActionStatus(`unsnoozed ${threadIds.length} thread${threadIds.length === 1 ? '' : 's'}`);
+      return;
+    }
+
+    if (action === 'cancel-schedule') {
+      onCancelScheduledSends?.(threadIds);
+      setActionStatus(`canceled ${threadIds.length} scheduled message${threadIds.length === 1 ? '' : 's'}`);
       return;
     }
 
@@ -217,6 +227,7 @@ export const ThreadListPanel = ({
       <ThreadListFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
       <ThreadList
         activeFolderName={activeFolderName}
+        isScheduledFolder={isScheduledFolder}
         isSnoozedFolder={isSnoozedFolder}
         hasMore={hasMore}
         isLoading={isLoading}

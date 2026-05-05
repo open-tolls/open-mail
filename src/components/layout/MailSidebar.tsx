@@ -39,6 +39,8 @@ type MailSidebarProps = {
 const folderIconMap = {
   important: AlertCircle,
   inbox: Inbox,
+  scheduled: BellDot,
+  snoozed: BellDot,
   starred: Star,
   drafts: FileEdit,
   sent: Send,

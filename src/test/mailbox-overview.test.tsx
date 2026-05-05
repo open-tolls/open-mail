@@ -630,7 +630,7 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Sent');
   });
 
-  it('schedules a local message from the shell and surfaces scheduled status', async () => {
+  it('schedules a local message from the shell and lets the user cancel it from Scheduled', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <App />
@@ -653,6 +653,17 @@ describe('mailbox overview integration', () => {
 
     expect(screen.getAllByText(/Scheduled for/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent(/Scheduled for/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /scheduled/i }));
+    expect(await screen.findByText('Scheduled follow-up')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Scheduled follow-up'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel selected scheduled messages' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Scheduled is clear')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent('Canceled 1 scheduled message');
   });
 
   it('restores a locally autosaved draft when reopening the composer', async () => {
