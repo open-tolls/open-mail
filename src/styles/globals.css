@@ -1158,7 +1158,11 @@ summary.folder-group-title::-webkit-details-marker {
 
 .template-list,
 .template-picker-list,
-.template-variable-list {
+.template-variable-list,
+.rule-list,
+.rule-block-list,
+.rule-entry-list,
+.rule-summary-list {
   display: grid;
   gap: 12px;
 }
@@ -1178,6 +1182,65 @@ summary.folder-group-title::-webkit-details-marker {
   width: 100%;
   text-align: left;
   cursor: pointer;
+}
+
+.rule-editor,
+.rule-card,
+.rule-block {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rule-editor,
+.rule-block {
+  display: grid;
+  gap: 14px;
+}
+
+.rule-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rule-entry {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rule-entry select,
+.rule-entry input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.rule-summary-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rule-summary-list p,
+.rule-card > div > p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.rule-enabled-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .preferences-theme-grid {

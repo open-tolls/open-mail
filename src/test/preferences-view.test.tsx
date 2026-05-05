@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/App';
 import { useAccountStore } from '@stores/useAccountStore';
+import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
 import { useTemplateStore } from '@stores/useTemplateStore';
 import { useUIStore } from '@stores/useUIStore';
@@ -341,5 +342,42 @@ describe('preferences view', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(screen.queryByText('Welcome template')).not.toBeInTheDocument();
+  });
+
+  it('manages mail rules from preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+    useAccountStore.setState({
+      accounts: [
+        {
+          id: 'acc_demo',
+          provider: 'Gmail',
+          email: 'leco@example.com',
+          displayName: 'Open Mail Demo'
+        }
+      ],
+      selectedAccountId: 'acc_demo'
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Newsletter rule' } });
+    fireEvent.change(screen.getByPlaceholderText('Value'), { target: { value: 'newsletter' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create rule' }));
+
+    expect(screen.getByText('Newsletter rule')).toBeInTheDocument();
+    expect(useMailRulesStore.getState().rules[0]?.name).toBe('Newsletter rule');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Updated rule' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rule' }));
+
+    expect(screen.getByText('Updated rule')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByText('Updated rule')).not.toBeInTheDocument();
   });
 });

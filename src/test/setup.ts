@@ -5,6 +5,7 @@ import { defaultShortcutBindings, useShortcutStore } from '@stores/useShortcutSt
 import { useDraftStore } from '@stores/useDraftStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
+import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { useTemplateStore } from '@stores/useTemplateStore';
 import { useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
@@ -44,6 +45,9 @@ beforeEach(() => {
   });
   useTemplateStore.setState({
     templates: []
+  });
+  useMailRulesStore.setState({
+    rules: []
   });
   usePreferencesStore.setState({
     language: 'English',

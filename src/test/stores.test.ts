@@ -4,6 +4,7 @@ import { useDraftStore, type DraftRecord } from '@stores/useDraftStore';
 import { useFolderStore } from '@stores/useFolderStore';
 import { useMessageStore } from '@stores/useMessageStore';
 import { useSearchStore } from '@stores/useSearchStore';
+import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { resolveSignatureForAccount, useSignatureStore } from '@stores/useSignatureStore';
 import { useSyncStore } from '@stores/useSyncStore';
 import { useTemplateStore } from '@stores/useTemplateStore';
@@ -141,6 +142,7 @@ describe('phase 3 domain stores', () => {
       defaultSignatureIdsByAccountId: {}
     });
     useTemplateStore.setState({ templates: [] });
+    useMailRulesStore.setState({ rules: [] });
     useSyncStore.setState({ syncByAccountId: {}, lastEventState: { kind: 'not-started' } });
     useSearchStore.setState({ query: '', results: [], isSearching: false });
   });
@@ -360,6 +362,66 @@ describe('phase 3 domain stores', () => {
 
     useTemplateStore.getState().delete(templateId);
     expect(useTemplateStore.getState().templates).toEqual([]);
+  });
+
+  it('creates, updates, and deletes mail rules', () => {
+    const ruleId = useMailRulesStore.getState().create({
+      accountId: 'acc_1',
+      name: 'Newsletter',
+      enabled: true,
+      mode: 'all',
+      conditions: [
+        {
+          id: 'cond_1',
+          field: 'from',
+          operator: 'contains',
+          value: 'newsletter'
+        }
+      ],
+      actions: [
+        {
+          id: 'action_1',
+          type: 'archive',
+          value: ''
+        }
+      ]
+    });
+
+    expect(useMailRulesStore.getState().rules[0]?.name).toBe('Newsletter');
+
+    useMailRulesStore.getState().update(ruleId, {
+      accountId: null,
+      name: 'Updated newsletter',
+      enabled: false,
+      mode: 'any',
+      conditions: [
+        {
+          id: 'cond_2',
+          field: 'subject',
+          operator: 'contains',
+          value: 'digest'
+        }
+      ],
+      actions: [
+        {
+          id: 'action_2',
+          type: 'star',
+          value: ''
+        }
+      ]
+    });
+
+    expect(useMailRulesStore.getState().rules[0]).toEqual(
+      expect.objectContaining({
+        accountId: null,
+        name: 'Updated newsletter',
+        enabled: false,
+        mode: 'any'
+      })
+    );
+
+    useMailRulesStore.getState().delete(ruleId);
+    expect(useMailRulesStore.getState().rules).toEqual([]);
   });
 
   it('tracks sync status by account and search results', () => {

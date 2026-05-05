@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { RuleEditor } from '@components/rules/RuleEditor';
+import { RuleList } from '@components/rules/RuleList';
 import { TemplateEditor } from '@components/templates/TemplateEditor';
 import { TemplateList } from '@components/templates/TemplateList';
 import { builtInThemes, type ThemeId } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
+import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { hydratePreferencesStore, savePreferencesToBackend } from '@stores/usePreferencesStore';
 import { useShortcutStore } from '@stores/useShortcutStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
@@ -36,6 +39,7 @@ export const PreferencesView = () => {
   const [backendStatus, setBackendStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
   const [backendMessage, setBackendMessage] = useState<string | null>(null);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const hasHydratedRef = useRef(false);
   const launchAtLoginHydratedRef = useRef(false);
   const accounts = useAccountStore((state) => state.accounts);
@@ -49,6 +53,10 @@ export const PreferencesView = () => {
   const createTemplate = useTemplateStore((state) => state.create);
   const updateTemplate = useTemplateStore((state) => state.update);
   const deleteTemplate = useTemplateStore((state) => state.delete);
+  const rules = useMailRulesStore((state) => state.rules);
+  const createRule = useMailRulesStore((state) => state.create);
+  const updateRule = useMailRulesStore((state) => state.update);
+  const deleteRule = useMailRulesStore((state) => state.delete);
   const shortcutBindings = useShortcutStore((state) => state.bindings);
   const resetShortcutBindings = useShortcutStore((state) => state.resetShortcutBindings);
   const layoutMode = useUIStore((state) => state.layoutMode);
@@ -112,6 +120,7 @@ export const PreferencesView = () => {
     [availableAccounts, defaultSignatureId, defaultSignatureIdsByAccountId, signatures]
   );
   const editingTemplate = templates.find((template) => template.id === editingTemplateId) ?? null;
+  const editingRule = rules.find((rule) => rule.id === editingRuleId) ?? null;
 
   const updateDefaultAccount = (accountId: string) => {
     setPreference('defaultAccountId', accountId);
@@ -514,6 +523,37 @@ export const PreferencesView = () => {
             </div>
             <div className="preferences-toggle-list">
               <label><input checked={developerToolsEnabled} onChange={(event) => setPreference('developerToolsEnabled', event.target.checked)} type="checkbox" />Enable developer tools</label>
+            </div>
+            <div className="preferences-subsection">
+              <div>
+                <h3>Mail Rules</h3>
+                <p className="preferences-note">This first cut ships the local rule builder and the matching engine. Desktop auto-processing and Run now stay open for the next cut.</p>
+              </div>
+              <RuleEditor
+                accounts={availableAccounts}
+                editingRule={editingRule}
+                onCancel={() => setEditingRuleId(null)}
+                onSave={(rule) => {
+                  if (editingRule) {
+                    updateRule(editingRule.id, rule);
+                    setEditingRuleId(null);
+                    return;
+                  }
+
+                  createRule(rule);
+                }}
+              />
+              <RuleList
+                accounts={availableAccounts}
+                onDelete={(ruleId) => {
+                  deleteRule(ruleId);
+                  if (editingRuleId === ruleId) {
+                    setEditingRuleId(null);
+                  }
+                }}
+                onEdit={setEditingRuleId}
+                rules={rules}
+              />
             </div>
             <div className="preferences-advanced-actions">
               <button onClick={resetPreferences} type="button">Reset local preferences</button>
