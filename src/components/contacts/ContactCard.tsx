@@ -28,6 +28,12 @@ export const ContactCard = ({ contact }: ContactCardProps) => (
       <p>Touchpoints: {contact.emailCount}</p>
       <p>Last emailed: {formatContactDate(contact.lastEmailedAt)}</p>
     </div>
+    {contact.notes ? (
+      <div className="contact-hover-notes">
+        <strong>Notes</strong>
+        <p>{contact.notes}</p>
+      </div>
+    ) : null}
     {contact.threads.length ? (
       <div className="contact-hover-history">
         <strong>Recent threads</strong>

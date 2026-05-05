@@ -21,7 +21,7 @@ import { useUnifiedInboxThreads } from '@hooks/useUnifiedInboxThreads';
 import { useUnreadBadge } from '@hooks/useUnreadBadge';
 import { useUnreadTrayIndicator } from '@hooks/useUnreadTrayIndicator';
 import { toComposerScheduledAttachment } from '@lib/composer-attachments';
-import { buildContactDirectory } from '@lib/contacts-directory';
+import { buildContactDirectory, mergeContactProfiles } from '@lib/contacts-directory';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
@@ -37,6 +37,7 @@ import type {
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
+import { useContactProfileStore } from '@stores/useContactProfileStore';
 import { hydrateSignatureStore } from '@stores/useSignatureStore';
 import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
@@ -255,6 +256,7 @@ const MailShell = () => {
   const selectAccount = useAccountStore((state) => state.selectAccount);
   const setAccounts = useAccountStore((state) => state.setAccounts);
   const upsertAccount = useAccountStore((state) => state.upsertAccount);
+  const contactProfiles = useContactProfileStore((state) => state.profiles);
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
   const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
   const createThreadSnapshot = useThreadStore((state) => state.createThreadSnapshot);
@@ -451,8 +453,8 @@ const MailShell = () => {
     return messagesByThreadId;
   }, [messagesQuery.data, selectedThread?.id]);
   const contactDirectory = useMemo(
-    () => buildContactDirectory(runtimeAllThreads, contactMessagesByThreadId),
-    [contactMessagesByThreadId, runtimeAllThreads]
+    () => mergeContactProfiles(buildContactDirectory(runtimeAllThreads, contactMessagesByThreadId), contactProfiles),
+    [contactMessagesByThreadId, contactProfiles, runtimeAllThreads]
   );
   const syncStatusDetailQuery = useSyncStatusDetail(selectedComposerAccount.id);
   const recipientSuggestions = useMemo(

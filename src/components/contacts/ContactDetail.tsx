@@ -1,7 +1,10 @@
+import { ContactEditor } from '@components/contacts/ContactEditor';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 
 type ContactDetailProps = {
   contact: ContactDirectoryEntry | null;
+  onDeleteProfile: (contact: ContactDirectoryEntry) => void;
+  onSaveProfile: (contact: ContactDirectoryEntry, nextContact: { name: string | null; notes: string | null }) => void;
 };
 
 const formatContactDate = (value: string | null) => {
@@ -17,7 +20,7 @@ const formatContactDate = (value: string | null) => {
   }).format(new Date(value));
 };
 
-export const ContactDetail = ({ contact }: ContactDetailProps) => {
+export const ContactDetail = ({ contact, onDeleteProfile, onSaveProfile }: ContactDetailProps) => {
   if (!contact) {
     return <p className="preferences-note">Select a contact to inspect recent thread history.</p>;
   }
@@ -33,6 +36,12 @@ export const ContactDetail = ({ contact }: ContactDetailProps) => {
         <p>Touchpoints: {contact.emailCount}</p>
         <p>Last emailed: {formatContactDate(contact.lastEmailedAt)}</p>
       </div>
+      {contact.notes ? (
+        <div className="contact-notes">
+          <strong>Notes</strong>
+          <p>{contact.notes}</p>
+        </div>
+      ) : null}
       <div className="contact-history">
         <strong>Recent thread history</strong>
         {contact.threads.length ? (
@@ -48,6 +57,11 @@ export const ContactDetail = ({ contact }: ContactDetailProps) => {
           <p className="preferences-note">No thread history loaded for this contact yet.</p>
         )}
       </div>
+      <ContactEditor
+        contact={contact}
+        onDelete={() => onDeleteProfile(contact)}
+        onSave={(nextContact) => onSaveProfile(contact, nextContact)}
+      />
     </article>
   );
 };

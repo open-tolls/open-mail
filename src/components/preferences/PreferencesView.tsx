@@ -3,7 +3,7 @@ import { ContactDetail } from '@components/contacts/ContactDetail';
 import { ContactList } from '@components/contacts/ContactList';
 import { ContactSearch } from '@components/contacts/ContactSearch';
 import { useNavigate } from 'react-router';
-import { buildContactDirectory, searchContacts, toThreadLikeRecords } from '@lib/contacts-directory';
+import { buildContactDirectory, mergeContactProfiles, searchContacts, toThreadLikeRecords } from '@lib/contacts-directory';
 import { useMailboxOverview } from '@hooks/useMailboxOverview';
 import { evaluateMailRules, type MailRuleCandidate } from '@lib/mail-rules';
 import { RuleEditor } from '@components/rules/RuleEditor';
@@ -14,6 +14,7 @@ import { builtInThemes, type ThemeId } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
+import { useContactProfileStore } from '@stores/useContactProfileStore';
 import { hydratePreferencesStore, savePreferencesToBackend } from '@stores/usePreferencesStore';
 import { useShortcutStore } from '@stores/useShortcutStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
@@ -70,6 +71,9 @@ export const PreferencesView = () => {
   const createRule = useMailRulesStore((state) => state.create);
   const updateRule = useMailRulesStore((state) => state.update);
   const deleteRule = useMailRulesStore((state) => state.delete);
+  const contactProfiles = useContactProfileStore((state) => state.profiles);
+  const deleteContactProfile = useContactProfileStore((state) => state.deleteProfile);
+  const saveContactProfile = useContactProfileStore((state) => state.saveProfile);
   const shortcutBindings = useShortcutStore((state) => state.bindings);
   const resetShortcutBindings = useShortcutStore((state) => state.resetShortcutBindings);
   const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
@@ -144,8 +148,15 @@ export const PreferencesView = () => {
           mailboxQuery.data?.accountId ?? selectedAccountId ?? availableAccounts[0]?.id ?? 'acc_demo',
           mailboxQuery.data?.threads ?? []
         );
-    return buildContactDirectory(allThreads, fallbackMessagesByThreadId);
-  }, [availableAccounts, mailboxQuery.data?.accountId, mailboxQuery.data?.allThreads, mailboxQuery.data?.threads, selectedAccountId]);
+    return mergeContactProfiles(buildContactDirectory(allThreads, fallbackMessagesByThreadId), contactProfiles);
+  }, [
+    availableAccounts,
+    contactProfiles,
+    mailboxQuery.data?.accountId,
+    mailboxQuery.data?.allThreads,
+    mailboxQuery.data?.threads,
+    selectedAccountId
+  ]);
   const filteredContacts = useMemo(() => searchContacts(contacts, contactQuery), [contactQuery, contacts]);
   const selectedContact =
     filteredContacts.find((contact) => contact.id === selectedContactId) ??
@@ -619,7 +630,7 @@ export const PreferencesView = () => {
 
           <section className="preferences-section" id="contacts">
             <h2>Contacts</h2>
-            <p className="preferences-note">This first cut auto-populates contacts from the mail data already available in the app and lets us inspect recent thread history.</p>
+            <p className="preferences-note">This cut auto-populates contacts from loaded mail, lets us inspect recent thread history, and now supports local aliases and notes.</p>
             <ContactSearch onChange={setContactQuery} query={contactQuery} />
             <div className="contacts-layout">
               <ContactList
@@ -627,7 +638,18 @@ export const PreferencesView = () => {
                 onSelect={setSelectedContactId}
                 selectedContactId={selectedContact?.id ?? null}
               />
-              <ContactDetail contact={selectedContact} />
+              <ContactDetail
+                contact={selectedContact}
+                onDeleteProfile={(contact) => deleteContactProfile(contact.accountId, contact.email)}
+                onSaveProfile={(contact, nextContact) =>
+                  saveContactProfile({
+                    accountId: contact.accountId,
+                    email: contact.email,
+                    name: nextContact.name,
+                    notes: nextContact.notes
+                  })
+                }
+              />
             </div>
           </section>
 

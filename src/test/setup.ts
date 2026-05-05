@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { beforeEach } from 'vitest';
 import { useAccountStore } from '@stores/useAccountStore';
+import { useContactProfileStore } from '@stores/useContactProfileStore';
 import { defaultShortcutBindings, useShortcutStore } from '@stores/useShortcutStore';
 import { useDraftStore } from '@stores/useDraftStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
@@ -48,6 +49,9 @@ beforeEach(() => {
   });
   useMailRulesStore.setState({
     rules: []
+  });
+  useContactProfileStore.setState({
+    profiles: []
   });
   usePreferencesStore.setState({
     language: 'English',

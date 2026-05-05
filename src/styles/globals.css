@@ -1161,6 +1161,34 @@ summary.folder-group-title::-webkit-details-marker {
   resize: vertical;
 }
 
+.contact-editor {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.contact-editor-header,
+.contact-editor-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.contact-editor textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-soft);
+  color: var(--text);
+  resize: vertical;
+}
+
 .template-list,
 .template-picker-list,
 .template-variable-list,
@@ -1290,6 +1318,12 @@ summary.folder-group-title::-webkit-details-marker {
 .contact-history {
   display: grid;
   gap: 14px;
+}
+
+.contact-notes,
+.contact-hover-notes {
+  display: grid;
+  gap: 6px;
 }
 
 .contact-hover-anchor {

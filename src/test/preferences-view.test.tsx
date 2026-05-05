@@ -431,4 +431,30 @@ describe('preferences view', () => {
     expect(await within(contactsList).findByText('Release Ops')).toBeInTheDocument();
     expect(within(contactsList).queryByText('Atlas Design')).not.toBeInTheDocument();
   });
+
+  it('edits and resets custom contact info in preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const contactsList = await screen.findByLabelText('Contacts list');
+    expect(within(contactsList).getByText('Atlas Design')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Contact display name'), { target: { value: 'Atlas VIP' } });
+    fireEvent.change(screen.getByLabelText('Contact notes'), { target: { value: 'Priority creative partner' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save contact info' }));
+
+    expect(await within(contactsList).findByText('Atlas VIP')).toBeInTheDocument();
+    expect(screen.getByLabelText('Contact notes')).toHaveValue('Priority creative partner');
+    expect(screen.getAllByText('Priority creative partner').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset custom info' }));
+
+    expect(await within(contactsList).findByText('Atlas Design')).toBeInTheDocument();
+    expect(screen.queryByText('Priority creative partner')).not.toBeInTheDocument();
+  });
 });

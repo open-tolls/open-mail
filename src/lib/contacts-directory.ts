@@ -11,6 +11,7 @@ export type ContactDirectoryEntry = {
   accountId: string;
   email: string;
   name: string | null;
+  notes?: string | null;
   isMe: boolean;
   emailCount: number;
   lastEmailedAt: string | null;
@@ -19,8 +20,15 @@ export type ContactDirectoryEntry = {
 
 export type ContactPreview = Pick<
   ContactDirectoryEntry,
-  'accountId' | 'email' | 'name' | 'isMe' | 'emailCount' | 'lastEmailedAt' | 'threads'
+  'accountId' | 'email' | 'name' | 'notes' | 'isMe' | 'emailCount' | 'lastEmailedAt' | 'threads'
 >;
+
+export type ContactProfile = {
+  accountId: string;
+  email: string;
+  name: string | null;
+  notes: string | null;
+};
 
 type ThreadLike =
   | Pick<ThreadRecord, 'id' | 'account_id' | 'participant_ids' | 'subject' | 'last_message_at' | 'message_count'>
@@ -170,6 +178,28 @@ export const searchContacts = (contacts: ContactDirectoryEntry[], query: string)
   return contacts.filter((contact) =>
     [contact.email, contact.name ?? ''].some((value) => value.toLowerCase().includes(normalizedQuery))
   );
+};
+
+export const mergeContactProfiles = (contacts: ContactDirectoryEntry[], profiles: ContactProfile[]) => {
+  const profilesByKey = new Map(
+    profiles.map((profile) => [`${profile.accountId}:${normalizeEmail(profile.email)}`, profile] as const)
+  );
+
+  return contacts.map((contact) => {
+    const profile = profilesByKey.get(`${contact.accountId}:${normalizeEmail(contact.email)}`);
+    if (!profile) {
+      return {
+        ...contact,
+        notes: contact.notes ?? null
+      };
+    }
+
+    return {
+      ...contact,
+      name: profile.name ?? contact.name,
+      notes: profile.notes
+    };
+  });
 };
 
 export const toThreadLikeRecords = (
