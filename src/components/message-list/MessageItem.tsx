@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, MessageRecord } from '@lib/contracts';
+import { analyzeMessageSecurity } from '@lib/message-security';
 import { MessageActions } from '@components/message-list/MessageActions';
 import { MessageAttachments } from '@components/message-list/MessageAttachments';
 import { MessageBody } from '@components/message-list/MessageBody';
 import { MessageCollapsed } from '@components/message-list/MessageCollapsed';
 import { MessageHeader } from '@components/message-list/MessageHeader';
+import { MessageSecurityBanner } from '@components/message-list/MessageSecurityBanner';
 
 type MessageItemProps = {
   contacts: ContactDirectoryEntry[];
@@ -35,6 +37,7 @@ export const MessageItem = ({
   resolveInlineImageUrl
 }: MessageItemProps) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const securityAnalysis = analyzeMessageSecurity(message);
 
   useEffect(() => {
     setIsExpanded(defaultExpanded);
@@ -52,6 +55,7 @@ export const MessageItem = ({
   return (
     <article className={isSelected ? 'message-card message-card-active' : 'message-card'}>
       <MessageHeader contacts={contacts} isExpanded={isExpanded} message={message} onToggle={() => setIsExpanded(false)} />
+      <MessageSecurityBanner analysis={securityAnalysis} message={message} onOpenExternalLink={onOpenExternalLink} />
       <MessageBody
         attachments={message.attachments}
         html={message.body}

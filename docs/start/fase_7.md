@@ -460,6 +460,8 @@ pub struct ContactWithStats {
 
 **Referencia Mailspring:** `app/internal_packages/phishing-detection/` (19 arquivos), `app/internal_packages/list-unsubscribe/` (5 arquivos)
 
+**Status atual:** primeiro corte entregue no reader, com banner visual para mensagens suspeitas, deteccao local de sender spoofing, deteccao de mismatch entre texto do link e URL real, e CTA de unsubscribe quando os headers `List-Unsubscribe` estao presentes.
+
 **O que implementar:**
 
 **Phishing Detection (Rust):**
@@ -529,10 +531,10 @@ pub fn extract_unsubscribe_info(headers: &HashMap<String, String>) -> Option<Uns
 - Indicadores visuais (icone de escudo)
 
 **Criterio de aceite:**
-- [ ] Phishing warning exibido em mensagens suspeitas
-- [ ] Deteccao de sender spoofing
-- [ ] Deteccao de link mismatch
-- [ ] Botao unsubscribe em newsletters
+- [x] Phishing warning exibido em mensagens suspeitas
+- [x] Deteccao de sender spoofing
+- [x] Deteccao de link mismatch
+- [x] Botao unsubscribe em newsletters
 - [ ] One-click unsubscribe (RFC 8058)
 
 ---

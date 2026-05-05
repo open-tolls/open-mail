@@ -130,6 +130,53 @@ describe('MessageList', () => {
     expect(screen.getByText('Recent threads')).toBeInTheDocument();
   });
 
+  it('shows phishing indicators for spoofed sender names and mismatched links', async () => {
+    render(
+      <MessageList
+        messages={[
+          makeMessage({
+            id: 'msg_phishing',
+            from: [contact('ct_google', 'alerts@phishing.example', 'Google Security')],
+            body: '<p><a href="https://evil.example/login">https://accounts.google.com</a></p>'
+          })
+        ]}
+        selectedMessageId="msg_phishing"
+        threadSubject="Thread subject"
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Potential phishing indicators detected');
+    expect(screen.getByText(/Google Security is using alerts@phishing\.example/i)).toBeInTheDocument();
+    expect(screen.getByText(/opens https:\/\/evil\.example\/login/i)).toBeInTheDocument();
+  });
+
+  it('shows an unsubscribe action when list-unsubscribe headers are present', async () => {
+    const onOpenExternalLink = vi.fn();
+
+    render(
+      <MessageList
+        messages={[
+          makeMessage({
+            id: 'msg_unsubscribe',
+            headers: {
+              'List-Unsubscribe': '<mailto:leave@example.com>, <https://example.com/unsubscribe>',
+              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+            }
+          })
+        ]}
+        selectedMessageId="msg_unsubscribe"
+        threadSubject="Thread subject"
+        onOpenExternalLink={onOpenExternalLink}
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Unsubscribe now' }));
+
+    expect(onOpenExternalLink).toHaveBeenCalledWith('https://example.com/unsubscribe');
+  });
+
   it('opens sanitized links externally and loads remote images on demand', () => {
     const onOpenExternalLink = vi.fn();
     const messages = [
