@@ -92,6 +92,9 @@ export type RuleMatchResult = {
   threadIds: string[];
 };
 
+export const filterRulesForAccount = (rules: MailRule[], accountId: string | null) =>
+  rules.filter((rule) => rule.enabled && (rule.accountId === null || rule.accountId === accountId));
+
 export const evaluateMailRules = (candidates: MailRuleCandidate[], rules: MailRule[]) =>
   rules
     .filter((rule) => rule.enabled)

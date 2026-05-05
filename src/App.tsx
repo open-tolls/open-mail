@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { save } from '@tauri-apps/plugin-dialog';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
@@ -22,6 +22,7 @@ import { useUnreadBadge } from '@hooks/useUnreadBadge';
 import { useUnreadTrayIndicator } from '@hooks/useUnreadTrayIndicator';
 import { toComposerScheduledAttachment } from '@lib/composer-attachments';
 import { buildContactDirectory, mergeContactProfiles } from '@lib/contacts-directory';
+import { evaluateMailRules, filterRulesForAccount, type MailRuleCandidate } from '@lib/mail-rules';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
@@ -38,6 +39,7 @@ import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useContactProfileStore } from '@stores/useContactProfileStore';
+import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { hydrateSignatureStore } from '@stores/useSignatureStore';
 import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
@@ -251,12 +253,14 @@ const MailShell = () => {
   const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
   const [localSnoozes, setLocalSnoozes] = useState<Record<string, LocalSnoozeRecord>>({});
   const [scheduledSends, setScheduledSends] = useState<ScheduledSendRecord[]>([]);
+  const processedRuleVersionsRef = useRef<Record<string, string>>({});
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
   const selectAccount = useAccountStore((state) => state.selectAccount);
   const setAccounts = useAccountStore((state) => state.setAccounts);
   const upsertAccount = useAccountStore((state) => state.upsertAccount);
   const contactProfiles = useContactProfileStore((state) => state.profiles);
+  const mailRules = useMailRulesStore((state) => state.rules);
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
   const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
   const createThreadSnapshot = useThreadStore((state) => state.createThreadSnapshot);
@@ -455,6 +459,29 @@ const MailShell = () => {
   const contactDirectory = useMemo(
     () => mergeContactProfiles(buildContactDirectory(runtimeAllThreads, contactMessagesByThreadId), contactProfiles),
     [contactMessagesByThreadId, contactProfiles, runtimeAllThreads]
+  );
+  const autoRuleCandidates = useMemo<MailRuleCandidate[]>(
+    () =>
+      (selectedMailboxFolder?.role === 'inbox' && !isSearchActive ? threads : [])
+        .map((thread) => {
+          const fullThread = runtimeAllThreads.find((candidate) => candidate.id === thread.id);
+          const fallbackFrom = fullThread?.participant_ids.join(', ') ?? thread.participants.join(', ');
+          const fallbackTo = fullThread?.participant_ids.join(', ') ?? thread.participants.join(', ');
+          const messages = contactMessagesByThreadId[thread.id] ?? [];
+          const latestMessage = messages
+            .slice()
+            .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())[0];
+
+          return {
+            threadId: thread.id,
+            from: latestMessage?.from.map((contact) => contact.email).join(', ') || fallbackFrom,
+            to: latestMessage?.to.map((contact) => contact.email).join(', ') || fallbackTo,
+            subject: thread.subject,
+            body: latestMessage?.plain_text ?? thread.snippet,
+            hasAttachment: fullThread?.has_attachments ?? thread.hasAttachments
+          };
+        }),
+    [contactMessagesByThreadId, isSearchActive, runtimeAllThreads, selectedMailboxFolder?.role, threads]
   );
   const syncStatusDetailQuery = useSyncStatusDetail(selectedComposerAccount.id);
   const recipientSuggestions = useMemo(
@@ -914,6 +941,98 @@ const MailShell = () => {
   useDesktopNotifications({
     onOpenMessage: handleOpenDesktopNotificationMessage
   });
+  useEffect(() => {
+    const applicableRules = filterRulesForAccount(mailRules, selectedComposerAccount.id);
+    if (!applicableRules.length || !autoRuleCandidates.length) {
+      return;
+    }
+
+    const threadById = new Map(runtimeAllThreads.map((thread) => [thread.id, thread]));
+    const nextCandidates = autoRuleCandidates.filter((candidate) => {
+      const thread = threadById.get(candidate.threadId);
+      if (!thread) {
+        return false;
+      }
+
+      const version = `${thread.updated_at}:${thread.last_message_at}`;
+      return processedRuleVersionsRef.current[thread.id] !== version;
+    });
+
+    if (!nextCandidates.length) {
+      return;
+    }
+
+    const results = evaluateMailRules(nextCandidates, applicableRules);
+
+    nextCandidates.forEach((candidate) => {
+      const thread = threadById.get(candidate.threadId);
+      if (!thread) {
+        return;
+      }
+
+      processedRuleVersionsRef.current[thread.id] = `${thread.updated_at}:${thread.last_message_at}`;
+    });
+
+    results.forEach((result) => {
+      const rule = applicableRules.find((candidate) => candidate.id === result.ruleId);
+      if (!rule) {
+        return;
+      }
+
+      rule.actions.forEach((action) => {
+        if (action.type === 'label' && action.value.trim()) {
+          applyThreadLabels(result.threadIds, [action.value.trim()]);
+          return;
+        }
+
+        if (action.type === 'move' && action.value.trim()) {
+          moveThreadsToFolder(result.threadIds, action.value.trim());
+          return;
+        }
+
+        if (action.type === 'mark-read') {
+          const unreadThreadIds = result.threadIds.filter((threadId) => {
+            const thread = threadById.get(threadId);
+            return Boolean(thread?.is_unread);
+          });
+
+          if (unreadThreadIds.length) {
+            applyThreadAction('toggle-read', unreadThreadIds);
+          }
+          return;
+        }
+
+        if (action.type === 'star') {
+          const unstarredThreadIds = result.threadIds.filter((threadId) => {
+            const thread = threadById.get(threadId);
+            return Boolean(thread && !thread.is_starred);
+          });
+
+          if (unstarredThreadIds.length) {
+            applyThreadAction('star', unstarredThreadIds);
+          }
+          return;
+        }
+
+        if (action.type === 'archive') {
+          applyThreadAction('archive', result.threadIds);
+          return;
+        }
+
+        if (action.type === 'trash') {
+          applyThreadAction('trash', result.threadIds);
+        }
+      });
+    });
+  }, [
+    applyThreadAction,
+    applyThreadLabels,
+    autoRuleCandidates,
+    mailRules,
+    moveThreadsToFolder,
+    runtimeAllThreads,
+    selectedComposerAccount.id
+  ]);
   const pushThreadUndo = (description: string) => {
     const snapshot = createThreadSnapshot();
 

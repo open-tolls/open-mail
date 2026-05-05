@@ -288,7 +288,7 @@ src/components/templates/
 
 **Referencia Mailspring:** `app/src/mail-rules-processor.ts`, `app/src/mail-rules-templates.ts`
 
-**Status atual:** segundo corte entregue, com builder local persistido em `Preferences`, multiplas conditions/actions, suporte a `ALL/ANY`, engine de matching coberta em unit tests e `Run now` aplicando regras sobre os threads ja carregados no app. Auto-processamento em emails novos continua aberto para o proximo corte.
+**Status atual:** terceiro corte entregue, com builder local persistido em `Preferences`, multiplas conditions/actions, suporte a `ALL/ANY`, engine de matching coberta em unit tests, `Run now` aplicando regras sobre os threads ja carregados no app e auto-processamento local ao observar novas threads no inbox visivel.
 
 **Conceito:** Regras automaticas aplicadas a emails recebidos (filtros).
 
@@ -398,7 +398,7 @@ impl MailRulesProcessor {
 - [x] Operators: Contains, Equals, StartsWith, EndsWith
 - [x] Actions: Move, Label, Mark Read, Star, Archive, Trash
 - [x] ALL/ANY mode para multiplas conditions
-- [ ] Regras aplicadas automaticamente a novos emails
+- [x] Regras aplicadas automaticamente a novos emails
 - [x] Testar regra em emails existentes ("Run now")
 
 ---
@@ -630,7 +630,7 @@ pub enum ReminderStatus {
 - [x] Snooze funcional (snooze, wake-up, notifications)
 - [ ] Send Later funcional (schedule, auto-send, cancel)
 - [x] Templates CRUD + aplicacao no composer
-- [ ] Mail Rules builder + auto-processamento
+- [x] Mail Rules builder + auto-processamento
 - [x] Contacts manager com busca e historico
 - [ ] Phishing detection com warnings visuais
 - [ ] List-Unsubscribe funcional

@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '@/App';
 import { useAccountStore } from '@stores/useAccountStore';
+import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { useShortcutStore } from '@stores/useShortcutStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
 
@@ -124,6 +125,46 @@ describe('mailbox overview integration', () => {
 
     fireEvent.keyDown(window, { key: 'k' });
     expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
+  });
+
+  it('auto-processes new inbox threads with enabled mail rules', async () => {
+    useMailRulesStore.setState({
+      rules: [
+        {
+          id: 'rule_archive_premium',
+          accountId: 'acc_demo',
+          name: 'Archive premium approvals',
+          enabled: true,
+          mode: 'all',
+          conditions: [
+            {
+              id: 'condition_subject',
+              field: 'subject',
+              operator: 'contains',
+              value: 'premium'
+            }
+          ],
+          actions: [
+            {
+              id: 'action_archive',
+              type: 'archive',
+              value: ''
+            }
+          ]
+        }
+      ]
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const threadList = await screen.findByRole('listbox', { name: 'Thread list' });
+
+    expect(await within(threadList).findByText('Rust health-check online')).toBeInTheDocument();
+    expect(within(threadList).queryByText('Premium motion system approved')).not.toBeInTheDocument();
   });
 
   it('shows a From selector in the composer when multiple accounts are available', async () => {
