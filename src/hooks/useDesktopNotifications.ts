@@ -46,16 +46,16 @@ export const useDesktopNotifications = ({ onOpenMessage }: UseDesktopNotificatio
         return;
       }
 
+      let permissionGranted = await isPermissionGranted();
+      if (!permissionGranted) {
+        permissionGranted = (await requestPermission()) === 'granted';
+      }
+
+      if (!permissionGranted) {
+        return;
+      }
+
       if (event.type === 'snooze-woke') {
-        let permissionGranted = await isPermissionGranted();
-        if (!permissionGranted) {
-          permissionGranted = (await requestPermission()) === 'granted';
-        }
-
-        if (!permissionGranted) {
-          return;
-        }
-
         const folders = await api.mailbox.listFolders(event.accountId);
         const messages = await api.messages.listByThread(event.threadId);
         const latestMessage = [...messages]
@@ -71,6 +71,19 @@ export const useDesktopNotifications = ({ onOpenMessage }: UseDesktopNotificatio
           body: toNotificationBody(latestMessage),
           autoCancel: true,
           extra: toNotificationTarget(latestMessage, folders)
+        });
+        return;
+      }
+
+      if (event.type === 'scheduled-send-processed') {
+        if (!event.success) {
+          return;
+        }
+
+        sendNotification({
+          title: `Sent later: ${event.subject.trim() || 'Untitled message'}`,
+          body: 'Your scheduled message was sent successfully.',
+          autoCancel: true
         });
         return;
       }
@@ -97,15 +110,6 @@ export const useDesktopNotifications = ({ onOpenMessage }: UseDesktopNotificatio
       );
 
       if (candidates.length === 0) {
-        return;
-      }
-
-      let permissionGranted = await isPermissionGranted();
-      if (!permissionGranted) {
-        permissionGranted = (await requestPermission()) === 'granted';
-      }
-
-      if (!permissionGranted) {
         return;
       }
 

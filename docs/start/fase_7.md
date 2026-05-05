@@ -142,7 +142,7 @@ impl SnoozeService {
 
 **Referencia Mailspring:** `app/internal_packages/send-later/`
 
-**Status atual:** terceiro corte entregue, com persistencia backend, loop de processamento em background a cada `30s`, `Send later` no composer com presets + data/hora custom, auto-envio no horario, pasta pseudo `Scheduled` no shell, cancelamento do agendamento, reabertura do draft agendado no composer com anexos restaurados em memoria e fallback local no modo web/teste. O que ainda fica aberto aqui e uma notificacao desktop dedicada ao envio agendado concluido.
+**Status atual:** quarto corte entregue, com persistencia backend, loop de processamento em background a cada `30s`, `Send later` no composer com presets + data/hora custom, auto-envio no horario, pasta pseudo `Scheduled` no shell, cancelamento do agendamento, reabertura do draft agendado no composer com anexos restaurados em memoria, notificacao desktop no envio concluido e fallback local no modo web/teste.
 
 **Conceito:** Agendar envio de email para data/hora futura.
 
@@ -231,7 +231,7 @@ Botao dropdown ao lado de "Send":
 - [x] Email enviado automaticamente no horario
 - [x] Cancelar agendamento
 - [x] Editar draft agendado (cancela e reagenda)
-- [ ] Notificacao ao enviar
+- [x] Notificacao ao enviar
 - [x] Funciona com app fechado (backend Tauri persiste)
 
 ---

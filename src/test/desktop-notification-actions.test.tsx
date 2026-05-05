@@ -228,4 +228,40 @@ describe('desktop notification actions', () => {
       }
     });
   });
+
+  it('shows a desktop notification when a scheduled send succeeds', async () => {
+    let domainEventHandler:
+      | ((payload: {
+          type: 'scheduled-send-processed';
+          accountId: string;
+          scheduledSendId: string;
+          subject: string;
+          success: boolean;
+          errorMessage: string | null;
+        }) => void)
+      | undefined;
+
+    tauriEventApi.useTauriEvent.mockImplementation((_event, handler) => {
+      domainEventHandler = handler;
+    });
+
+    renderHook(() => useDesktopNotifications());
+
+    await act(async () => {
+      await domainEventHandler?.({
+        type: 'scheduled-send-processed',
+        accountId: 'acc_demo',
+        scheduledSendId: 'sched_1',
+        subject: 'Scheduled follow-up',
+        success: true,
+        errorMessage: null
+      });
+    });
+
+    expect(notificationApi.sendNotification).toHaveBeenCalledWith({
+      title: 'Sent later: Scheduled follow-up',
+      body: 'Your scheduled message was sent successfully.',
+      autoCancel: true
+    });
+  });
 });
