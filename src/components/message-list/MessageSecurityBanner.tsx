@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { extractUnsubscribeInfo, getPhishingWarningCopy, type MessageSecurityAnalysis } from '@lib/message-security';
 import type { MessageRecord } from '@lib/contracts';
@@ -13,6 +14,8 @@ const openExternalLink = (url: string) => {
 };
 
 export const MessageSecurityBanner = ({ analysis, message, onOpenExternalLink }: MessageSecurityBannerProps) => {
+  const [unsubscribeStatus, setUnsubscribeStatus] = useState<string | null>(null);
+  const [isSubmittingUnsubscribe, setIsSubmittingUnsubscribe] = useState(false);
   const unsubscribeInfo = extractUnsubscribeInfo(message.headers);
 
   if (!analysis.isSuspicious && !unsubscribeInfo) {
@@ -21,6 +24,40 @@ export const MessageSecurityBanner = ({ analysis, message, onOpenExternalLink }:
 
   const openLink = onOpenExternalLink ?? openExternalLink;
   const unsubscribeTarget = unsubscribeInfo?.url ?? unsubscribeInfo?.mailto ?? null;
+  const handleUnsubscribe = async () => {
+    if (!unsubscribeInfo || !unsubscribeTarget) {
+      return;
+    }
+
+    if (!unsubscribeInfo.oneClick || !unsubscribeInfo.url) {
+      openLink(unsubscribeTarget);
+      return;
+    }
+
+    setIsSubmittingUnsubscribe(true);
+    setUnsubscribeStatus(null);
+
+    try {
+      const response = await fetch(unsubscribeInfo.url, {
+        method: 'POST',
+        headers: {
+          'List-Unsubscribe': 'One-Click',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'List-Unsubscribe=One-Click'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Unsubscribe failed with status ${response.status}`);
+      }
+
+      setUnsubscribeStatus('Unsubscribe request sent');
+    } catch {
+      setUnsubscribeStatus('Could not complete one-click unsubscribe');
+    } finally {
+      setIsSubmittingUnsubscribe(false);
+    }
+  };
 
   return (
     <div className="message-security-stack">
@@ -43,9 +80,14 @@ export const MessageSecurityBanner = ({ analysis, message, onOpenExternalLink }:
           <div>
             <strong>{unsubscribeInfo.oneClick ? 'One-click unsubscribe available' : 'Newsletter unsubscribe available'}</strong>
             <p>Open Mail found standard list-unsubscribe headers for this sender.</p>
+            {unsubscribeStatus ? <p role="status">{unsubscribeStatus}</p> : null}
           </div>
-          <button onClick={() => openLink(unsubscribeTarget)} type="button">
-            {unsubscribeInfo.oneClick ? 'Unsubscribe now' : 'Open unsubscribe'}
+          <button disabled={isSubmittingUnsubscribe} onClick={() => void handleUnsubscribe()} type="button">
+            {unsubscribeInfo.oneClick
+              ? isSubmittingUnsubscribe
+                ? 'Unsubscribing...'
+                : 'Unsubscribe now'
+              : 'Open unsubscribe'}
           </button>
         </div>
       ) : null}

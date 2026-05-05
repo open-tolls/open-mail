@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MessageList } from '@components/message-list/MessageList';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
@@ -152,7 +152,8 @@ describe('MessageList', () => {
   });
 
   it('shows an unsubscribe action when list-unsubscribe headers are present', async () => {
-    const onOpenExternalLink = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
 
     render(
       <MessageList
@@ -167,12 +168,48 @@ describe('MessageList', () => {
         ]}
         selectedMessageId="msg_unsubscribe"
         threadSubject="Thread subject"
-        onOpenExternalLink={onOpenExternalLink}
         onSelectMessage={vi.fn()}
       />
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Unsubscribe now' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('https://example.com/unsubscribe', {
+        method: 'POST',
+        headers: {
+          'List-Unsubscribe': 'One-Click',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'List-Unsubscribe=One-Click'
+      })
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Unsubscribe request sent');
+    vi.unstubAllGlobals();
+  });
+
+  it('opens the unsubscribe target when one-click is not available', async () => {
+    const onOpenExternalLink = vi.fn();
+
+    render(
+      <MessageList
+        messages={[
+          makeMessage({
+            id: 'msg_unsubscribe_link',
+            headers: {
+              'List-Unsubscribe': '<mailto:leave@example.com>, <https://example.com/unsubscribe>'
+            }
+          })
+        ]}
+        selectedMessageId="msg_unsubscribe_link"
+        threadSubject="Thread subject"
+        onOpenExternalLink={onOpenExternalLink}
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open unsubscribe' }));
 
     expect(onOpenExternalLink).toHaveBeenCalledWith('https://example.com/unsubscribe');
   });
