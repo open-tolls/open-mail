@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, MessageRecord } from '@lib/contracts';
 import { MessageItem } from '@components/message-list/MessageItem';
 import { sortMessagesChronologically } from '@components/message-list/messageListUtils';
 
 type MessageListProps = {
+  contacts?: ContactDirectoryEntry[];
   messages: MessageRecord[];
   selectedMessageId: string | null;
   threadSubject: string;
@@ -17,6 +19,7 @@ type MessageListProps = {
 };
 
 export const MessageList = ({
+  contacts = [],
   messages,
   selectedMessageId,
   threadSubject,
@@ -43,6 +46,7 @@ export const MessageList = ({
       <div className="message-stack">
         {chronologicalMessages.map((message) => (
           <MessageItem
+            contacts={contacts}
             defaultExpanded={message.id === expandedMessageId}
             isSelected={message.id === selectedMessageId}
             key={message.id}

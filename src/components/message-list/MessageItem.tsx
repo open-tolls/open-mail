@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, MessageRecord } from '@lib/contracts';
 import { MessageActions } from '@components/message-list/MessageActions';
 import { MessageAttachments } from '@components/message-list/MessageAttachments';
@@ -7,6 +8,7 @@ import { MessageCollapsed } from '@components/message-list/MessageCollapsed';
 import { MessageHeader } from '@components/message-list/MessageHeader';
 
 type MessageItemProps = {
+  contacts: ContactDirectoryEntry[];
   defaultExpanded: boolean;
   isSelected: boolean;
   message: MessageRecord;
@@ -20,6 +22,7 @@ type MessageItemProps = {
 };
 
 export const MessageItem = ({
+  contacts,
   defaultExpanded,
   isSelected,
   message,
@@ -48,7 +51,7 @@ export const MessageItem = ({
 
   return (
     <article className={isSelected ? 'message-card message-card-active' : 'message-card'}>
-      <MessageHeader isExpanded={isExpanded} message={message} onToggle={() => setIsExpanded(false)} />
+      <MessageHeader contacts={contacts} isExpanded={isExpanded} message={message} onToggle={() => setIsExpanded(false)} />
       <MessageBody
         attachments={message.attachments}
         html={message.body}

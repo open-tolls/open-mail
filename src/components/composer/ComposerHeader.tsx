@@ -1,9 +1,11 @@
 import { ParticipantField } from '@components/composer/ParticipantField';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AccountRecord } from '@stores/useAccountStore';
 
 type ComposerHeaderProps = {
   bcc: string[];
   cc: string[];
+  contacts: ContactDirectoryEntry[];
   fromOptions: AccountRecord[];
   isCcVisible: boolean;
   isSending: boolean;
@@ -25,6 +27,7 @@ type ComposerHeaderProps = {
 export const ComposerHeader = ({
   bcc,
   cc,
+  contacts,
   fromOptions,
   isCcVisible,
   isSending,
@@ -86,6 +89,8 @@ export const ComposerHeader = ({
       </label>
 
       <ParticipantField
+        accountId={selectedFromAccountId}
+        contacts={contacts}
         label="To"
         onChange={onToChange}
         placeholder="Add recipients"
@@ -104,6 +109,8 @@ export const ComposerHeader = ({
 
       {isCcVisible ? (
         <ParticipantField
+          accountId={selectedFromAccountId}
+          contacts={contacts}
           label="Cc"
           onChange={onCcChange}
           placeholder="Add Cc recipients"
@@ -114,6 +121,8 @@ export const ComposerHeader = ({
 
       {isBccVisible ? (
         <ParticipantField
+          accountId={selectedFromAccountId}
+          contacts={contacts}
           label="Bcc"
           onChange={onBccChange}
           placeholder="Add Bcc recipients"

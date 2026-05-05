@@ -17,6 +17,11 @@ export type ContactDirectoryEntry = {
   threads: ContactDirectoryThread[];
 };
 
+export type ContactPreview = Pick<
+  ContactDirectoryEntry,
+  'accountId' | 'email' | 'name' | 'isMe' | 'emailCount' | 'lastEmailedAt' | 'threads'
+>;
+
 type ThreadLike =
   | Pick<ThreadRecord, 'id' | 'account_id' | 'participant_ids' | 'subject' | 'last_message_at' | 'message_count'>
   | {
@@ -29,6 +34,36 @@ type ThreadLike =
     };
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
+
+export const findContactEntry = (
+  contacts: ContactDirectoryEntry[],
+  accountId: string,
+  email: string
+) => contacts.find((contact) => contact.accountId === accountId && normalizeEmail(contact.email) === normalizeEmail(email)) ?? null;
+
+export const toContactPreview = (
+  contacts: ContactDirectoryEntry[],
+  accountId: string,
+  email: string,
+  fallbackName: string | null = null,
+  fallbackIsMe = false
+): ContactPreview => {
+  const knownContact = findContactEntry(contacts, accountId, email);
+
+  if (knownContact) {
+    return knownContact;
+  }
+
+  return {
+    accountId,
+    email,
+    name: fallbackName,
+    isMe: fallbackIsMe,
+    emailCount: 0,
+    lastEmailedAt: null,
+    threads: []
+  };
+};
 
 const upsertFromContact = (
   map: Map<string, ContactDirectoryEntry>,

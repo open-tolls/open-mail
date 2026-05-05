@@ -1,8 +1,12 @@
 import { useMemo, useState } from 'react';
 import { ParticipantChip } from '@components/composer/ParticipantChip';
 import { isValidEmail, parseRecipients } from '@components/composer/participant-field-utils';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
+import { toContactPreview } from '@lib/contacts-directory';
 
 type ParticipantFieldProps = {
+  accountId: string;
+  contacts: ContactDirectoryEntry[];
   label: 'To' | 'Cc' | 'Bcc';
   placeholder: string;
   suggestions: string[];
@@ -11,6 +15,8 @@ type ParticipantFieldProps = {
 };
 
 export const ParticipantField = ({
+  accountId,
+  contacts,
   label,
   placeholder,
   suggestions,
@@ -55,6 +61,7 @@ export const ParticipantField = ({
         <div className="participant-field-input-wrap">
           {value.map((email) => (
             <ParticipantChip
+              contact={isValidEmail(email) ? toContactPreview(contacts, accountId, email) : null}
               email={email}
               isInvalid={!isValidEmail(email)}
               key={email}

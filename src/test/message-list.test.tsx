@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MessageList } from '@components/message-list/MessageList';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, ContactRecord, MessageRecord } from '@lib/contracts';
 
 const contact = (id: string, email: string, name: string | null = null): ContactRecord => ({
@@ -54,6 +55,25 @@ const makeAttachment = (overrides: Partial<AttachmentRecord>): AttachmentRecord 
   ...overrides
 });
 
+const contacts: ContactDirectoryEntry[] = [
+  {
+    id: 'ct_sender',
+    accountId: 'acc_demo',
+    email: 'sender@example.com',
+    name: 'Sender Example',
+    isMe: false,
+    emailCount: 2,
+    lastEmailedAt: '2026-03-13T10:00:00Z',
+    threads: [
+      {
+        threadId: 'thr_1',
+        subject: 'Thread subject',
+        lastMessageAt: '2026-03-13T10:00:00Z'
+      }
+    ]
+  }
+];
+
 describe('MessageList', () => {
   it('renders chronological messages with the latest expanded by default', () => {
     const onSelectMessage = vi.fn();
@@ -91,6 +111,23 @@ describe('MessageList', () => {
 
     expect(onSelectMessage).toHaveBeenCalledWith('msg_first');
     expect(screen.getByText('First message')).toBeInTheDocument();
+  });
+
+  it('shows a contact card from the message header on hover', async () => {
+    render(
+      <MessageList
+        contacts={contacts}
+        messages={[makeMessage({ id: 'msg_hover' })]}
+        selectedMessageId="msg_hover"
+        threadSubject="Thread subject"
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    fireEvent.mouseEnter(screen.getByText('Sender Example'));
+
+    expect(await screen.findByLabelText('Contact card for sender@example.com')).toBeInTheDocument();
+    expect(screen.getByText('Recent threads')).toBeInTheDocument();
   });
 
   it('opens sanitized links externally and loads remote images on demand', () => {

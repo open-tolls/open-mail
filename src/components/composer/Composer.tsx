@@ -7,6 +7,7 @@ import { ComposerSignaturePanel } from '@components/composer/ComposerSignaturePa
 import { TemplatePickerPopover } from '@components/templates/TemplatePickerPopover';
 import { TemplateVariableDialog } from '@components/templates/TemplateVariableDialog';
 import { toComposerFileAttachment, type ComposerAttachment } from '@lib/composer-attachments';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import { applySignatureHtml, hasSignatureHtml, stripSignatureHtml } from '@lib/signature-utils';
 import { applyTemplateVariables } from '@lib/template-utils';
 import type { AccountRecord } from '@stores/useAccountStore';
@@ -36,6 +37,7 @@ type ComposerProps = {
   fromOptions?: AccountRecord[];
   initialDraft?: Partial<ComposerDraft>;
   isSending: boolean;
+  contacts?: ContactDirectoryEntry[];
   recipientSuggestions: string[];
   status: string;
   onClose: () => void;
@@ -73,6 +75,7 @@ export const Composer = ({
   fromOptions,
   initialDraft,
   isSending,
+  contacts = [],
   recipientSuggestions,
   status,
   onClose,
@@ -345,6 +348,7 @@ export const Composer = ({
       <ComposerHeader
         bcc={draft.bcc}
         cc={draft.cc}
+        contacts={contacts}
         fromOptions={resolvedFromOptions}
         isBccVisible={isBccVisible}
         isCcVisible={isCcVisible}

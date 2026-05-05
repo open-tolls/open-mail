@@ -14,13 +14,14 @@ import { useMailboxOverview } from '@hooks/useMailboxOverview';
 import { useSearchThreads } from '@hooks/useSearchThreads';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useSyncStatusMap } from '@hooks/useSyncStatusMap';
-import { useThreadMessages } from '@hooks/useThreadMessages';
+import { fallbackMessagesByThreadId, useThreadMessages } from '@hooks/useThreadMessages';
 import { useThreads } from '@hooks/useThreads';
 import { useTauriEvent } from '@hooks/useTauriEvent';
 import { useUnifiedInboxThreads } from '@hooks/useUnifiedInboxThreads';
 import { useUnreadBadge } from '@hooks/useUnreadBadge';
 import { useUnreadTrayIndicator } from '@hooks/useUnreadTrayIndicator';
 import { toComposerScheduledAttachment } from '@lib/composer-attachments';
+import { buildContactDirectory } from '@lib/contacts-directory';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
@@ -440,6 +441,19 @@ const MailShell = () => {
   );
   const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
   const messagesQuery = useThreadMessages(selectedThread?.id ?? null);
+  const contactMessagesByThreadId = useMemo(() => {
+    const messagesByThreadId = tauriRuntime.isAvailable() ? {} : { ...fallbackMessagesByThreadId };
+
+    if (selectedThread?.id && messagesQuery.data?.length) {
+      messagesByThreadId[selectedThread.id] = messagesQuery.data;
+    }
+
+    return messagesByThreadId;
+  }, [messagesQuery.data, selectedThread?.id]);
+  const contactDirectory = useMemo(
+    () => buildContactDirectory(runtimeAllThreads, contactMessagesByThreadId),
+    [contactMessagesByThreadId, runtimeAllThreads]
+  );
   const syncStatusDetailQuery = useSyncStatusDetail(selectedComposerAccount.id);
   const recipientSuggestions = useMemo(
     () => Array.from(new Set(runtimeAllThreads.flatMap((thread) => thread.participant_ids))).sort(),
@@ -1052,6 +1066,7 @@ const MailShell = () => {
       composerToast={composerToast}
       composerAccounts={composerAccounts}
       composerAccountId={selectedComposerAccount.id}
+      contacts={contactDirectory}
       recipientSuggestions={recipientSuggestions}
       isOutboxBusy={enqueueOutboxMutation.isPending || flushOutboxMutation.isPending}
       isMessagesLoading={

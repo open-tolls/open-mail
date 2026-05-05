@@ -331,6 +331,11 @@ textarea {
   letter-spacing: normal;
 }
 
+.participant-chip .contact-hover-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+
 .participant-chip-invalid {
   border-color: rgba(255, 122, 122, 0.35);
   background: rgba(255, 122, 122, 0.1);
@@ -1285,6 +1290,60 @@ summary.folder-group-title::-webkit-details-marker {
 .contact-history {
   display: grid;
   gap: 14px;
+}
+
+.contact-hover-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.contact-hover-trigger {
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted rgba(246, 182, 111, 0.45);
+  text-underline-offset: 3px;
+  outline: none;
+}
+
+.contact-hover-trigger:focus-visible {
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px rgba(246, 182, 111, 0.14);
+}
+
+.contact-hover-card {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(320px, 70vw);
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-elevated) 94%, black 6%);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
+}
+
+.contact-hover-card p,
+.contact-hover-card span,
+.contact-hover-card small {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.contact-hover-metrics,
+.contact-hover-history,
+.contact-hover-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.contact-hover-history-item {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .contact-metrics {

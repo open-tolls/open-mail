@@ -10,6 +10,7 @@ import { useAppShellEvents } from '@hooks/useAppShellEvents';
 import { useDraftAutoSave } from '@hooks/useDraftAutoSave';
 import { type KeyboardShortcutMap, useKeyboardShortcuts } from '@hooks/useKeyboardShortcuts';
 import { prepareForwardDraft, prepareReplyDraft } from '@lib/compose-utils';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import { tauriRuntime } from '@lib/tauri-bridge';
 import type { AttachmentRecord, FolderRecord, MessageRecord, SyncStatusDetail, ThreadSummary } from '@lib/contracts';
 import { applySignatureHtml } from '@lib/signature-utils';
@@ -53,6 +54,7 @@ type ShellFrameProps = {
   composerToast: { kind: 'success' | 'error'; message: string } | null;
   composerAccounts: AccountRecord[];
   composerAccountId: string;
+  contacts: ContactDirectoryEntry[];
   recipientSuggestions: string[];
   syncStatusByAccountId?: Record<string, SyncStatusDetail | null>;
   isOutboxBusy: boolean;
@@ -99,6 +101,7 @@ export const ShellFrame = ({
   composerToast,
   composerAccounts,
   composerAccountId,
+  contacts,
   recipientSuggestions,
   syncStatusByAccountId,
   isOutboxBusy,
@@ -613,6 +616,7 @@ export const ShellFrame = ({
 
         {isComposerOpen ? (
           <Composer
+            contacts={contacts}
             fromOptions={composerAccounts}
             initialDraft={composerInitialDraft}
             isSending={isOutboxBusy}
@@ -737,6 +741,7 @@ export const ShellFrame = ({
           </button>
 
           <MessageReaderPanel
+            contacts={contacts}
             isMessagesLoading={isScheduledFolder ? false : isMessagesLoading}
             messages={isScheduledFolder ? [] : messages}
             selectedMessageId={selectedMessageId}

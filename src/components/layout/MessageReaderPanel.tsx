@@ -1,8 +1,10 @@
 import { MessageList } from '@components/message-list/MessageList';
 import { StatusBadge } from '@components/ui/StatusBadge';
+import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, MessageRecord, ThreadSummary } from '@lib/contracts';
 
 type MessageReaderPanelProps = {
+  contacts: ContactDirectoryEntry[];
   isMessagesLoading: boolean;
   messages: MessageRecord[];
   selectedMessageId: string | null;
@@ -17,6 +19,7 @@ type MessageReaderPanelProps = {
 };
 
 export const MessageReaderPanel = ({
+  contacts,
   isMessagesLoading,
   messages,
   selectedMessageId,
@@ -47,6 +50,7 @@ export const MessageReaderPanel = ({
 
       {!isMessagesLoading && selectedThread ? (
         <MessageList
+          contacts={contacts}
           messages={messages}
           selectedMessageId={selectedMessageId}
           threadSubject={selectedThread.subject}
