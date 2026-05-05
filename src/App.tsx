@@ -20,6 +20,7 @@ import { useTauriEvent } from '@hooks/useTauriEvent';
 import { useUnifiedInboxThreads } from '@hooks/useUnifiedInboxThreads';
 import { useUnreadBadge } from '@hooks/useUnreadBadge';
 import { useUnreadTrayIndicator } from '@hooks/useUnreadTrayIndicator';
+import { toComposerScheduledAttachment } from '@lib/composer-attachments';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
 import { autoMarkVisibleMessagesRead } from '@lib/auto-mark-read';
@@ -123,6 +124,16 @@ const toMimeAttachments = async (attachments: ComposerDraft['attachments']) =>
         };
       }
 
+      if (attachment.kind === 'scheduled') {
+        return {
+          filename: attachment.name,
+          contentType: attachment.contentType,
+          data: attachment.data,
+          isInline: attachment.isInline,
+          contentId: attachment.contentId
+        };
+      }
+
       if (!attachment.localPath) {
         throw new Error(`Attachment ${attachment.name} is not available locally`);
       }
@@ -188,6 +199,18 @@ const toScheduledThreadSummary = (scheduledSend: ScheduledSendRecord) => ({
   hasAttachments: scheduledSend.mimeMessage.attachments.length > 0,
   messageCount: 1,
   lastMessageAt: scheduledSend.sendAt
+});
+
+const toScheduledComposerDraft = (scheduledSend: ScheduledSendRecord): Partial<ComposerDraft> => ({
+  attachments: scheduledSend.mimeMessage.attachments.map(toComposerScheduledAttachment),
+  bcc: scheduledSend.mimeMessage.bcc.map((recipient) => recipient.email),
+  body: scheduledSend.mimeMessage.htmlBody,
+  cc: scheduledSend.mimeMessage.cc.map((recipient) => recipient.email),
+  fromAccountId: scheduledSend.accountId,
+  inReplyTo: scheduledSend.mimeMessage.inReplyTo,
+  references: scheduledSend.mimeMessage.references,
+  subject: scheduledSend.mimeMessage.subject,
+  to: scheduledSend.mimeMessage.to.map((recipient) => recipient.email)
 });
 
 const isInboxFolderId = (folderId: string) => folderId.toLowerCase().includes('inbox');
@@ -701,6 +724,28 @@ const MailShell = () => {
       setComposerToast({ kind: 'error', message: errorMessage });
     }
   };
+  const handleRestoreScheduledDraft = async (scheduledSendId: string) => {
+    const scheduledSend = scheduledSends.find((candidate) => candidate.id === scheduledSendId);
+    if (!scheduledSend) {
+      return null;
+    }
+
+    try {
+      if (tauriRuntime.isAvailable()) {
+        await api.scheduled.cancel(scheduledSendId);
+      }
+
+      setScheduledSends((current) => current.filter((candidate) => candidate.id !== scheduledSendId));
+      setOutboxStatus('Scheduled draft restored');
+      setComposerToast({ kind: 'success', message: 'Scheduled draft restored' });
+      return toScheduledComposerDraft(scheduledSend);
+    } catch (error) {
+      const errorMessage = `Could not restore scheduled draft: ${toErrorMessage(error)}`;
+      setOutboxStatus(errorMessage);
+      setComposerToast({ kind: 'error', message: errorMessage });
+      return null;
+    }
+  };
   const applyFlushReport = (report: OutboxSendReport) => {
     setQueuedOutboxMessages((current) => {
       const sentMessages = current.slice(0, report.sent);
@@ -1034,6 +1079,7 @@ const MailShell = () => {
       resolveInlineImageUrl={resolveInlineImageUrl}
       scheduledThreads={scheduledThreads}
       onCancelScheduledSends={handleCancelScheduledSends}
+      onRestoreScheduledDraft={handleRestoreScheduledDraft}
       onScheduleDraft={handleScheduleDraft}
       onSendDraft={handleSendDraft}
       onFlushOutbox={handleFlushOutbox}

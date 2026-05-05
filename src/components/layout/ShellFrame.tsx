@@ -67,6 +67,7 @@ type ShellFrameProps = {
   onSnoozeThreads: (threadIds: string[], until: string) => void;
   onUnsnoozeThreads: (threadIds: string[]) => void;
   onCancelScheduledSends: (scheduledSendIds: string[]) => void;
+  onRestoreScheduledDraft: (scheduledSendId: string) => Promise<Partial<ComposerDraft> | null>;
   onThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   onSearchQueryChange: (query: string) => void;
   onSelectThread: (threadId: string) => void;
@@ -112,6 +113,7 @@ export const ShellFrame = ({
   onSnoozeThreads,
   onUnsnoozeThreads,
   onCancelScheduledSends,
+  onRestoreScheduledDraft,
   onThreadAction,
   onSearchQueryChange,
   onSelectThread,
@@ -705,7 +707,14 @@ export const ShellFrame = ({
 
               if (isScheduledFolder) {
                 setSelectedScheduledThreadId(threadId);
-                setShortcutStatusLabel('Scheduled message selected');
+                void onRestoreScheduledDraft(threadId).then((restoredDraft) => {
+                  if (!restoredDraft) {
+                    return;
+                  }
+
+                  openComposerWithDraft(restoredDraft);
+                  setShortcutStatusLabel('Scheduled draft restored');
+                });
                 return;
               }
 

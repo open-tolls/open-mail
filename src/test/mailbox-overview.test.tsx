@@ -630,7 +630,7 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Sent');
   });
 
-  it('schedules a local message from the shell and lets the user cancel it from Scheduled', async () => {
+  it('restores a scheduled message into the composer from Scheduled', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <App />
@@ -641,6 +641,11 @@ describe('mailbox overview integration', () => {
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Scheduled follow-up' } });
     fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'release@example.com' } });
     fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
+    fireEvent.change(screen.getByLabelText('Attach files'), {
+      target: {
+        files: [new File(['plan'], 'plan.pdf', { type: 'application/pdf' })]
+      }
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
     fireEvent.change(screen.getByLabelText('Pick send later date and time'), {
@@ -658,12 +663,15 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByText('Scheduled follow-up')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Scheduled follow-up'));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel selected scheduled messages' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Scheduled is clear')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: /composer/i })).toBeInTheDocument();
     });
-    expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent('Canceled 1 scheduled message');
+    expect(screen.getByLabelText(/^subject$/i)).toHaveValue('Scheduled follow-up');
+    expect(screen.getByTitle('release@example.com')).toBeInTheDocument();
+    expect(screen.getByText('plan.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent('Scheduled draft restored');
+    expect(screen.queryByText('Scheduled follow-up')).not.toBeInTheDocument();
   });
 
   it('restores a locally autosaved draft when reopening the composer', async () => {

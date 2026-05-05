@@ -1,4 +1,5 @@
 import type { AttachmentRecord } from '@lib/contracts';
+import type { MimeAttachment } from '@lib/contracts';
 
 export type ComposerFileAttachment = {
   id: string;
@@ -20,7 +21,21 @@ export type ComposerForwardedAttachment = {
   isInline: boolean;
 };
 
-export type ComposerAttachment = ComposerFileAttachment | ComposerForwardedAttachment;
+export type ComposerScheduledAttachment = {
+  id: string;
+  kind: 'scheduled';
+  name: string;
+  size: number;
+  contentType: string;
+  data: number[];
+  contentId: string | null;
+  isInline: boolean;
+};
+
+export type ComposerAttachment =
+  | ComposerFileAttachment
+  | ComposerForwardedAttachment
+  | ComposerScheduledAttachment;
 
 export const toComposerFileAttachment = (file: File): ComposerFileAttachment => ({
   id: `${file.name}-${file.size}-${file.lastModified}`,
@@ -40,4 +55,18 @@ export const toComposerForwardedAttachment = (attachment: AttachmentRecord): Com
   localPath: attachment.local_path,
   contentId: attachment.content_id,
   isInline: attachment.is_inline
+});
+
+export const toComposerScheduledAttachment = (
+  attachment: MimeAttachment,
+  index: number
+): ComposerScheduledAttachment => ({
+  id: `scheduled-${attachment.filename}-${index}`,
+  kind: 'scheduled',
+  name: attachment.filename,
+  size: attachment.data.length,
+  contentType: attachment.contentType,
+  data: attachment.data,
+  contentId: attachment.contentId,
+  isInline: attachment.isInline
 });
