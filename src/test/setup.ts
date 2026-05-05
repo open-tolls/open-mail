@@ -5,6 +5,7 @@ import { defaultShortcutBindings, useShortcutStore } from '@stores/useShortcutSt
 import { useDraftStore } from '@stores/useDraftStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
+import { useTemplateStore } from '@stores/useTemplateStore';
 import { useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
@@ -40,6 +41,9 @@ beforeEach(() => {
     ],
     defaultSignatureId: 'sig_default',
     defaultSignatureIdsByAccountId: {}
+  });
+  useTemplateStore.setState({
+    templates: []
   });
   usePreferencesStore.setState({
     language: 'English',

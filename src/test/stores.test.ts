@@ -6,6 +6,7 @@ import { useMessageStore } from '@stores/useMessageStore';
 import { useSearchStore } from '@stores/useSearchStore';
 import { resolveSignatureForAccount, useSignatureStore } from '@stores/useSignatureStore';
 import { useSyncStore } from '@stores/useSyncStore';
+import { useTemplateStore } from '@stores/useTemplateStore';
 import { useThreadStore } from '@stores/useThreadStore';
 import type { FolderRecord, MessageRecord, SyncStatusDetail, ThreadRecord, ThreadSummary } from '@lib/contracts';
 
@@ -139,6 +140,7 @@ describe('phase 3 domain stores', () => {
       defaultSignatureId: 'sig_default',
       defaultSignatureIdsByAccountId: {}
     });
+    useTemplateStore.setState({ templates: [] });
     useSyncStore.setState({ syncByAccountId: {}, lastEventState: { kind: 'not-started' } });
     useSearchStore.setState({ query: '', results: [], isSearching: false });
   });
@@ -329,6 +331,35 @@ describe('phase 3 domain stores', () => {
     expect(useSignatureStore.getState().signatures.some((signature) => signature.id === createdId)).toBe(false);
     expect(useSignatureStore.getState().defaultSignatureId).toBe('sig_default');
     expect(useSignatureStore.getState().defaultSignatureIdsByAccountId.acc_1).toBeNull();
+  });
+
+  it('creates, updates, and deletes templates while keeping variables in sync', () => {
+    const templateId = useTemplateStore.getState().create({
+      accountId: 'acc_1',
+      title: 'Follow-up',
+      subject: 'Checking in with {{name}}',
+      body: '<p>Hello {{name}},</p><p>Status for {{project}}?</p>'
+    });
+
+    expect(useTemplateStore.getState().templates[0]?.variables).toEqual(['name', 'project']);
+
+    useTemplateStore.getState().update(templateId, {
+      accountId: null,
+      title: 'Shared follow-up',
+      subject: '',
+      body: '<p>Hello {{name}}</p>'
+    });
+
+    expect(useTemplateStore.getState().templates[0]).toEqual(
+      expect.objectContaining({
+        accountId: null,
+        title: 'Shared follow-up',
+        variables: ['name']
+      })
+    );
+
+    useTemplateStore.getState().delete(templateId);
+    expect(useTemplateStore.getState().templates).toEqual([]);
   });
 
   it('tracks sync status by account and search results', () => {

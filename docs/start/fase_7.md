@@ -240,6 +240,8 @@ Botao dropdown ao lado de "Send":
 
 **Referencia Mailspring:** `app/internal_packages/composer-templates/`
 
+**Status atual:** primeiro corte entregue, com store local persistida de templates, CRUD em `Preferences`, suporte a templates globais ou por conta, picker no composer e dialog de variaveis antes da aplicacao.
+
 **Conceito:** Templates reutilizaveis para emails frequentes com variaveis.
 
 **Backend (Rust):**
@@ -274,11 +276,11 @@ src/components/templates/
 4. Aplicar: subject e body preenchidos no composer
 
 **Criterio de aceite:**
-- [ ] CRUD de templates (Preferences)
-- [ ] Selecionar template no composer
-- [ ] Variaveis detectadas e preenchidas via dialog
-- [ ] Subject do template aplicado (se definido)
-- [ ] Templates por conta ou globais
+- [x] CRUD de templates (Preferences)
+- [x] Selecionar template no composer
+- [x] Variaveis detectadas e preenchidas via dialog
+- [x] Subject do template aplicado (se definido)
+- [x] Templates por conta ou globais
 
 ---
 
@@ -623,7 +625,7 @@ pub enum ReminderStatus {
 
 - [x] Snooze funcional (snooze, wake-up, notifications)
 - [ ] Send Later funcional (schedule, auto-send, cancel)
-- [ ] Templates CRUD + aplicacao no composer
+- [x] Templates CRUD + aplicacao no composer
 - [ ] Mail Rules builder + auto-processamento
 - [ ] Contacts manager com busca e historico
 - [ ] Phishing detection com warnings visuais

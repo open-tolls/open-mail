@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Composer } from '@components/composer/Composer';
+import { useTemplateStore } from '@stores/useTemplateStore';
 
 describe('Composer send flow', () => {
   afterEach(() => {
@@ -165,5 +166,52 @@ describe('Composer send flow', () => {
     });
     expect(onSchedule.mock.calls[0]?.[0].subject).toBe('Schedule me');
     expect(typeof onSchedule.mock.calls[0]?.[1]).toBe('string');
+  });
+
+  it('applies a template with variables from the composer', async () => {
+    useTemplateStore.setState({
+      templates: [
+        {
+          id: 'tpl_followup',
+          title: 'Follow-up template',
+          accountId: null,
+          subject: 'Follow-up for {{project}}',
+          body: '<p>Hello {{name}},</p><p>Quick check-in.</p>',
+          variables: ['project', 'name']
+        }
+      ]
+    });
+
+    render(
+      <Composer
+        from="leco@example.com"
+        initialDraft={{
+          attachments: [],
+          bcc: [],
+          body: '<p>Hello</p>',
+          cc: [],
+          subject: '',
+          to: ['atlas@example.com']
+        }}
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
+        onSend={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    fireEvent.click(screen.getByRole('button', { name: /Follow-up template/i }));
+    fireEvent.change(screen.getByPlaceholderText('Value for project'), { target: { value: 'Phase 7' } });
+    fireEvent.change(screen.getByPlaceholderText('Value for name'), { target: { value: 'Atlas' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply template' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^subject$/i)).toHaveValue('Follow-up for Phase 7');
+      expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('Hello Atlas,');
+    });
   });
 });

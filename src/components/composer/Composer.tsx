@@ -4,8 +4,11 @@ import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { ComposerFooter } from '@components/composer/ComposerFooter';
 import { ComposerHeader } from '@components/composer/ComposerHeader';
 import { ComposerSignaturePanel } from '@components/composer/ComposerSignaturePanel';
+import { TemplatePickerPopover } from '@components/templates/TemplatePickerPopover';
+import { TemplateVariableDialog } from '@components/templates/TemplateVariableDialog';
 import { toComposerFileAttachment, type ComposerAttachment } from '@lib/composer-attachments';
 import { applySignatureHtml, hasSignatureHtml, stripSignatureHtml } from '@lib/signature-utils';
+import { applyTemplateVariables } from '@lib/template-utils';
 import type { AccountRecord } from '@stores/useAccountStore';
 import {
   deleteSignatureFromBackend,
@@ -14,6 +17,7 @@ import {
   setDefaultSignatureOnBackend,
   useSignatureStore
 } from '@stores/useSignatureStore';
+import { useTemplateStore } from '@stores/useTemplateStore';
 
 type ComposerDraft = {
   attachments: ComposerAttachment[];
@@ -92,6 +96,8 @@ export const Composer = ({
   const [activeSignatureId, setActiveSignatureId] = useState<string | null>(null);
   const [isQuotedTextCollapsed, setIsQuotedTextCollapsed] = useState(hasQuotedContent(mergedDraft.body));
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
   const [customSendAt, setCustomSendAt] = useState('');
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const signatures = useSignatureStore((state) => state.signatures);
@@ -101,6 +107,7 @@ export const Composer = ({
   const deleteSignature = useSignatureStore((state) => state.delete);
   const setDefaultSignature = useSignatureStore((state) => state.setDefault);
   const updateSignature = useSignatureStore((state) => state.update);
+  const templates = useTemplateStore((state) => state.templates);
   const previousFromAccountIdRef = useRef(mergedDraft.fromAccountId);
   const resolvedFromOptions = fromOptions?.length
     ? fromOptions
@@ -143,6 +150,12 @@ export const Composer = ({
   const hasQuotedSection = hasQuotedContent(draft.body);
   const activeFromAccount =
     resolvedFromOptions.find((account) => account.id === draft.fromAccountId) ?? resolvedFromOptions[0] ?? null;
+  const availableTemplates = useMemo(
+    () =>
+      templates.filter((template) => template.accountId === null || template.accountId === draft.fromAccountId),
+    [draft.fromAccountId, templates]
+  );
+  const pendingTemplate = availableTemplates.find((template) => template.id === pendingTemplateId) ?? null;
 
   const isDirty =
     draft.attachments.length !== mergedDraft.attachments.length ||
@@ -231,6 +244,44 @@ export const Composer = ({
     }
 
     await onSend(draft);
+  };
+
+  const applyTemplate = (templateId: string, values: Record<string, string>) => {
+    const template = availableTemplates.find((candidate) => candidate.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    const nextSubject = template.subject ? applyTemplateVariables(template.subject, values) : draft.subject;
+    const nextBody = applySignatureHtml(
+      applyTemplateVariables(template.body, values),
+      resolvedDefaultSignature?.body ?? null
+    );
+
+    setDraft((current) => ({
+      ...current,
+      subject: nextSubject,
+      body: nextBody
+    }));
+    setActiveSignatureId(resolvedDefaultSignature?.id ?? null);
+    setPendingTemplateId(null);
+    setIsTemplatePickerOpen(false);
+    setLocalStatus(`Applied template: ${template.title}`);
+  };
+
+  const handleTemplateSelection = (templateId: string) => {
+    const template = availableTemplates.find((candidate) => candidate.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    if (template.variables.length) {
+      setPendingTemplateId(template.id);
+      setIsTemplatePickerOpen(false);
+      return;
+    }
+
+    applyTemplate(template.id, {});
   };
 
   const buildSchedulePresets = () => {
@@ -398,6 +449,7 @@ export const Composer = ({
       ) : null}
       <ComposerFooter
         isSending={isSending}
+        onOpenTemplates={() => setIsTemplatePickerOpen(true)}
         onEditSignature={() => setIsSignaturePanelOpen((current) => !current)}
         onDiscard={handleDiscard}
         onFlushOutbox={onFlushOutbox}
@@ -437,6 +489,21 @@ export const Composer = ({
             </button>
           </div>
         </div>
+      ) : null}
+      {isTemplatePickerOpen ? (
+        <TemplatePickerPopover
+          onClose={() => setIsTemplatePickerOpen(false)}
+          onSelect={handleTemplateSelection}
+          templates={availableTemplates}
+        />
+      ) : null}
+      {pendingTemplate ? (
+        <TemplateVariableDialog
+          onApply={(values) => applyTemplate(pendingTemplate.id, values)}
+          onClose={() => setPendingTemplateId(null)}
+          templateTitle={pendingTemplate.title}
+          variables={pendingTemplate.variables}
+        />
       ) : null}
     </section>
   );

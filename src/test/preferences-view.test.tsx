@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/App';
 import { useAccountStore } from '@stores/useAccountStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
+import { useTemplateStore } from '@stores/useTemplateStore';
 import { useUIStore } from '@stores/useUIStore';
 
 const tauriCoreApi = vi.hoisted(() => ({
@@ -301,5 +302,44 @@ describe('preferences view', () => {
 
     expect(useAccountStore.getState().accounts).toHaveLength(1);
     expect(screen.queryByText('Operations')).not.toBeInTheDocument();
+  });
+
+  it('manages templates from preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+    useAccountStore.setState({
+      accounts: [
+        {
+          id: 'acc_demo',
+          provider: 'Gmail',
+          email: 'leco@example.com',
+          displayName: 'Open Mail Demo'
+        }
+      ],
+      selectedAccountId: 'acc_demo'
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.change(await screen.findByLabelText('Title'), { target: { value: 'Welcome template' } });
+    fireEvent.change(screen.getByLabelText('Body (HTML)'), {
+      target: { value: '<p>Hello {{name}},</p><p>Welcome aboard.</p>' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create template' }));
+
+    expect(screen.getByText('Welcome template')).toBeInTheDocument();
+    expect(useTemplateStore.getState().templates[0]?.variables).toEqual(['name']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Subject'), { target: { value: 'Welcome {{name}}' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
+
+    expect(screen.getByText('Welcome {{name}}')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByText('Welcome template')).not.toBeInTheDocument();
   });
 });

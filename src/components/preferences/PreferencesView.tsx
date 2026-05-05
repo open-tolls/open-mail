@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { TemplateEditor } from '@components/templates/TemplateEditor';
+import { TemplateList } from '@components/templates/TemplateList';
 import { builtInThemes, type ThemeId } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
@@ -7,6 +9,7 @@ import { hydratePreferencesStore, savePreferencesToBackend } from '@stores/usePr
 import { useShortcutStore } from '@stores/useShortcutStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
+import { useTemplateStore } from '@stores/useTemplateStore';
 import { useUIStore } from '@stores/useUIStore';
 
 const sections = [
@@ -32,6 +35,7 @@ export const PreferencesView = () => {
   const navigate = useNavigate();
   const [backendStatus, setBackendStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
   const [backendMessage, setBackendMessage] = useState<string | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const hasHydratedRef = useRef(false);
   const launchAtLoginHydratedRef = useRef(false);
   const accounts = useAccountStore((state) => state.accounts);
@@ -41,6 +45,10 @@ export const PreferencesView = () => {
   const signatures = useSignatureStore((state) => state.signatures);
   const defaultSignatureId = useSignatureStore((state) => state.defaultSignatureId);
   const defaultSignatureIdsByAccountId = useSignatureStore((state) => state.defaultSignatureIdsByAccountId);
+  const templates = useTemplateStore((state) => state.templates);
+  const createTemplate = useTemplateStore((state) => state.create);
+  const updateTemplate = useTemplateStore((state) => state.update);
+  const deleteTemplate = useTemplateStore((state) => state.delete);
   const shortcutBindings = useShortcutStore((state) => state.bindings);
   const resetShortcutBindings = useShortcutStore((state) => state.resetShortcutBindings);
   const layoutMode = useUIStore((state) => state.layoutMode);
@@ -103,6 +111,7 @@ export const PreferencesView = () => {
       })),
     [availableAccounts, defaultSignatureId, defaultSignatureIdsByAccountId, signatures]
   );
+  const editingTemplate = templates.find((template) => template.id === editingTemplateId) ?? null;
 
   const updateDefaultAccount = (accountId: string) => {
     setPreference('defaultAccountId', accountId);
@@ -412,6 +421,37 @@ export const PreferencesView = () => {
                 <strong>Shared signatures</strong>
                 <p>{signatures.length} signature(s) available in the composer workflow.</p>
               </article>
+            </div>
+            <div className="preferences-subsection">
+              <div>
+                <h3>Templates</h3>
+                <p className="preferences-note">Reusable composer snippets with optional variables and account-specific scope.</p>
+              </div>
+              <TemplateEditor
+                accounts={availableAccounts}
+                editingTemplate={editingTemplate}
+                onCancel={() => setEditingTemplateId(null)}
+                onSave={(template) => {
+                  if (editingTemplate) {
+                    updateTemplate(editingTemplate.id, template);
+                    setEditingTemplateId(null);
+                    return;
+                  }
+
+                  createTemplate(template);
+                }}
+              />
+              <TemplateList
+                accounts={availableAccounts}
+                onDelete={(templateId) => {
+                  deleteTemplate(templateId);
+                  if (editingTemplateId === templateId) {
+                    setEditingTemplateId(null);
+                  }
+                }}
+                onEdit={setEditingTemplateId}
+                templates={templates}
+              />
             </div>
           </section>
 

@@ -2,6 +2,7 @@ import { Spinner } from '@components/ui/Spinner';
 
 type ComposerFooterProps = {
   isSending: boolean;
+  onOpenTemplates: () => void;
   onEditSignature: () => void;
   onDiscard: () => void;
   onFlushOutbox: () => Promise<void>;
@@ -10,9 +11,21 @@ type ComposerFooterProps = {
   status: string;
 };
 
-export const ComposerFooter = ({ isSending, onEditSignature, onDiscard, onFlushOutbox, onOpenSchedule, onSend, status }: ComposerFooterProps) => (
+export const ComposerFooter = ({
+  isSending,
+  onOpenTemplates,
+  onEditSignature,
+  onDiscard,
+  onFlushOutbox,
+  onOpenSchedule,
+  onSend,
+  status
+}: ComposerFooterProps) => (
   <footer className="composer-panel-footer">
     <div className="composer-actions">
+      <button className="composer-secondary" disabled={isSending} onClick={onOpenTemplates} type="button">
+        Templates
+      </button>
       <button className="composer-secondary" disabled={isSending} onClick={onEditSignature} type="button">
         Signature
       </button>

@@ -599,7 +599,7 @@ textarea {
 
 .composer-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -680,6 +680,39 @@ textarea {
   color: var(--muted);
   font-size: 0.86rem;
   line-height: 1.5;
+}
+
+.composer-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(7, 10, 16, 0.55);
+  z-index: 40;
+}
+
+.composer-dialog {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.composer-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.composer-dialog-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
 }
 
 .outbox-mini-card {
@@ -1068,6 +1101,83 @@ summary.folder-group-title::-webkit-details-marker {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 14px;
+}
+
+.preferences-subsection {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.template-editor,
+.template-card,
+.template-picker-item {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.template-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.template-editor-header,
+.template-editor-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.template-editor-header p,
+.template-card p,
+.template-picker-item span,
+.template-picker-item small,
+.template-variables {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.template-editor-subject,
+.template-editor-body {
+  flex-basis: 100%;
+}
+
+.template-editor-body textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-soft);
+  color: var(--text);
+  resize: vertical;
+}
+
+.template-list,
+.template-picker-list,
+.template-variable-list {
+  display: grid;
+  gap: 12px;
+}
+
+.template-card strong,
+.template-picker-item strong {
+  display: block;
+}
+
+.template-card span {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--accent);
+}
+
+.template-picker-item {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
 }
 
 .preferences-theme-grid {
