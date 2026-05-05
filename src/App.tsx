@@ -41,6 +41,7 @@ import { useAccountStore } from '@stores/useAccountStore';
 import { useContactProfileStore } from '@stores/useContactProfileStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { hydrateSignatureStore } from '@stores/useSignatureStore';
+import { useSendReminderStore } from '@stores/useSendReminderStore';
 import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
 import { useUndoStore } from '@stores/useUndoStore';
 import { useUIStore } from '@stores/useUIStore';
@@ -60,6 +61,7 @@ const htmlEscapeMap: Record<string, string> = {
 
 const SNOOZED_FOLDER_ID = 'fld_snoozed';
 const SCHEDULED_FOLDER_ID = 'fld_scheduled';
+const REMINDERS_FOLDER_ID = 'fld_reminders';
 
 type LocalSnoozeRecord = {
   accountId: string;
@@ -205,6 +207,9 @@ const toScheduledThreadSummary = (scheduledSend: ScheduledSendRecord) => ({
   lastMessageAt: scheduledSend.sendAt
 });
 
+const formatReminderSnippet = (remindAt: string, recipients: string[]) =>
+  `Follow up on ${new Date(remindAt).toLocaleString()} · Waiting on ${recipients.join(', ') || 'reply'}`;
+
 const toScheduledComposerDraft = (scheduledSend: ScheduledSendRecord): Partial<ComposerDraft> => ({
   attachments: scheduledSend.mimeMessage.attachments.map(toComposerScheduledAttachment),
   bcc: scheduledSend.mimeMessage.bcc.map((recipient) => recipient.email),
@@ -259,6 +264,9 @@ const MailShell = () => {
   const selectAccount = useAccountStore((state) => state.selectAccount);
   const setAccounts = useAccountStore((state) => state.setAccounts);
   const upsertAccount = useAccountStore((state) => state.upsertAccount);
+  const reminders = useSendReminderStore((state) => state.reminders);
+  const createReminder = useSendReminderStore((state) => state.createReminder);
+  const cancelReminderRecords = useSendReminderStore((state) => state.cancelReminders);
   const contactProfiles = useContactProfileStore((state) => state.profiles);
   const mailRules = useMailRulesStore((state) => state.rules);
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
@@ -300,7 +308,7 @@ const MailShell = () => {
       return null;
     }
 
-    if (folderId === SNOOZED_FOLDER_ID || folderId === SCHEDULED_FOLDER_ID) {
+    if (folderId === SNOOZED_FOLDER_ID || folderId === SCHEDULED_FOLDER_ID || folderId === REMINDERS_FOLDER_ID) {
       return folderId;
     }
 
@@ -335,6 +343,26 @@ const MailShell = () => {
         .sort((first, second) => new Date(first.sendAt).getTime() - new Date(second.sendAt).getTime())
         .map(toScheduledThreadSummary),
     [scheduledSends, selectedComposerAccount.id]
+  );
+  const reminderThreads = useMemo(
+    () =>
+      reminders
+        .filter(
+          (reminder) => reminder.accountId === selectedComposerAccount.id && reminder.status === 'active'
+        )
+        .sort((first, second) => new Date(first.remindAt).getTime() - new Date(second.remindAt).getTime())
+        .map((reminder) => ({
+          id: reminder.id,
+          subject: reminder.subject.trim() || '(no subject)',
+          snippet: formatReminderSnippet(reminder.remindAt, reminder.recipients),
+          participants: reminder.recipients.length ? reminder.recipients : ['No recipients'],
+          isUnread: false,
+          isStarred: false,
+          hasAttachments: false,
+          messageCount: 1,
+          lastMessageAt: reminder.remindAt
+        })),
+    [reminders, selectedComposerAccount.id]
   );
   const selectedMailboxFolder = mailbox?.folders.find((folder) => folder.id === selectedFolderId) ?? null;
   const isUnifiedInboxActive = composerAccounts.length > 1 && selectedMailboxFolder?.role === 'inbox';
@@ -383,6 +411,7 @@ const MailShell = () => {
       );
       const snoozedCount = Object.keys(localSnoozes).length;
       const scheduledCount = scheduledSends.filter((scheduledSend) => scheduledSend.accountId === selectedComposerAccount.id).length;
+      const remindersCount = reminderThreads.length;
 
       return [
         ...baseFolders,
@@ -407,6 +436,17 @@ const MailShell = () => {
           total_count: scheduledCount,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
+        },
+        {
+          id: REMINDERS_FOLDER_ID,
+          account_id: mailbox?.accountId ?? selectedComposerAccount.id,
+          name: 'Reminders',
+          path: 'Reminders',
+          role: 'reminders',
+          unread_count: 0,
+          total_count: remindersCount,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }
       ];
     },
@@ -417,6 +457,7 @@ const MailShell = () => {
       localSnoozes,
       mailbox?.folders,
       mailbox?.accountId,
+      reminderThreads.length,
       scheduledSends,
       selectedComposerAccount.id,
       unifiedInboxQuery.data
@@ -430,6 +471,8 @@ const MailShell = () => {
           ? unifiedInboxQuery.data ?? fallbackUnifiedInboxThreads
           : selectedFolderId === SCHEDULED_FOLDER_ID
             ? scheduledThreads
+          : selectedFolderId === REMINDERS_FOLDER_ID
+            ? reminderThreads
           : folderThreadsQuery.threads) ??
       mailbox?.threads ??
       [],
@@ -440,6 +483,7 @@ const MailShell = () => {
       mailbox?.threads,
       searchThreadsQuery.data,
       fallbackUnifiedInboxThreads,
+      reminderThreads,
       scheduledThreads,
       selectedFolderId,
       unifiedInboxQuery.data
@@ -676,12 +720,23 @@ const MailShell = () => {
       });
   }, [messagesQuery.data, queryClient, selectedThread, updateThread]);
 
-  const handleSendDraft = async (draft: ComposerDraft) => {
+  const handleSendDraft = async (draft: ComposerDraft, remindAt?: string | null) => {
     try {
       setOutboxStatus('Queueing message...');
       const queued = await enqueueOutboxMutation.mutateAsync(draft);
       setQueuedOutboxMessages((current) => [...current, queued]);
-      const successMessage = `Queued ${queued.mimeMessage.to.length} recipient(s)`;
+      if (remindAt) {
+        createReminder({
+          accountId: queued.accountId,
+          threadId: `thr_sent_${queued.id}`,
+          subject: draft.subject,
+          recipients: draft.to,
+          remindAt
+        });
+      }
+      const successMessage = remindAt
+        ? `Queued ${queued.mimeMessage.to.length} recipient(s) with follow-up reminder`
+        : `Queued ${queued.mimeMessage.to.length} recipient(s)`;
       setOutboxStatus(successMessage);
       setComposerToast({ kind: 'success', message: successMessage });
       return true;
@@ -788,6 +843,16 @@ const MailShell = () => {
       setComposerToast({ kind: 'error', message: errorMessage });
       return null;
     }
+  };
+  const handleCancelReminders = (reminderIds: string[]) => {
+    if (!reminderIds.length) {
+      return;
+    }
+
+    cancelReminderRecords(reminderIds);
+    const successMessage = `Canceled ${reminderIds.length} reminder${reminderIds.length === 1 ? '' : 's'}`;
+    setOutboxStatus(successMessage);
+    setComposerToast({ kind: 'success', message: successMessage });
   };
   const applyFlushReport = (report: OutboxSendReport) => {
     setQueuedOutboxMessages((current) => {
@@ -1181,6 +1246,7 @@ const MailShell = () => {
       selectedThread={selectedThread}
       messages={messagesQuery.data ?? []}
       selectedMessageId={selectedMessageId}
+      reminderThreads={reminderThreads}
       syncStatusDetail={syncStatusDetailQuery.data ?? null}
       syncStatusByAccountId={syncStatusMapQuery.data ?? {}}
       outboxStatus={outboxStatus}
@@ -1205,6 +1271,7 @@ const MailShell = () => {
       onMoveThreads={handleMoveThreads}
       onSnoozeThreads={handleSnoozeThreads}
       onUnsnoozeThreads={handleUnsnoozeThreads}
+      onCancelReminders={handleCancelReminders}
       onThreadAction={handleThreadAction}
       onSelectFolder={handleSelectFolder}
       onSearchQueryChange={setSearchQuery}

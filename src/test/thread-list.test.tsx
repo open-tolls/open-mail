@@ -266,4 +266,28 @@ describe('ThreadList', () => {
 
     expect(onUnsnoozeThreads).toHaveBeenCalledWith(['thr_0']);
   });
+
+  it('shows cancel reminder actions inside the reminders folder', () => {
+    const onCancelReminders = vi.fn();
+
+    render(
+      <ThreadListPanel
+        activeFolderId="fld_reminders"
+        activeFolderName="Reminders"
+        folders={[folder('fld_reminders', 'Reminders')]}
+        isReminderFolder
+        isSearchActive={false}
+        onCancelReminders={onCancelReminders}
+        onSelectThread={vi.fn()}
+        searchQuery=""
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Thread 0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel selected reminders' }));
+
+    expect(onCancelReminders).toHaveBeenCalledWith(['thr_0']);
+  });
 });

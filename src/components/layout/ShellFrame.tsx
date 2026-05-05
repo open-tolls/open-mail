@@ -35,6 +35,7 @@ const stripHtmlPreview = (value: string) =>
     .trim();
 
 const SCHEDULED_FOLDER_ID = 'fld_scheduled';
+const REMINDERS_FOLDER_ID = 'fld_reminders';
 
 type ShellFrameProps = {
   accounts: AccountRecord[];
@@ -48,6 +49,7 @@ type ShellFrameProps = {
   selectedThreadId: string | null;
   selectedThread: ThreadSummary | null;
   scheduledThreads: ThreadSummary[];
+  reminderThreads: ThreadSummary[];
   messages: MessageRecord[];
   selectedMessageId: string | null;
   syncStatusDetail: SyncStatusDetail | null;
@@ -70,6 +72,7 @@ type ShellFrameProps = {
   onSnoozeThreads: (threadIds: string[], until: string) => void;
   onUnsnoozeThreads: (threadIds: string[]) => void;
   onCancelScheduledSends: (scheduledSendIds: string[]) => void;
+  onCancelReminders: (reminderIds: string[]) => void;
   onRestoreScheduledDraft: (scheduledSendId: string) => Promise<Partial<ComposerDraft> | null>;
   onThreadAction: (action: StoreThreadAction, threadIds: string[]) => void;
   onSearchQueryChange: (query: string) => void;
@@ -79,7 +82,7 @@ type ShellFrameProps = {
   onDownloadAttachment: (attachment: AttachmentRecord) => void;
   resolveInlineImageUrl: (localPath: string) => string;
   onScheduleDraft: (draft: ComposerDraft, sendAt: string) => Promise<boolean>;
-  onSendDraft: (draft: ComposerDraft) => Promise<boolean>;
+  onSendDraft: (draft: ComposerDraft, remindAt?: string | null) => Promise<boolean>;
   onFlushOutbox: () => Promise<void>;
 };
 
@@ -95,6 +98,7 @@ export const ShellFrame = ({
   selectedThreadId,
   selectedThread,
   scheduledThreads,
+  reminderThreads,
   messages,
   selectedMessageId,
   syncStatusDetail,
@@ -117,6 +121,7 @@ export const ShellFrame = ({
   onSnoozeThreads,
   onUnsnoozeThreads,
   onCancelScheduledSends,
+  onCancelReminders,
   onRestoreScheduledDraft,
   onThreadAction,
   onSearchQueryChange,
@@ -205,11 +210,20 @@ export const ShellFrame = ({
   );
   const isDraftsFolder = activeFolder?.role === 'drafts';
   const isScheduledFolder = activeFolder?.id === SCHEDULED_FOLDER_ID || activeFolder?.role === 'scheduled';
-  const visibleThreads = isDraftsFolder ? draftThreads : isScheduledFolder ? scheduledThreads : threads;
+  const isRemindersFolder = activeFolder?.id === REMINDERS_FOLDER_ID || activeFolder?.role === 'reminders';
+  const visibleThreads = isDraftsFolder
+    ? draftThreads
+    : isScheduledFolder
+      ? scheduledThreads
+      : isRemindersFolder
+        ? reminderThreads
+        : threads;
   const visibleSelectedThreadId = isDraftsFolder
     ? selectedDraftThreadId
     : isScheduledFolder
       ? selectedScheduledThreadId
+      : isRemindersFolder
+        ? selectedThreadId
       : selectedThreadId;
   const resetComposerState = useCallback(() => {
     setIsComposerOpen(false);
@@ -663,8 +677,8 @@ export const ShellFrame = ({
               }
               return didSchedule;
             }}
-            onSend={async (draft) => {
-              const didQueue = await onSendDraft(draft);
+            onSend={async (draft, remindAt) => {
+              const didQueue = await onSendDraft(draft, remindAt);
               if (didQueue) {
                 if (composerDraftId) {
                   removeDraft(composerDraftId);
@@ -691,17 +705,19 @@ export const ShellFrame = ({
           ref={workspaceRef}
           style={workspaceStyle}
         >
-          <ThreadListPanel
-            activeFolderId={activeFolder?.id ?? null}
-            activeFolderName={activeFolder?.name ?? null}
-            dialogRequest={threadDialogRequest}
-            folders={runtimeFolders}
-            hasMore={hasMoreThreads}
-            isSearchActive={isSearchActive}
-            isLoading={isThreadsLoading}
-            isScheduledFolder={isScheduledFolder}
-            onApplyLabels={onApplyLabels}
-            onCancelScheduledSends={onCancelScheduledSends}
+        <ThreadListPanel
+          activeFolderId={activeFolder?.id ?? null}
+          activeFolderName={activeFolder?.name ?? null}
+          dialogRequest={threadDialogRequest}
+          folders={runtimeFolders}
+          hasMore={hasMoreThreads}
+          isReminderFolder={isRemindersFolder}
+          isSearchActive={isSearchActive}
+          isLoading={isThreadsLoading}
+          isScheduledFolder={isScheduledFolder}
+          onApplyLabels={onApplyLabels}
+          onCancelReminders={onCancelReminders}
+          onCancelScheduledSends={onCancelScheduledSends}
             onLoadMore={onLoadMoreThreads}
             onMoveThreads={onMoveThreads}
             onSnoozeThreads={onSnoozeThreads}
@@ -733,6 +749,11 @@ export const ShellFrame = ({
                   openComposerWithDraft(restoredDraft);
                   setShortcutStatusLabel('Scheduled draft restored');
                 });
+                return;
+              }
+
+              if (isRemindersFolder) {
+                onSelectThread(threadId);
                 return;
               }
 

@@ -1,5 +1,5 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
-import { Archive, MailOpen, Paperclip, Star, Trash2 } from 'lucide-react';
+import { Archive, MailOpen, Paperclip, Star, Trash2, XCircle } from 'lucide-react';
 import type { ThreadSummary } from '@lib/contracts';
 import { formatThreadTime, getSenderInitials, getThreadLabels } from '@components/thread-list/threadListUtils';
 import type { ThreadAction } from '@components/thread-list/ThreadListToolbar';
@@ -7,6 +7,7 @@ import type { ThreadAction } from '@components/thread-list/ThreadListToolbar';
 export type ThreadSelectEvent = Pick<MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>, 'ctrlKey' | 'metaKey' | 'shiftKey'>;
 
 type ThreadListItemProps = {
+  isReminderFolder?: boolean;
   isSelected: boolean;
   isMultiSelected: boolean;
   style?: CSSProperties;
@@ -17,6 +18,7 @@ type ThreadListItemProps = {
 };
 
 export const ThreadListItem = ({
+  isReminderFolder = false,
   isSelected,
   isMultiSelected,
   style,
@@ -92,18 +94,26 @@ export const ThreadListItem = ({
 
       <span className="thread-quick-actions" aria-label={`Quick actions for ${thread.subject}`}>
         <span className="thread-quick-action-row">
-          <button aria-label="Archive thread" onClick={runAction('archive')} type="button">
-            <Archive size={14} />
-          </button>
-          <button aria-label="Trash thread" onClick={runAction('trash')} type="button">
-            <Trash2 size={14} />
-          </button>
-          <button aria-label="Mark thread read or unread" onClick={runAction('toggle-read')} type="button">
-            <MailOpen size={14} />
-          </button>
-          <button aria-label="Star thread" onClick={runAction('star')} type="button">
-            <Star size={14} />
-          </button>
+          {isReminderFolder ? (
+            <button aria-label="Cancel reminder" onClick={runAction('cancel-reminder')} type="button">
+              <XCircle size={14} />
+            </button>
+          ) : (
+            <>
+              <button aria-label="Archive thread" onClick={runAction('archive')} type="button">
+                <Archive size={14} />
+              </button>
+              <button aria-label="Trash thread" onClick={runAction('trash')} type="button">
+                <Trash2 size={14} />
+              </button>
+              <button aria-label="Mark thread read or unread" onClick={runAction('toggle-read')} type="button">
+                <MailOpen size={14} />
+              </button>
+              <button aria-label="Star thread" onClick={runAction('star')} type="button">
+                <Star size={14} />
+              </button>
+            </>
+          )}
         </span>
       </span>
 

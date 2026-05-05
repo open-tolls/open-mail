@@ -6,6 +6,7 @@ type ComposerFooterProps = {
   onEditSignature: () => void;
   onDiscard: () => void;
   onFlushOutbox: () => Promise<void>;
+  onOpenReminder: () => void;
   onOpenSchedule: () => void;
   onSend: () => Promise<void>;
   status: string;
@@ -17,6 +18,7 @@ export const ComposerFooter = ({
   onEditSignature,
   onDiscard,
   onFlushOutbox,
+  onOpenReminder,
   onOpenSchedule,
   onSend,
   status
@@ -34,6 +36,9 @@ export const ComposerFooter = ({
       </button>
       <button className="composer-secondary" disabled={isSending} onClick={() => void onFlushOutbox()} type="button">
         Flush outbox
+      </button>
+      <button className="composer-secondary" disabled={isSending} onClick={onOpenReminder} type="button">
+        Remind me
       </button>
       <button className="composer-secondary" disabled={isSending} onClick={onOpenSchedule} type="button">
         Send later

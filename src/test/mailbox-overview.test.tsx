@@ -868,4 +868,30 @@ describe('mailbox overview integration', () => {
     expect(window.open).toHaveBeenCalledTimes(2);
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Print dialog opened');
   });
+
+  it('creates and lists active send reminders from the composer flow', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Follow-up candidate' } });
+    fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'atlas@example.com' } });
+    fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remind me' }));
+    fireEvent.click(screen.getByRole('button', { name: 'In 1 day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue' }));
+
+    expect(await screen.findByRole('button', { name: /reminders/i })).toHaveTextContent('1');
+
+    fireEvent.click(screen.getByRole('button', { name: /reminders/i }));
+    expect((await screen.findAllByText('Follow-up candidate')).length).toBeGreaterThan(0);
+    expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Reminders');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel reminder' }));
+    expect(await screen.findByRole('button', { name: /reminders/i })).toHaveTextContent('0');
+  });
 });

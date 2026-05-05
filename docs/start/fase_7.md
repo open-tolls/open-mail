@@ -576,6 +576,8 @@ pub async fn print_message(
 
 **Referencia Mailspring:** `app/internal_packages/send-reminders/`
 
+**Status atual:** primeiro corte entregue no frontend, com `Remind me` no composer, presets `1 dia`, `3 dias`, `1 semana` e custom datetime, persistencia local dos follow-ups e pasta pseudo `Reminders` com listagem/cancelamento dos lembretes ativos.
+
 **Conceito:** Lembrar o usuario se nao recebeu resposta a um email enviado apos X dias.
 
 **Backend:**
@@ -604,11 +606,11 @@ pub enum ReminderStatus {
 - Opcoes de tempo: 1 dia, 3 dias, 1 semana, custom
 
 **Criterio de aceite:**
-- [ ] Adicionar reminder ao enviar email
+- [x] Adicionar reminder ao enviar email
 - [ ] Reminder cancelado automaticamente se recebe resposta
 - [ ] Thread movido para topo se nao respondido
 - [ ] Notificacao desktop
-- [ ] Lista de reminders ativos
+- [x] Lista de reminders ativos
 
 ---
 

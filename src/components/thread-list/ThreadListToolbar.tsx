@@ -9,9 +9,11 @@ export type ThreadAction =
   | 'label'
   | 'snooze'
   | 'unsnooze'
-  | 'cancel-schedule';
+  | 'cancel-schedule'
+  | 'cancel-reminder';
 
 type ThreadListToolbarProps = {
+  isReminderFolder?: boolean;
   isSnoozedFolder?: boolean;
   isScheduledFolder?: boolean;
   selectedCount: number;
@@ -19,6 +21,7 @@ type ThreadListToolbarProps = {
 };
 
 export const ThreadListToolbar = ({
+  isReminderFolder = false,
   isSnoozedFolder = false,
   isScheduledFolder = false,
   selectedCount,
@@ -35,6 +38,18 @@ export const ThreadListToolbar = ({
         <button aria-label="Cancel selected scheduled messages" onClick={() => onAction('cancel-schedule')} type="button">
           <XCircle size={15} />
           Cancel schedule
+        </button>
+      </div>
+    );
+  }
+
+  if (isReminderFolder) {
+    return (
+      <div className="thread-selection-toolbar" aria-label="Thread selection actions">
+        <strong>{selectedCount} selected</strong>
+        <button aria-label="Cancel selected reminders" onClick={() => onAction('cancel-reminder')} type="button">
+          <XCircle size={15} />
+          Cancel reminder
         </button>
       </div>
     );

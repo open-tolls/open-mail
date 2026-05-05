@@ -10,6 +10,7 @@ import { ContextMenu } from '@components/ui';
 
 type ThreadListProps = {
   activeFolderName: string | null;
+  isReminderFolder?: boolean;
   isSnoozedFolder?: boolean;
   isScheduledFolder?: boolean;
   hasMore?: boolean;
@@ -50,6 +51,7 @@ const threadContextActions: Array<{
 
 export const ThreadList = ({
   activeFolderName,
+  isReminderFolder = false,
   isSnoozedFolder = false,
   isScheduledFolder = false,
   hasMore = false,
@@ -181,6 +183,7 @@ export const ThreadList = ({
   return (
     <div className="thread-list-shell">
       <ThreadListToolbar
+        isReminderFolder={isReminderFolder}
         isScheduledFolder={isScheduledFolder}
         isSnoozedFolder={isSnoozedFolder}
         selectedCount={selectedIds.size}
@@ -199,6 +202,7 @@ export const ThreadList = ({
 
             return (
               <ThreadListItem
+                isReminderFolder={isReminderFolder}
                 isMultiSelected={selectedIds.has(thread.id)}
                 isSelected={thread.id === selectedThreadId}
                 key={thread.id}
@@ -226,6 +230,8 @@ export const ThreadList = ({
         >
           {(isScheduledFolder
             ? [{ action: 'cancel-schedule' as const, label: 'Cancel schedule', icon: XCircle }]
+            : isReminderFolder
+              ? [{ action: 'cancel-reminder' as const, label: 'Cancel reminder', icon: XCircle }]
             : isSnoozedFolder
               ? [{ action: 'unsnooze' as const, label: 'Unsnooze', icon: Undo2 }]
               : threadContextActions

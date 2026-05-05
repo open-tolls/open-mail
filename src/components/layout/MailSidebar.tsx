@@ -39,6 +39,7 @@ type MailSidebarProps = {
 const folderIconMap = {
   important: AlertCircle,
   inbox: Inbox,
+  reminders: BellDot,
   scheduled: BellDot,
   snoozed: BellDot,
   starred: Star,
@@ -143,7 +144,10 @@ export const MailSidebar = ({
           {!isCollapsed ? <p className="folder-group-title">System folders</p> : null}
           {systemFolders.map((folder) => {
             const Icon = folder.role ? folderIconMap[folder.role as keyof typeof folderIconMap] ?? BellDot : Folder;
-            const count = folder.role === 'drafts' ? folder.total_count : folder.unread_count;
+            const count =
+              folder.role === 'drafts' || folder.role === 'scheduled' || folder.role === 'snoozed' || folder.role === 'reminders'
+                ? folder.total_count
+                : folder.unread_count;
             return (
               <button
                 aria-label={isCollapsed ? folder.name : undefined}

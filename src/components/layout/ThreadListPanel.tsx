@@ -22,6 +22,7 @@ type ThreadListPanelProps = {
   activeFolderName: string | null;
   dialogRequest?: ThreadDialogRequest | null;
   folders: FolderRecord[];
+  isReminderFolder?: boolean;
   isScheduledFolder?: boolean;
   isSearchActive: boolean;
   labels?: ThreadLabelOption[];
@@ -31,12 +32,16 @@ type ThreadListPanelProps = {
   selectedThreadId: string | null;
   threads: ThreadSummary[];
   onLoadMore?: () => Promise<void> | void;
-  onThreadAction?: (action: Exclude<ThreadAction, 'move' | 'label' | 'snooze' | 'unsnooze' | 'cancel-schedule'>, threadIds: string[]) => void;
+  onThreadAction?: (
+    action: Exclude<ThreadAction, 'move' | 'label' | 'snooze' | 'unsnooze' | 'cancel-schedule' | 'cancel-reminder'>,
+    threadIds: string[]
+  ) => void;
   onMoveThreads?: (threadIds: string[], folderId: string) => void;
   onApplyLabels?: (threadIds: string[], labelIds: string[]) => void;
   onSnoozeThreads?: (threadIds: string[], until: string) => void;
   onUnsnoozeThreads?: (threadIds: string[]) => void;
   onCancelScheduledSends?: (scheduledSendIds: string[]) => void;
+  onCancelReminders?: (reminderIds: string[]) => void;
   onSelectThread: (threadId: string) => void;
 };
 
@@ -53,6 +58,7 @@ export const ThreadListPanel = ({
   activeFolderName,
   dialogRequest,
   folders,
+  isReminderFolder = false,
   isScheduledFolder = false,
   hasMore = false,
   isLoading = false,
@@ -67,6 +73,7 @@ export const ThreadListPanel = ({
   onSnoozeThreads,
   onUnsnoozeThreads,
   onCancelScheduledSends,
+  onCancelReminders,
   onThreadAction,
   onSelectThread
 }: ThreadListPanelProps) => {
@@ -126,6 +133,12 @@ export const ThreadListPanel = ({
     if (action === 'cancel-schedule') {
       onCancelScheduledSends?.(threadIds);
       setActionStatus(`canceled ${threadIds.length} scheduled message${threadIds.length === 1 ? '' : 's'}`);
+      return;
+    }
+
+    if (action === 'cancel-reminder') {
+      onCancelReminders?.(threadIds);
+      setActionStatus(`canceled ${threadIds.length} reminder${threadIds.length === 1 ? '' : 's'}`);
       return;
     }
 
@@ -227,6 +240,7 @@ export const ThreadListPanel = ({
       <ThreadListFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
       <ThreadList
         activeFolderName={activeFolderName}
+        isReminderFolder={isReminderFolder}
         isScheduledFolder={isScheduledFolder}
         isSnoozedFolder={isSnoozedFolder}
         hasMore={hasMore}

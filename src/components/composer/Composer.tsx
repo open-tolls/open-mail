@@ -45,7 +45,7 @@ type ComposerProps = {
   onDraftChange?: (draft: ComposerDraft) => void;
   onFlushOutbox: () => Promise<void>;
   onSchedule: (draft: ComposerDraft, sendAt: string) => Promise<boolean>;
-  onSend: (draft: ComposerDraft) => Promise<boolean>;
+  onSend: (draft: ComposerDraft, remindAt?: string | null) => Promise<boolean>;
 };
 
 const defaultDraft: ComposerDraft = {
@@ -102,6 +102,9 @@ export const Composer = ({
   const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
   const [customSendAt, setCustomSendAt] = useState('');
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
+  const [customRemindAt, setCustomRemindAt] = useState('');
+  const [pendingReminderAt, setPendingReminderAt] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const signatures = useSignatureStore((state) => state.signatures);
   const defaultSignatureId = useSignatureStore((state) => state.defaultSignatureId);
@@ -246,7 +249,11 @@ export const Composer = ({
       return;
     }
 
-    await onSend(draft);
+    const didSend = await onSend(draft, pendingReminderAt);
+    if (didSend) {
+      setPendingReminderAt(null);
+      setCustomRemindAt('');
+    }
   };
 
   const applyTemplate = (templateId: string, values: Record<string, string>) => {
@@ -308,6 +315,34 @@ export const Composer = ({
     ];
   };
 
+  const buildReminderPresets = () => {
+    const now = new Date();
+    const inOneDay = new Date(now);
+    inOneDay.setDate(inOneDay.getDate() + 1);
+    inOneDay.setHours(9, 0, 0, 0);
+
+    const inThreeDays = new Date(now);
+    inThreeDays.setDate(inThreeDays.getDate() + 3);
+    inThreeDays.setHours(9, 0, 0, 0);
+
+    const inOneWeek = new Date(now);
+    inOneWeek.setDate(inOneWeek.getDate() + 7);
+    inOneWeek.setHours(9, 0, 0, 0);
+
+    return [
+      { id: 'one-day', label: 'In 1 day', remindAt: inOneDay.toISOString() },
+      { id: 'three-days', label: 'In 3 days', remindAt: inThreeDays.toISOString() },
+      { id: 'one-week', label: 'In 1 week', remindAt: inOneWeek.toISOString() }
+    ];
+  };
+
+  const handleReminderSelection = (remindAt: string) => {
+    setPendingReminderAt(remindAt);
+    setCustomRemindAt('');
+    setIsReminderDialogOpen(false);
+    setLocalStatus(`Follow-up reminder set for ${new Date(remindAt).toLocaleString()}`);
+  };
+
   const handleSchedule = async (sendAt: string) => {
     const recipients = [...draft.to, ...draft.cc, ...draft.bcc];
     if (!recipients.length) {
@@ -333,6 +368,7 @@ export const Composer = ({
     setActiveSignatureId(signature?.id ?? null);
   };
   const schedulePresets = buildSchedulePresets();
+  const reminderPresets = buildReminderPresets();
 
   return (
     <section
@@ -457,10 +493,49 @@ export const Composer = ({
         onEditSignature={() => setIsSignaturePanelOpen((current) => !current)}
         onDiscard={handleDiscard}
         onFlushOutbox={onFlushOutbox}
+        onOpenReminder={() => setIsReminderDialogOpen(true)}
         onOpenSchedule={() => setIsScheduleDialogOpen(true)}
         onSend={handleSend}
         status={localStatus ?? status}
       />
+      {isReminderDialogOpen ? (
+        <div aria-label="Send reminder dialog" className="thread-action-dialog" role="dialog">
+          <div>
+            <strong>Remind me if nobody replies</strong>
+            <button aria-label="Close send reminder dialog" onClick={() => setIsReminderDialogOpen(false)} type="button">
+              Close
+            </button>
+          </div>
+          <div className="thread-action-dialog-options">
+            {reminderPresets.map((preset) => (
+              <button key={preset.id} onClick={() => handleReminderSelection(preset.remindAt)} type="button">
+                {preset.label}
+              </button>
+            ))}
+            <label className="thread-action-field">
+              <span>Pick date & time</span>
+              <input
+                aria-label="Pick send reminder date and time"
+                onChange={(event) => setCustomRemindAt(event.target.value)}
+                type="datetime-local"
+                value={customRemindAt}
+              />
+            </label>
+            <button
+              disabled={!customRemindAt}
+              onClick={() => handleReminderSelection(new Date(customRemindAt).toISOString())}
+              type="button"
+            >
+              Save custom reminder
+            </button>
+            {pendingReminderAt ? (
+              <button className="thread-action-danger" onClick={() => setPendingReminderAt(null)} type="button">
+                Clear reminder
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       {isScheduleDialogOpen ? (
         <div aria-label="Send later dialog" className="thread-action-dialog" role="dialog">
           <div>

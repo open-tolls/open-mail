@@ -5,6 +5,7 @@ import { useContactProfileStore } from '@stores/useContactProfileStore';
 import { defaultShortcutBindings, useShortcutStore } from '@stores/useShortcutStore';
 import { useDraftStore } from '@stores/useDraftStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
+import { useSendReminderStore } from '@stores/useSendReminderStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { useTemplateStore } from '@stores/useTemplateStore';
@@ -49,6 +50,9 @@ beforeEach(() => {
   });
   useMailRulesStore.setState({
     rules: []
+  });
+  useSendReminderStore.setState({
+    reminders: []
   });
   useContactProfileStore.setState({
     profiles: []

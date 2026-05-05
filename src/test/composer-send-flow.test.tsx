@@ -168,6 +168,44 @@ describe('Composer send flow', () => {
     expect(typeof onSchedule.mock.calls[0]?.[1]).toBe('string');
   });
 
+  it('sets a follow-up reminder before queueing a draft', async () => {
+    const onSend = vi.fn().mockResolvedValue(true);
+
+    render(
+      <Composer
+        from="leco@example.com"
+        initialDraft={{
+          attachments: [],
+          bcc: [],
+          body: '<p>Hello</p>',
+          cc: [],
+          subject: 'Reminder me',
+          to: ['atlas@example.com']
+        }}
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
+        onSend={onSend}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remind me' }));
+    expect(screen.getByRole('dialog', { name: 'Send reminder dialog' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'In 3 days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue' }));
+
+    await waitFor(() => {
+      expect(onSend).toHaveBeenCalledTimes(1);
+    });
+    expect(onSend.mock.calls[0]?.[0].subject).toBe('Reminder me');
+    expect(typeof onSend.mock.calls[0]?.[1]).toBe('string');
+    expect(screen.getByRole('status')).toHaveTextContent('Follow-up reminder set');
+  });
+
   it('applies a template with variables from the composer', async () => {
     useTemplateStore.setState({
       templates: [
