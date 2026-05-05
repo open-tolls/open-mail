@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { MessageRecord } from '@lib/contracts';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
 
-const fallbackMessages: Record<string, MessageRecord[]> = {
+export const fallbackMessagesByThreadId: Record<string, MessageRecord[]> = {
   thr_1: [
     {
       id: 'msg_1',
@@ -194,7 +194,7 @@ export const useThreadMessages = (threadId: string | null) =>
       }
 
       if (!tauriRuntime.isAvailable()) {
-        return fallbackMessages[threadId] ?? [];
+        return fallbackMessagesByThreadId[threadId] ?? [];
       }
 
       return api.messages.listByThread(threadId);

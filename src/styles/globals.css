@@ -1243,6 +1243,55 @@ summary.folder-group-title::-webkit-details-marker {
   gap: 10px;
 }
 
+.contacts-layout,
+.contact-list,
+.contact-history-list {
+  display: grid;
+  gap: 14px;
+}
+
+.contacts-layout {
+  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
+}
+
+.contact-card,
+.contact-detail,
+.contact-history-item {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.contact-card {
+  text-align: left;
+  cursor: pointer;
+}
+
+.contact-card-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(241, 133, 79, 0.22);
+}
+
+.contact-card p,
+.contact-detail p,
+.contact-detail span,
+.contact-history-item span {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.contact-detail,
+.contact-history {
+  display: grid;
+  gap: 14px;
+}
+
+.contact-metrics {
+  display: grid;
+  gap: 8px;
+}
+
 .preferences-theme-grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin-bottom: 18px;
@@ -1278,6 +1327,11 @@ summary.folder-group-title::-webkit-details-marker {
   .preferences-nav {
     position: static;
     width: 100%;
+  }
+
+  .contacts-layout,
+  .rule-entry {
+    grid-template-columns: 1fr;
   }
 }
 

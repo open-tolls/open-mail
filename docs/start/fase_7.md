@@ -407,6 +407,8 @@ impl MailRulesProcessor {
 
 **Referencia Mailspring:** `app/internal_packages/contacts/` (21 arquivos)
 
+**Status atual:** primeiro corte entregue, com diretório de contatos auto-populado a partir dos emails já carregados no app, busca local por nome/email e painel de detalhe com histórico recente dentro de `Preferences`.
+
 **O que implementar:**
 
 ```
@@ -446,11 +448,11 @@ pub struct ContactWithStats {
 ```
 
 **Criterio de aceite:**
-- [ ] Lista de contatos com busca
+- [x] Lista de contatos com busca
 - [ ] Contact card on hover (message view + composer)
-- [ ] Historico de emails com contato
+- [x] Historico de emails com contato
 - [ ] Editar nome/notas
-- [ ] Contatos auto-populados a partir de emails
+- [x] Contatos auto-populados a partir de emails
 
 ---
 
@@ -629,7 +631,7 @@ pub enum ReminderStatus {
 - [ ] Send Later funcional (schedule, auto-send, cancel)
 - [x] Templates CRUD + aplicacao no composer
 - [ ] Mail Rules builder + auto-processamento
-- [ ] Contacts manager com busca e historico
+- [x] Contacts manager com busca e historico
 - [ ] Phishing detection com warnings visuais
 - [ ] List-Unsubscribe funcional
 - [ ] Print com formatacao limpa

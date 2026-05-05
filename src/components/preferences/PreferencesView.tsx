@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ContactDetail } from '@components/contacts/ContactDetail';
+import { ContactList } from '@components/contacts/ContactList';
+import { ContactSearch } from '@components/contacts/ContactSearch';
 import { useNavigate } from 'react-router';
+import { buildContactDirectory, searchContacts, toThreadLikeRecords } from '@lib/contacts-directory';
 import { useMailboxOverview } from '@hooks/useMailboxOverview';
 import { evaluateMailRules, type MailRuleCandidate } from '@lib/mail-rules';
 import { RuleEditor } from '@components/rules/RuleEditor';
@@ -17,6 +21,7 @@ import { useSignatureStore } from '@stores/useSignatureStore';
 import { useTemplateStore } from '@stores/useTemplateStore';
 import { useThreadStore } from '@stores/useThreadStore';
 import { useUIStore } from '@stores/useUIStore';
+import { fallbackMessagesByThreadId } from '@hooks/useThreadMessages';
 
 const sections = [
   { id: 'general', title: 'General' },
@@ -25,6 +30,7 @@ const sections = [
   { id: 'signatures', title: 'Signatures' },
   { id: 'shortcuts', title: 'Shortcuts' },
   { id: 'notifications', title: 'Notifications' },
+  { id: 'contacts', title: 'Contacts' },
   { id: 'advanced', title: 'Advanced' }
 ] as const;
 
@@ -44,6 +50,8 @@ export const PreferencesView = () => {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [rulesStatus, setRulesStatus] = useState<string | null>(null);
+  const [contactQuery, setContactQuery] = useState('');
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const hasHydratedRef = useRef(false);
   const mailboxQuery = useMailboxOverview();
   const launchAtLoginHydratedRef = useRef(false);
@@ -129,6 +137,21 @@ export const PreferencesView = () => {
   );
   const editingTemplate = templates.find((template) => template.id === editingTemplateId) ?? null;
   const editingRule = rules.find((rule) => rule.id === editingRuleId) ?? null;
+  const contacts = useMemo(() => {
+    const allThreads = mailboxQuery.data?.allThreads?.length
+      ? mailboxQuery.data.allThreads
+      : toThreadLikeRecords(
+          mailboxQuery.data?.accountId ?? selectedAccountId ?? availableAccounts[0]?.id ?? 'acc_demo',
+          mailboxQuery.data?.threads ?? []
+        );
+    return buildContactDirectory(allThreads, fallbackMessagesByThreadId);
+  }, [availableAccounts, mailboxQuery.data?.accountId, mailboxQuery.data?.allThreads, mailboxQuery.data?.threads, selectedAccountId]);
+  const filteredContacts = useMemo(() => searchContacts(contacts, contactQuery), [contactQuery, contacts]);
+  const selectedContact =
+    filteredContacts.find((contact) => contact.id === selectedContactId) ??
+    contacts.find((contact) => contact.id === selectedContactId) ??
+    filteredContacts[0] ??
+    null;
   const mailRuleCandidates = useMemo<MailRuleCandidate[]>(
     () =>
       (mailboxQuery.data?.allThreads ?? mailboxQuery.data?.threads ?? []).map((thread) => ({
@@ -591,6 +614,20 @@ export const PreferencesView = () => {
                 <span>Quiet hours end</span>
                 <input type="time" value={quietHoursEnd} onChange={(event) => setPreference('quietHoursEnd', event.target.value)} />
               </label>
+            </div>
+          </section>
+
+          <section className="preferences-section" id="contacts">
+            <h2>Contacts</h2>
+            <p className="preferences-note">This first cut auto-populates contacts from the mail data already available in the app and lets us inspect recent thread history.</p>
+            <ContactSearch onChange={setContactQuery} query={contactQuery} />
+            <div className="contacts-layout">
+              <ContactList
+                contacts={filteredContacts}
+                onSelect={setSelectedContactId}
+                selectedContactId={selectedContact?.id ?? null}
+              />
+              <ContactDetail contact={selectedContact} />
             </div>
           </section>
 

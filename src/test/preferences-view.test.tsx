@@ -66,6 +66,7 @@ describe('preferences view', () => {
     expect(screen.getByRole('heading', { name: 'Signatures' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Shortcuts' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Contacts' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeInTheDocument();
   });
 
@@ -410,5 +411,24 @@ describe('preferences view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
 
     expect(await screen.findByText('Run now matched 1 thread')).toBeInTheDocument();
+  });
+
+  it('lists and filters auto-populated contacts in preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const contactsList = await screen.findByLabelText('Contacts list');
+    expect(within(contactsList).getByText('Atlas Design')).toBeInTheDocument();
+    expect(screen.getByText('Recent thread history')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Search contacts'), { target: { value: 'release' } });
+
+    expect(await within(contactsList).findByText('Release Ops')).toBeInTheDocument();
+    expect(within(contactsList).queryByText('Atlas Design')).not.toBeInTheDocument();
   });
 });
