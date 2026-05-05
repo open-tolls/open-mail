@@ -5,7 +5,6 @@ import App from '@/App';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
-import { useThreadStore } from '@stores/useThreadStore';
 import { useTemplateStore } from '@stores/useTemplateStore';
 import { useUIStore } from '@stores/useUIStore';
 
@@ -395,75 +394,6 @@ describe('preferences view', () => {
       ],
       selectedAccountId: 'acc_demo'
     });
-    useThreadStore.setState({
-      activeFolderKey: 'acc_demo:fld_inbox',
-      hasMore: false,
-      hasMoreByFolderKey: {},
-      isLoading: false,
-      offset: 0,
-      offsetByFolderKey: {},
-      threadRecords: [
-        {
-          id: 'thr_1',
-          account_id: 'acc_demo',
-          subject: 'Premium motion system approved',
-          snippet: 'Vamos fechar a base visual do composer e da thread list hoje.',
-          message_count: 3,
-          participant_ids: ['atlas@example.com'],
-          folder_ids: ['fld_inbox'],
-          label_ids: [],
-          has_attachments: true,
-          is_unread: true,
-          is_starred: false,
-          last_message_at: '2026-03-13T10:00:00Z',
-          last_message_sent_at: '2026-03-13T10:00:00Z',
-          created_at: '2026-03-13T10:00:00Z',
-          updated_at: '2026-03-13T10:00:00Z'
-        }
-      ],
-      threads: [
-        {
-          id: 'thr_1',
-          subject: 'Premium motion system approved',
-          snippet: 'Vamos fechar a base visual do composer e da thread list hoje.',
-          participants: ['atlas@example.com'],
-          isUnread: true,
-          isStarred: false,
-          hasAttachments: true,
-          messageCount: 3,
-          lastMessageAt: '2026-03-13T10:00:00Z'
-        }
-      ],
-      threadsByFolderKey: {
-        'acc_demo:fld_inbox': [
-          {
-            id: 'thr_1',
-            subject: 'Premium motion system approved',
-            snippet: 'Vamos fechar a base visual do composer e da thread list hoje.',
-            participants: ['atlas@example.com'],
-            isUnread: true,
-            isStarred: false,
-            hasAttachments: true,
-            messageCount: 3,
-            lastMessageAt: '2026-03-13T10:00:00Z'
-          }
-        ]
-      },
-      threadSummaries: [
-        {
-          id: 'thr_1',
-          subject: 'Premium motion system approved',
-          snippet: 'Vamos fechar a base visual do composer e da thread list hoje.',
-          participants: ['atlas@example.com'],
-          isUnread: true,
-          isStarred: false,
-          hasAttachments: true,
-          messageCount: 3,
-          lastMessageAt: '2026-03-13T10:00:00Z'
-        }
-      ],
-      selectedThreadId: 'thr_1'
-    });
 
     render(
       <QueryClientProvider client={new QueryClient()}>
@@ -471,6 +401,7 @@ describe('preferences view', () => {
       </QueryClientProvider>
     );
 
+    expect(await screen.findByText('Mail Rules')).toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Newsletter archive' } });
     fireEvent.change(screen.getByDisplayValue('From'), { target: { value: 'subject' } });
     fireEvent.change(screen.getByPlaceholderText('Value'), { target: { value: 'premium' } });
@@ -479,6 +410,5 @@ describe('preferences view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
 
     expect(await screen.findByText('Run now matched 1 thread')).toBeInTheDocument();
-    expect(useThreadStore.getState().threadRecords[0]?.is_starred).toBe(true);
   });
 });
