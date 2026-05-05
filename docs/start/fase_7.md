@@ -288,7 +288,7 @@ src/components/templates/
 
 **Referencia Mailspring:** `app/src/mail-rules-processor.ts`, `app/src/mail-rules-templates.ts`
 
-**Status atual:** primeiro corte entregue, com builder local persistido em `Preferences`, multiplas conditions/actions, suporte a `ALL/ANY` e engine de matching coberta em unit tests. Auto-processamento em emails novos e `Run now` continuam abertos para o proximo corte.
+**Status atual:** segundo corte entregue, com builder local persistido em `Preferences`, multiplas conditions/actions, suporte a `ALL/ANY`, engine de matching coberta em unit tests e `Run now` aplicando regras sobre os threads ja carregados no app. Auto-processamento em emails novos continua aberto para o proximo corte.
 
 **Conceito:** Regras automaticas aplicadas a emails recebidos (filtros).
 
@@ -399,7 +399,7 @@ impl MailRulesProcessor {
 - [x] Actions: Move, Label, Mark Read, Star, Archive, Trash
 - [x] ALL/ANY mode para multiplas conditions
 - [ ] Regras aplicadas automaticamente a novos emails
-- [ ] Testar regra em emails existentes ("Run now")
+- [x] Testar regra em emails existentes ("Run now")
 
 ---
 

@@ -27,6 +27,7 @@ export type MailRule = {
 };
 
 export type MailRuleCandidate = {
+  threadId: string;
   from: string;
   to: string;
   subject: string;
@@ -85,6 +86,20 @@ export const matchesMailRule = (candidate: MailRuleCandidate, rule: MailRule) =>
 
   return rule.conditions.some((condition) => conditionMatches(candidate, condition));
 };
+
+export type RuleMatchResult = {
+  ruleId: string;
+  threadIds: string[];
+};
+
+export const evaluateMailRules = (candidates: MailRuleCandidate[], rules: MailRule[]) =>
+  rules
+    .filter((rule) => rule.enabled)
+    .map((rule) => ({
+      ruleId: rule.id,
+      threadIds: candidates.filter((candidate) => matchesMailRule(candidate, rule)).map((candidate) => candidate.threadId)
+    }))
+    .filter((result) => result.threadIds.length > 0);
 
 export const createMailRuleCondition = (): MailRuleCondition => ({
   id: `rule_condition_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createMailRuleAction,
   createMailRuleCondition,
+  evaluateMailRules,
   matchesMailRule,
   type MailRule
 } from '@lib/mail-rules';
@@ -52,6 +53,7 @@ describe('mail rules', () => {
     expect(
       matchesMailRule(
         {
+          threadId: 'thr_1',
           from: 'updates@newsletter.dev',
           to: 'leco@example.com',
           subject: 'Weekly platform digest',
@@ -86,6 +88,7 @@ describe('mail rules', () => {
     expect(
       matchesMailRule(
         {
+          threadId: 'thr_2',
           from: 'boss@example.com',
           to: 'leco@example.com',
           subject: 'Roadmap',
@@ -101,6 +104,7 @@ describe('mail rules', () => {
     expect(
       matchesMailRule(
         {
+          threadId: 'thr_3',
           from: 'hello@example.com',
           to: 'leco@example.com',
           subject: 'Hello',
@@ -117,6 +121,7 @@ describe('mail rules', () => {
     expect(
       matchesMailRule(
         {
+          threadId: 'thr_4',
           from: 'hello@example.com',
           to: 'leco@example.com',
           subject: 'Hello',
@@ -126,5 +131,48 @@ describe('mail rules', () => {
         baseRule()
       )
     ).toBe(false);
+  });
+
+  it('evaluates matching thread ids across enabled rules', () => {
+    expect(
+      evaluateMailRules(
+        [
+          {
+            threadId: 'thr_1',
+            from: 'updates@newsletter.dev',
+            to: 'leco@example.com',
+            subject: 'Weekly digest',
+            body: 'Body',
+            hasAttachment: false
+          },
+          {
+            threadId: 'thr_2',
+            from: 'boss@example.com',
+            to: 'leco@example.com',
+            subject: 'Urgent',
+            body: 'Body',
+            hasAttachment: false
+          }
+        ],
+        [
+          baseRule(),
+          {
+            ...baseRule(),
+            id: 'rule_2',
+            conditions: [
+              {
+                ...createMailRuleCondition(),
+                field: 'subject',
+                operator: 'equals',
+                value: 'urgent'
+              }
+            ]
+          }
+        ]
+      )
+    ).toEqual([
+      { ruleId: 'rule_1', threadIds: ['thr_1'] },
+      { ruleId: 'rule_2', threadIds: ['thr_2'] }
+    ]);
   });
 });

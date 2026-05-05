@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useMailboxOverview } from '@hooks/useMailboxOverview';
+import { evaluateMailRules, type MailRuleCandidate } from '@lib/mail-rules';
 import { RuleEditor } from '@components/rules/RuleEditor';
 import { RuleList } from '@components/rules/RuleList';
 import { TemplateEditor } from '@components/templates/TemplateEditor';
@@ -13,6 +15,7 @@ import { useShortcutStore } from '@stores/useShortcutStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
 import { useTemplateStore } from '@stores/useTemplateStore';
+import { useThreadStore } from '@stores/useThreadStore';
 import { useUIStore } from '@stores/useUIStore';
 
 const sections = [
@@ -40,7 +43,9 @@ export const PreferencesView = () => {
   const [backendMessage, setBackendMessage] = useState<string | null>(null);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [rulesStatus, setRulesStatus] = useState<string | null>(null);
   const hasHydratedRef = useRef(false);
+  const mailboxQuery = useMailboxOverview();
   const launchAtLoginHydratedRef = useRef(false);
   const accounts = useAccountStore((state) => state.accounts);
   const selectedAccountId = useAccountStore((state) => state.selectedAccountId);
@@ -59,6 +64,9 @@ export const PreferencesView = () => {
   const deleteRule = useMailRulesStore((state) => state.delete);
   const shortcutBindings = useShortcutStore((state) => state.bindings);
   const resetShortcutBindings = useShortcutStore((state) => state.resetShortcutBindings);
+  const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
+  const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
+  const moveThreadsToFolder = useThreadStore((state) => state.moveThreadsToFolder);
   const layoutMode = useUIStore((state) => state.layoutMode);
   const setLayoutMode = useUIStore((state) => state.setLayoutMode);
   const themeId = useUIStore((state) => state.themeId);
@@ -121,6 +129,87 @@ export const PreferencesView = () => {
   );
   const editingTemplate = templates.find((template) => template.id === editingTemplateId) ?? null;
   const editingRule = rules.find((rule) => rule.id === editingRuleId) ?? null;
+  const mailRuleCandidates = useMemo<MailRuleCandidate[]>(
+    () =>
+      (mailboxQuery.data?.allThreads ?? mailboxQuery.data?.threads ?? []).map((thread) => ({
+        threadId: thread.id,
+        from: 'participant_ids' in thread ? thread.participant_ids.join(', ') : thread.participants.join(', '),
+        to: 'participant_ids' in thread ? thread.participant_ids.join(', ') : thread.participants.join(', '),
+        subject: thread.subject,
+        body: thread.snippet,
+        hasAttachment: 'has_attachments' in thread ? thread.has_attachments : thread.hasAttachments
+      })),
+    [mailboxQuery.data?.allThreads, mailboxQuery.data?.threads]
+  );
+
+  const runMailRulesNow = () => {
+    const results = evaluateMailRules(mailRuleCandidates, rules);
+
+    if (!results.length) {
+      setRulesStatus('Run now found no matching threads');
+      return;
+    }
+
+    const allThreads = mailboxQuery.data?.allThreads ?? [];
+
+    results.forEach((result) => {
+      const rule = rules.find((candidate) => candidate.id === result.ruleId);
+      if (!rule) {
+        return;
+      }
+
+      rule.actions.forEach((action) => {
+        if (action.type === 'label' && action.value.trim()) {
+          applyThreadLabels(result.threadIds, [action.value.trim()]);
+          return;
+        }
+
+        if (action.type === 'move' && action.value.trim()) {
+          const normalizedValue = action.value.trim().toLowerCase();
+          const folderId =
+            mailboxQuery.data?.folders.find(
+              (folder) => folder.id.toLowerCase() === normalizedValue || folder.role?.toLowerCase() === normalizedValue
+            )?.id ?? action.value.trim();
+          moveThreadsToFolder(result.threadIds, folderId);
+          return;
+        }
+
+        if (action.type === 'mark-read') {
+          const unreadThreadIds = allThreads
+            .filter((thread) => result.threadIds.includes(thread.id) && thread.is_unread)
+            .map((thread) => thread.id);
+
+          if (unreadThreadIds.length) {
+            applyThreadAction('toggle-read', unreadThreadIds);
+          }
+          return;
+        }
+
+        if (action.type === 'star') {
+          const unstarredThreadIds = allThreads
+            .filter((thread) => result.threadIds.includes(thread.id) && !thread.is_starred)
+            .map((thread) => thread.id);
+
+          if (unstarredThreadIds.length) {
+            applyThreadAction('star', unstarredThreadIds);
+          }
+          return;
+        }
+
+        if (action.type === 'archive') {
+          applyThreadAction('archive', result.threadIds);
+          return;
+        }
+
+        if (action.type === 'trash') {
+          applyThreadAction('trash', result.threadIds);
+        }
+      });
+    });
+
+    const matchCount = results.reduce((total, result) => total + result.threadIds.length, 0);
+    setRulesStatus(`Run now matched ${matchCount} thread${matchCount === 1 ? '' : 's'}`);
+  };
 
   const updateDefaultAccount = (accountId: string) => {
     setPreference('defaultAccountId', accountId);
@@ -554,6 +643,12 @@ export const PreferencesView = () => {
                 onEdit={setEditingRuleId}
                 rules={rules}
               />
+              <div className="preferences-advanced-actions">
+                <button onClick={runMailRulesNow} type="button">
+                  Run now
+                </button>
+              </div>
+              {rulesStatus ? <p className="preferences-note">{rulesStatus}</p> : null}
             </div>
             <div className="preferences-advanced-actions">
               <button onClick={resetPreferences} type="button">Reset local preferences</button>
