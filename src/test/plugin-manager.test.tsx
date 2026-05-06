@@ -23,7 +23,12 @@ const manifest: FrontendPluginManifest = {
       { component: 'PreferencesSection', name: 'preferences:section' }
     ]
   },
+  permissions: {
+    filesystem: true,
+    notifications: true
+  },
   plugin: {
+    description: 'Fixture plugin for slot rendering tests',
     id: 'com.openmail.plugin.frontend-fixture',
     name: 'Frontend Fixture',
     version: '1.0.0'
@@ -88,5 +93,46 @@ describe('plugin manager', () => {
       expect(screen.getByRole('heading', { name: 'Plugin section' })).toBeInTheDocument();
     });
     expect(screen.getByText('parchment')).toBeInTheDocument();
+  });
+
+  it('keeps plugin manifests registered when disabling and can enable them again', async () => {
+    await pluginManager.loadPlugin(manifest);
+
+    expect(pluginManager.listPlugins()).toEqual([
+      expect.objectContaining({
+        enabled: true,
+        manifest: expect.objectContaining({
+          plugin: expect.objectContaining({
+            id: 'com.openmail.plugin.frontend-fixture'
+          })
+        })
+      })
+    ]);
+
+    await pluginManager.unloadPlugin(manifest.plugin.id);
+
+    expect(pluginManager.listPlugins()).toEqual([
+      expect.objectContaining({
+        enabled: false,
+        manifest: expect.objectContaining({
+          plugin: expect.objectContaining({
+            id: 'com.openmail.plugin.frontend-fixture'
+          })
+        })
+      })
+    ]);
+
+    await pluginManager.enablePlugin(manifest.plugin.id);
+
+    expect(pluginManager.listPlugins()).toEqual([
+      expect.objectContaining({
+        enabled: true,
+        manifest: expect.objectContaining({
+          plugin: expect.objectContaining({
+            id: 'com.openmail.plugin.frontend-fixture'
+          })
+        })
+      })
+    ]);
   });
 });

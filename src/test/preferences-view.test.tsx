@@ -43,11 +43,16 @@ const preferencesPluginManifest: FrontendPluginManifest = {
       }
     }
   },
+  permissions: {
+    network: true,
+    notifications: true
+  },
   frontend: {
     entry: '/src/test/fixtures/frontend-plugin.tsx',
     slots: [{ component: 'PreferencesSection', name: 'preferences:section' }]
   },
   plugin: {
+    description: 'Plugin section fixture for preferences coverage',
     id: 'com.openmail.plugin.preferences-fixture',
     name: 'Preferences Fixture',
     version: '1.0.0'
@@ -62,7 +67,7 @@ describe('preferences view', () => {
     pluginManager.reset();
   });
 
-  it('renders all seven preference sections on the dedicated route', async () => {
+  it('renders all preference sections on the dedicated route', async () => {
     window.history.pushState({}, '', '/preferences');
     useAccountStore.setState({
       accounts: [
@@ -87,6 +92,7 @@ describe('preferences view', () => {
     expect(screen.getByRole('heading', { name: 'Accounts' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Appearance' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Signatures' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Plugins' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Shortcuts' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Contacts' })).toBeInTheDocument();
@@ -104,6 +110,40 @@ describe('preferences view', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Plugin section' })).toBeInTheDocument();
+  });
+
+  it('lists registered plugins with permissions and lets us disable or re-enable them', async () => {
+    window.history.pushState({}, '', '/preferences');
+    await pluginManager.loadPlugin(preferencesPluginManifest);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByText('Preferences Fixture')).toBeInTheDocument();
+    const pluginsSection = screen.getByRole('heading', { name: 'Plugins' }).closest('section');
+    expect(pluginsSection).not.toBeNull();
+    expect(within(pluginsSection as HTMLElement).getByText('Network')).toBeInTheDocument();
+    expect(within(pluginsSection as HTMLElement).getByText('Notifications')).toBeInTheDocument();
+
+    const enabledToggle = within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' });
+    expect(enabledToggle).toBeChecked();
+
+    fireEvent.click(enabledToggle);
+
+    await waitFor(() => {
+      expect(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' })).not.toBeChecked();
+    });
+    expect(screen.getByText('Preferences Fixture disabled.')).toBeInTheDocument();
+
+    fireEvent.click(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' }));
+
+    await waitFor(() => {
+      expect(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' })).toBeChecked();
+    });
+    expect(screen.getByText('Preferences Fixture enabled.')).toBeInTheDocument();
   });
 
   it('applies theme and layout changes immediately from preferences', async () => {

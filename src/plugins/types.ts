@@ -18,7 +18,15 @@ export type FrontendPluginManifest = {
       name: string;
     }>;
   };
+  permissions?: {
+    commands?: string[];
+    database?: string[];
+    filesystem?: boolean;
+    network?: boolean;
+    notifications?: boolean;
+  };
   plugin: {
+    description?: string;
     id: string;
     name: string;
     version: string;
@@ -54,4 +62,9 @@ export type LoadedFrontendPlugin = {
 export type SlotRegistration = {
   component: ComponentType<Record<string, unknown>>;
   pluginId: string;
+};
+
+export type RegisteredFrontendPlugin = {
+  enabled: boolean;
+  manifest: FrontendPluginManifest;
 };

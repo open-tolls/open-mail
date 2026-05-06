@@ -486,6 +486,8 @@ openmail-plugin-template/
 
 ### 8.5 — Plugin Management UI
 
+**Status atual:** primeiro corte entregue em `Preferences`, integrado ao `pluginManager` frontend. O app agora lista plugins frontend registrados, mostra metadata basica, exibe permissions declaradas com destaque para `network` e `filesystem`, e permite habilitar/desabilitar plugins conhecidos sem reiniciar a shell. Instalacao por arquivo, uninstall e UI de config gerada por schema ficam para os proximos cortes.
+
 **O que implementar:**
 
 ```
@@ -533,9 +535,9 @@ src/components/preferences/
 - Ver config do plugin (se tem config schema, gerar UI)
 
 **Criterio de aceite:**
-- [ ] Lista plugins instalados
-- [ ] Enable/disable funciona
-- [ ] Permissions exibidas
+- [x] Lista plugins instalados
+- [x] Enable/disable funciona
+- [x] Permissions exibidas
 - [ ] Instalar plugin de arquivo
 - [ ] Desinstalar plugin
 - [ ] Config UI auto-gerada a partir do schema

@@ -4,6 +4,7 @@ import type {
   FrontendPlugin,
   FrontendPluginManifest,
   LoadedFrontendPlugin,
+  RegisteredFrontendPlugin,
   SlotRegistration
 } from './types';
 
@@ -16,6 +17,7 @@ class PluginManager {
   private commands = new Map<string, FrontendCommandHandler>();
   private hooks = new Map<string, FrontendHookHandler[]>();
   private listeners = new Set<() => void>();
+  private manifests = new Map<string, FrontendPluginManifest>();
   private plugins = new Map<string, LoadedFrontendPlugin>();
   private revision = 0;
   private slots = new Map<string, SlotRegistration[]>();
@@ -28,7 +30,10 @@ class PluginManager {
   };
 
   async loadPlugin(manifest: FrontendPluginManifest): Promise<void> {
+    this.manifests.set(manifest.plugin.id, manifest);
+
     if (!manifest.frontend) {
+      this.emitChange();
       return;
     }
 
@@ -82,9 +87,21 @@ class PluginManager {
     this.emitChange();
   }
 
+  async enablePlugin(pluginId: string): Promise<void> {
+    const manifest = this.manifests.get(pluginId);
+    if (!manifest) {
+      throw new Error(`Plugin "${pluginId}" is not registered`);
+    }
+
+    await this.loadPlugin(manifest);
+  }
+
   async unloadPlugin(pluginId: string): Promise<void> {
     const plugin = this.plugins.get(pluginId);
     if (!plugin) {
+      if (this.manifests.has(pluginId)) {
+        this.emitChange();
+      }
       return;
     }
 
@@ -123,6 +140,15 @@ class PluginManager {
     return (this.slots.get(slotName) ?? []).map((registration) => registration.component);
   }
 
+  listPlugins(): RegisteredFrontendPlugin[] {
+    return Array.from(this.manifests.values())
+      .map((manifest) => ({
+        enabled: this.plugins.has(manifest.plugin.id),
+        manifest
+      }))
+      .sort((left, right) => left.manifest.plugin.name.localeCompare(right.manifest.plugin.name));
+  }
+
   getRevision() {
     return this.revision;
   }
@@ -148,6 +174,7 @@ class PluginManager {
   reset() {
     this.commands.clear();
     this.hooks.clear();
+    this.manifests.clear();
     this.plugins.clear();
     this.slots.clear();
     this.emitChange();

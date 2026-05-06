@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { PluginSlot } from '@/plugins/PluginSlot';
+import { pluginManager } from '@/plugins/plugin-manager';
 import { ContactDetail } from '@components/contacts/ContactDetail';
 import { ContactList } from '@components/contacts/ContactList';
 import { ContactSearch } from '@components/contacts/ContactSearch';
@@ -30,6 +31,7 @@ const sections = [
   { id: 'accounts', title: 'Accounts' },
   { id: 'appearance', title: 'Appearance' },
   { id: 'signatures', title: 'Signatures' },
+  { id: 'plugins', title: 'Plugins' },
   { id: 'shortcuts', title: 'Shortcuts' },
   { id: 'notifications', title: 'Notifications' },
   { id: 'contacts', title: 'Contacts' },
@@ -45,6 +47,33 @@ const prettifyShortcutAction = (value: string) =>
     ?.replace(/([A-Z])/g, ' $1')
     .replace(/^\w/, (character) => character.toUpperCase()) ?? value;
 
+const describePluginPermissions = (plugin: ReturnType<typeof pluginManager.listPlugins>[number]) => {
+  const permissions = plugin.manifest.permissions;
+  const labels: Array<{ sensitive?: boolean; value: string }> = [];
+
+  if (permissions?.notifications) {
+    labels.push({ value: 'Notifications' });
+  }
+
+  if (permissions?.network) {
+    labels.push({ sensitive: true, value: 'Network' });
+  }
+
+  if (permissions?.filesystem) {
+    labels.push({ sensitive: true, value: 'Filesystem' });
+  }
+
+  if (permissions?.database?.length) {
+    labels.push({ value: `Database (${permissions.database.length})` });
+  }
+
+  if (permissions?.commands?.length) {
+    labels.push({ value: `Commands (${permissions.commands.length})` });
+  }
+
+  return labels.length ? labels : [{ value: 'No special permissions' }];
+};
+
 export const PreferencesView = () => {
   const navigate = useNavigate();
   const [backendStatus, setBackendStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
@@ -54,7 +83,9 @@ export const PreferencesView = () => {
   const [rulesStatus, setRulesStatus] = useState<string | null>(null);
   const [contactQuery, setContactQuery] = useState('');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [pluginsStatus, setPluginsStatus] = useState<string | null>(null);
   const hasHydratedRef = useRef(false);
+  useSyncExternalStore(pluginManager.subscribe, () => pluginManager.getRevision(), () => 0);
   const mailboxQuery = useMailboxOverview();
   const launchAtLoginHydratedRef = useRef(false);
   const accounts = useAccountStore((state) => state.accounts);
@@ -228,6 +259,7 @@ export const PreferencesView = () => {
       })),
     [mailboxQuery.data?.allThreads, mailboxQuery.data?.threads]
   );
+  const registeredPlugins = pluginManager.listPlugins();
 
   const runMailRulesNow = () => {
     const results = evaluateMailRules(mailRuleCandidates, rules);
@@ -334,6 +366,23 @@ export const PreferencesView = () => {
     setBackendStatus(tauriRuntime.isAvailable() ? 'saved' : 'idle');
     if (tauriRuntime.isAvailable()) {
       window.setTimeout(() => setBackendStatus((current) => (current === 'saved' ? 'idle' : current)), 1200);
+    }
+  };
+
+  const handlePluginToggle = async (pluginId: string, shouldEnable: boolean) => {
+    setPluginsStatus(`${shouldEnable ? 'Enabling' : 'Disabling'} plugin…`);
+
+    try {
+      if (shouldEnable) {
+        await pluginManager.enablePlugin(pluginId);
+      } else {
+        await pluginManager.unloadPlugin(pluginId);
+      }
+
+      const pluginName = pluginManager.listPlugins().find((plugin) => plugin.manifest.plugin.id === pluginId)?.manifest.plugin.name ?? pluginId;
+      setPluginsStatus(`${pluginName} ${shouldEnable ? 'enabled' : 'disabled'}.`);
+    } catch (error) {
+      setPluginsStatus(error instanceof Error ? error.message : 'Failed to update plugin state');
     }
   };
 
@@ -638,6 +687,52 @@ export const PreferencesView = () => {
                 templates={templates}
               />
             </div>
+          </section>
+
+          <section className="preferences-section" id="plugins">
+            <h2>Plugins</h2>
+            <p className="preferences-note">
+              This first manager cut lists registered frontend plugins, shows their declared permissions, and lets us enable or disable them without leaving Preferences.
+            </p>
+            {registeredPlugins.length ? (
+              <div className="preferences-account-list">
+                {registeredPlugins.map((plugin) => (
+                  <article className="preferences-account-card" key={plugin.manifest.plugin.id}>
+                    <div>
+                      <strong>{plugin.manifest.plugin.name}</strong>
+                      <p>{plugin.manifest.plugin.description ?? plugin.manifest.plugin.id}</p>
+                      <span>v{plugin.manifest.plugin.version}</span>
+                      <div className="preferences-plugin-permissions">
+                        {describePluginPermissions(plugin).map((permission) => (
+                          <span
+                            className={permission.sensitive ? 'preferences-plugin-permission preferences-plugin-permission-sensitive' : 'preferences-plugin-permission'}
+                            key={permission.value}
+                          >
+                            {permission.value}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="preferences-account-actions">
+                      <label>
+                        <input
+                          checked={plugin.enabled}
+                          onChange={(event) => {
+                            void handlePluginToggle(plugin.manifest.plugin.id, event.target.checked);
+                          }}
+                          type="checkbox"
+                        />
+                        Enabled
+                      </label>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="preferences-note">No frontend plugins registered yet.</p>
+            )}
+            <p className="preferences-note">Install from file, uninstall, and config forms generated from schema stay in the next cut.</p>
+            {pluginsStatus ? <p className="preferences-note">{pluginsStatus}</p> : null}
           </section>
 
           <section className="preferences-section" id="shortcuts">

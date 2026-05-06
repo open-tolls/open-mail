@@ -1108,6 +1108,38 @@ summary.folder-group-title::-webkit-details-marker {
   margin-top: 14px;
 }
 
+.preferences-account-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.preferences-plugin-permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.preferences-plugin-permission {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.preferences-plugin-permission-sensitive {
+  border-color: rgba(246, 182, 111, 0.28);
+  background: rgba(246, 182, 111, 0.08);
+  color: var(--accent);
+}
+
 .preferences-subsection {
   display: grid;
   gap: 16px;
