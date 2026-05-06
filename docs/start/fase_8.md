@@ -73,6 +73,8 @@ O Mailspring tem um sistema de plugins poderoso mas com limitacoes criticas:
 
 ### 8.1 — Plugin Manifest Schema
 
+**Status atual:** primeiro corte entregue no backend Rust, com `plugin.toml` parseado via `serde`/`toml`, tipos fortemente definidos para metadata, permissions, frontend/backend/config, validacao semantica de campos obrigatorios e cobertura de testes para manifest valido, invalido e carregamento a partir de arquivo.
+
 **O que implementar:**
 
 Cada plugin e definido por um `plugin.toml` (ou `plugin.json`):
@@ -148,10 +150,10 @@ impl PluginManifest {
 ```
 
 **Criterio de aceite:**
-- [ ] Schema de manifest definido e documentado
-- [ ] Validacao de manifest implementada
-- [ ] Permissions declarativas
-- [ ] Frontend e backend opcionais (plugin pode ser so UI ou so logica)
+- [x] Schema de manifest definido e documentado
+- [x] Validacao de manifest implementada
+- [x] Permissions declarativas
+- [x] Frontend e backend opcionais (plugin pode ser so UI ou so logica)
 
 ---
 
@@ -602,7 +604,7 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 
 ## Checklist Final da Fase 8
 
-- [ ] Plugin manifest schema definido e documentado
+- [x] Plugin manifest schema definido e documentado
 - [ ] Plugin Host (Rust) com WASM runtime
 - [ ] Permission system funcional
 - [ ] Plugin Manager (Frontend) com dynamic import
