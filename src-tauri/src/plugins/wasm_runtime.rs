@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
-use wasmtime::{Engine, Instance, Linker, Module, Store, TypedFunc};
+use wasmtime::{Engine, ExternType, Instance, Linker, Module, Store, TypedFunc};
 
 use crate::plugins::{PluginError, PluginManifest, PluginPermissions};
 
@@ -12,6 +12,7 @@ pub struct PluginContext {
     pub config: BTreeMap<String, Value>,
     pub emitted_events: Vec<String>,
     pub logs: Vec<String>,
+    pub host_calls: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -27,6 +28,7 @@ impl WasmInstance {
         manifest: &PluginManifest,
     ) -> Result<Self, PluginError> {
         let module = Module::new(engine, wasm_bytes).map_err(PluginError::WasmModule)?;
+        validate_import_permissions(&module, &manifest.permissions)?;
         let mut linker = Linker::new(engine);
 
         linker
@@ -58,6 +60,79 @@ impl WasmInstance {
                 },
             )
             .map_err(PluginError::WasmLinker)?;
+        if allows_database_read(&manifest.permissions) {
+            linker
+                .func_wrap(
+                    "openmail",
+                    "db_query",
+                    |mut caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
+                        caller.data_mut().host_calls.push("db_query".to_string());
+                        101
+                    },
+                )
+                .map_err(PluginError::WasmLinker)?;
+        }
+        if allows_database_write(&manifest.permissions) {
+            linker
+                .func_wrap(
+                    "openmail",
+                    "db_execute",
+                    |mut caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
+                        caller.data_mut().host_calls.push("db_execute".to_string());
+                        102
+                    },
+                )
+                .map_err(PluginError::WasmLinker)?;
+        }
+        if manifest.permissions.notifications {
+            linker
+                .func_wrap(
+                    "openmail",
+                    "send_notification",
+                    |mut caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
+                        caller
+                            .data_mut()
+                            .host_calls
+                            .push("send_notification".to_string());
+                        201
+                    },
+                )
+                .map_err(PluginError::WasmLinker)?;
+        }
+        if manifest.permissions.network {
+            linker
+                .func_wrap(
+                    "openmail",
+                    "http_request",
+                    |mut caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
+                        caller.data_mut().host_calls.push("http_request".to_string());
+                        301
+                    },
+                )
+                .map_err(PluginError::WasmLinker)?;
+        }
+        if manifest.permissions.filesystem {
+            linker
+                .func_wrap(
+                    "openmail",
+                    "read_file",
+                    |mut caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
+                        caller.data_mut().host_calls.push("read_file".to_string());
+                        401
+                    },
+                )
+                .map_err(PluginError::WasmLinker)?;
+            linker
+                .func_wrap(
+                    "openmail",
+                    "write_file",
+                    |mut caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
+                        caller.data_mut().host_calls.push("write_file".to_string());
+                        402
+                    },
+                )
+                .map_err(PluginError::WasmLinker)?;
+        }
 
         let mut store = Store::new(
             engine,
@@ -67,6 +142,7 @@ impl WasmInstance {
                 config: BTreeMap::new(),
                 emitted_events: Vec::new(),
                 logs: Vec::new(),
+                host_calls: Vec::new(),
             },
         );
         let instance = linker
@@ -88,6 +164,10 @@ impl WasmInstance {
     pub fn call_command(&mut self, command: &str, _args: &Value) -> Result<Value, PluginError> {
         let export = format!("command_{}", sanitize_export_name(command));
         self.call_required(&export)
+    }
+
+    pub fn host_calls(&self) -> &[String] {
+        &self.store.data().host_calls
     }
 
     fn call_optional(&mut self, export: &str) -> Result<Option<Value>, PluginError> {
@@ -138,4 +218,50 @@ fn sanitize_export_name(value: &str) -> String {
             _ => '_',
         })
         .collect()
+}
+
+fn validate_import_permissions(
+    module: &Module,
+    permissions: &PluginPermissions,
+) -> Result<(), PluginError> {
+    for import in module.imports() {
+        if import.module() != "openmail" {
+            continue;
+        }
+
+        let Some(ExternType::Func(_)) = Some(import.ty()) else {
+            continue;
+        };
+
+        let allowed = match import.name() {
+            "log" | "emit_event" | "get_config_len" => true,
+            "db_query" => allows_database_read(permissions),
+            "db_execute" => allows_database_write(permissions),
+            "send_notification" => permissions.notifications,
+            "http_request" => permissions.network,
+            "read_file" | "write_file" => permissions.filesystem,
+            _ => false,
+        };
+
+        if !allowed {
+            return Err(PluginError::PermissionDenied(format!(
+                "plugin requested import `openmail::{}` without the required manifest permission",
+                import.name()
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+fn allows_database_read(permissions: &PluginPermissions) -> bool {
+    permissions.database.as_ref().is_some_and(|scopes| {
+        scopes.iter().any(|scope| scope.starts_with("read:"))
+    })
+}
+
+fn allows_database_write(permissions: &PluginPermissions) -> bool {
+    permissions.database.as_ref().is_some_and(|scopes| {
+        scopes.iter().any(|scope| scope.starts_with("write:"))
+    })
 }

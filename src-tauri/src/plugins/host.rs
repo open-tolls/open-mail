@@ -223,8 +223,13 @@ impl PluginHost {
                 path: backend_path.clone(),
                 source,
             })?;
-            let mut instance =
-                WasmInstance::create(&self.wasm_engine, &wasm_bytes, &plugin.manifest)?;
+            let mut instance = match WasmInstance::create(&self.wasm_engine, &wasm_bytes, &plugin.manifest) {
+                Ok(instance) => instance,
+                Err(error) => {
+                    plugin.state = PluginState::Error(error.to_string());
+                    return Err(error);
+                }
+            };
             if let Err(error) = instance.call_init() {
                 plugin.state = PluginState::Error(error.to_string());
                 return Err(error);
@@ -397,6 +402,42 @@ notifications = true
 entry = "backend/plugin.wasm"
 hooks = ["on_message_received"]
 commands = [{ name = "schedule_send", handler = "handle_schedule_send" }]
+"#;
+
+    const IMPORT_PLUGIN_WITH_PERMISSIONS: &str = r#"
+[plugin]
+id = "com.openmail.plugin.host-apis"
+name = "Host APIs"
+version = "1.0.0"
+description = "Uses host APIs"
+author = "Open Mail Team"
+license = "MIT"
+min_app_version = "1.0.0"
+
+[permissions]
+database = ["read:messages", "write:scheduled_sends"]
+network = true
+filesystem = true
+notifications = true
+
+[backend]
+entry = "backend/plugin.wasm"
+commands = [{ name = "probe_host", handler = "handle_probe_host" }]
+"#;
+
+    const IMPORT_PLUGIN_WITHOUT_PERMISSIONS: &str = r#"
+[plugin]
+id = "com.openmail.plugin.host-apis-denied"
+name = "Host APIs Denied"
+version = "1.0.0"
+description = "Uses host APIs without declaring permissions"
+author = "Open Mail Team"
+license = "MIT"
+min_app_version = "1.0.0"
+
+[backend]
+entry = "backend/plugin.wasm"
+commands = [{ name = "probe_host", handler = "handle_probe_host" }]
 "#;
 
     #[test]
@@ -616,6 +657,85 @@ commands = [{ name = "schedule_send", handler = "handle_schedule_send" }]
         let _ = fs::remove_dir_all(root);
     }
 
+    #[test]
+    fn exposes_permissioned_host_apis_to_wasm_plugins() {
+        let root = make_temp_plugin_dir("host_api_permissions");
+        let plugin_dir = root.join("host-apis");
+        let backend_dir = plugin_dir.join("backend");
+
+        fs::create_dir_all(&backend_dir).expect("backend dir should exist");
+        fs::write(plugin_dir.join("plugin.toml"), IMPORT_PLUGIN_WITH_PERMISSIONS)
+            .expect("plugin manifest should be written");
+        fs::write(backend_dir.join("plugin.wasm"), host_api_plugin_wasm())
+            .expect("backend wasm should be written");
+
+        let mut host = PluginHost::new(PermissionChecker::new(PermissionPolicy::allow_all()));
+        host.discover_plugins(&[root.clone()])
+            .expect("plugin discovery should succeed");
+        host.activate("com.openmail.plugin.host-apis")
+            .expect("plugin should activate");
+
+        let result = host
+            .execute_command(
+                "com.openmail.plugin.host-apis",
+                "probe_host",
+                &Value::Null,
+            )
+            .expect("command should execute");
+        assert_eq!(result, Value::from(1508));
+
+        let instance = host
+            .get("com.openmail.plugin.host-apis")
+            .and_then(|plugin| plugin.instance.as_ref())
+            .expect("instance should exist");
+        assert_eq!(
+            instance.host_calls(),
+            &[
+                "db_query".to_string(),
+                "db_execute".to_string(),
+                "send_notification".to_string(),
+                "http_request".to_string(),
+                "read_file".to_string(),
+                "write_file".to_string(),
+            ]
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rejects_wasm_imports_that_are_not_declared_in_manifest_permissions() {
+        let root = make_temp_plugin_dir("host_api_permission_denied");
+        let plugin_dir = root.join("host-apis-denied");
+        let backend_dir = plugin_dir.join("backend");
+
+        fs::create_dir_all(&backend_dir).expect("backend dir should exist");
+        fs::write(
+            plugin_dir.join("plugin.toml"),
+            IMPORT_PLUGIN_WITHOUT_PERMISSIONS,
+        )
+        .expect("plugin manifest should be written");
+        fs::write(backend_dir.join("plugin.wasm"), host_api_plugin_wasm())
+            .expect("backend wasm should be written");
+
+        let mut host = PluginHost::new(PermissionChecker::new(PermissionPolicy::allow_all()));
+        host.discover_plugins(&[root.clone()])
+            .expect("plugin discovery should succeed");
+
+        let error = host
+            .activate("com.openmail.plugin.host-apis-denied")
+            .expect_err("activation should fail");
+        assert!(matches!(error, PluginError::PermissionDenied(_)));
+        assert!(matches!(
+            &host.get("com.openmail.plugin.host-apis-denied")
+                .expect("plugin should exist")
+                .state,
+            PluginState::Error(_)
+        ));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
     fn make_temp_plugin_dir(prefix: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!(
             "open_mail_{prefix}_{}_{}",
@@ -653,6 +773,36 @@ commands = [{ name = "schedule_send", handler = "handle_schedule_send" }]
               (func (export "command_schedule_send") (result i32)
                 unreachable
               )
+            )
+            "#,
+        )
+        .expect("wat should compile")
+    }
+
+    fn host_api_plugin_wasm() -> Vec<u8> {
+        wat::parse_str(
+            r#"
+            (module
+              (import "openmail" "db_query" (func $db_query (result i32)))
+              (import "openmail" "db_execute" (func $db_execute (result i32)))
+              (import "openmail" "send_notification" (func $send_notification (result i32)))
+              (import "openmail" "http_request" (func $http_request (result i32)))
+              (import "openmail" "read_file" (func $read_file (result i32)))
+              (import "openmail" "write_file" (func $write_file (result i32)))
+              (func (export "init") (result i32)
+                i32.const 0)
+              (func (export "command_probe_host") (result i32)
+                call $db_query
+                call $db_execute
+                i32.add
+                call $send_notification
+                i32.add
+                call $http_request
+                i32.add
+                call $read_file
+                i32.add
+                call $write_file
+                i32.add)
             )
             "#,
         )
