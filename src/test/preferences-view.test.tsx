@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/App';
+import { pluginManager } from '@/plugins/plugin-manager';
+import type { FrontendPluginManifest } from '@/plugins/types';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { usePreferencesStore } from '@stores/usePreferencesStore';
@@ -32,11 +34,32 @@ const setTauriRuntime = (isAvailable: boolean) => {
   Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
 };
 
+const preferencesPluginManifest: FrontendPluginManifest = {
+  config: {
+    fields: {
+      plugin_message: {
+        default: 'Inbox pulse',
+        type: 'text'
+      }
+    }
+  },
+  frontend: {
+    entry: '/src/test/fixtures/frontend-plugin.tsx',
+    slots: [{ component: 'PreferencesSection', name: 'preferences:section' }]
+  },
+  plugin: {
+    id: 'com.openmail.plugin.preferences-fixture',
+    name: 'Preferences Fixture',
+    version: '1.0.0'
+  }
+};
+
 describe('preferences view', () => {
   beforeEach(() => {
     setTauriRuntime(false);
     tauriCoreApi.invoke.mockReset();
     vi.stubGlobal('confirm', vi.fn(() => true));
+    pluginManager.reset();
   });
 
   it('renders all seven preference sections on the dedicated route', async () => {
@@ -68,6 +91,19 @@ describe('preferences view', () => {
     expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Contacts' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeInTheDocument();
+  });
+
+  it('renders plugin preference sections through the plugin slot', async () => {
+    window.history.pushState({}, '', '/preferences');
+    await pluginManager.loadPlugin(preferencesPluginManifest);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Plugin section' })).toBeInTheDocument();
   });
 
   it('applies theme and layout changes immediately from preferences', async () => {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PluginSlot } from '@/plugins/PluginSlot';
 import { ContactDetail } from '@components/contacts/ContactDetail';
 import { ContactList } from '@components/contacts/ContactList';
 import { ContactSearch } from '@components/contacts/ContactSearch';
@@ -109,6 +110,58 @@ export const PreferencesView = () => {
     resetPreferences,
     setPreference
   } = usePreferencesStore();
+  const pluginPreferencesConfig = useMemo(
+    () => ({
+      autoLoadImages,
+      checkForUpdates,
+      defaultAccountId,
+      density,
+      developerToolsEnabled,
+      fontSize,
+      includeSignatureInReplies,
+      language,
+      launchAtLogin,
+      layoutMode,
+      logLevel,
+      markAsReadOnOpen,
+      minimizeToTray,
+      notificationScope,
+      notificationSound,
+      notificationsEnabled,
+      quietHoursEnd,
+      quietHoursStart,
+      requestReadReceipts,
+      showSnippets,
+      themeId,
+      threadPanelWidth,
+      undoSendDelaySeconds
+    }),
+    [
+      autoLoadImages,
+      checkForUpdates,
+      defaultAccountId,
+      density,
+      developerToolsEnabled,
+      fontSize,
+      includeSignatureInReplies,
+      language,
+      launchAtLogin,
+      layoutMode,
+      logLevel,
+      markAsReadOnOpen,
+      minimizeToTray,
+      notificationScope,
+      notificationSound,
+      notificationsEnabled,
+      quietHoursEnd,
+      quietHoursStart,
+      requestReadReceipts,
+      showSnippets,
+      themeId,
+      threadPanelWidth,
+      undoSendDelaySeconds
+    ]
+  );
 
   const availableAccounts = useMemo(
     () =>
@@ -715,6 +768,8 @@ export const PreferencesView = () => {
               <button disabled type="button">Export data</button>
             </div>
           </section>
+
+          <PluginSlot name="preferences:section" props={{ config: pluginPreferencesConfig }} />
         </div>
       </div>
     </main>

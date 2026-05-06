@@ -299,6 +299,8 @@ impl WasmInstance {
 
 ### 8.3 — Plugin Manager (Frontend)
 
+**Status atual:** primeiro corte entregue no frontend, com `PluginManager` singleton em memoria, `dynamic import` de plugins por manifest, registro de slots/commands/hooks, `PluginSlot` com `useSyncExternalStore`, `Suspense` e error boundary por plugin, além de integração real nos slots `status-bar:left`, `status-bar:right` e `preferences:section`. O bootstrap automatico de plugins instalados e a expansao para os demais slots ainda ficam para os proximos cortes.
+
 **O que implementar:**
 
 ```typescript
@@ -399,12 +401,12 @@ export function PluginSlot({ name, props }: { name: string; props?: Record<strin
 ```
 
 **Criterio de aceite:**
-- [ ] Dynamic import de plugins frontend
-- [ ] Slot system funcional (registro + render)
-- [ ] Error boundary por plugin (crash isolado)
-- [ ] Command registry frontend
-- [ ] Hook registry frontend
-- [ ] Plugin config acessivel
+- [x] Dynamic import de plugins frontend
+- [x] Slot system funcional (registro + render)
+- [x] Error boundary por plugin (crash isolado)
+- [x] Command registry frontend
+- [x] Hook registry frontend
+- [x] Plugin config acessivel
 
 ---
 
@@ -609,10 +611,10 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 - [x] Plugin manifest schema definido e documentado
 - [x] Plugin Host (Rust) com WASM runtime
 - [x] Permission system funcional
-- [ ] Plugin Manager (Frontend) com dynamic import
+- [x] Plugin Manager (Frontend) com dynamic import
 - [ ] Slot system funcional (14+ slots definidos)
-- [ ] Hook system funcional (backend + frontend)
-- [ ] Command system funcional
+- [x] Hook system funcional (backend + frontend)
+- [x] Command system funcional
 - [ ] Plugin SDK (frontend + backend)
 - [ ] Template de plugin
 - [ ] Plugin Management UI em Preferences
