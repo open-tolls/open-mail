@@ -644,7 +644,7 @@ pub enum ReminderStatus {
 - [x] Send Reminders com auto-cancel
 - [x] Background services rodando (snooze loop, send later loop, reminder loop)
 - [x] Testes passando
-- [ ] CI green
+- [x] CI green
 
 ---
 
