@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '@/App';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
+import { useSendReminderStore } from '@stores/useSendReminderStore';
 import { useShortcutStore } from '@stores/useShortcutStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
 
@@ -893,5 +894,68 @@ describe('mailbox overview integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel reminder' }));
     expect(await screen.findByRole('button', { name: /reminders/i })).toHaveTextContent('0');
+  });
+
+  it('moves a due follow-up reminder back into the inbox and shows feedback', async () => {
+    useSendReminderStore.setState({
+      reminders: [
+        {
+          id: 'rem_due',
+          accountId: 'acc_demo',
+          threadId: 'thr_3',
+          subject: 'Ship notes for desktop alpha',
+          recipients: ['release@example.com'],
+          remindAt: '2026-03-13T06:00:00Z',
+          createdAt: '2026-03-13T05:00:00Z',
+          status: 'active'
+        }
+      ]
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Follow-up reminder due: Ship notes for desktop alpha').length).toBeGreaterThan(0);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reminders/i })).toHaveTextContent('0');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /inbox/i }));
+    expect(await screen.findByText('Ship notes for desktop alpha')).toBeInTheDocument();
+  });
+
+  it('auto-cancels a follow-up reminder after the thread already has a reply', async () => {
+    useSendReminderStore.setState({
+      reminders: [
+        {
+          id: 'rem_replied',
+          accountId: 'acc_demo',
+          threadId: 'thr_1',
+          subject: 'Premium motion system approved',
+          recipients: ['atlas@example.com'],
+          remindAt: '2026-06-20T09:00:00Z',
+          createdAt: '2026-03-12T09:00:00Z',
+          status: 'active'
+        }
+      ]
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /reminders/i })).toHaveTextContent('0');
+    });
+    expect(await screen.findByRole('status', { name: 'Composer notification' })).toHaveTextContent(
+      'Follow-up reminder auto-cancelled after reply'
+    );
   });
 });

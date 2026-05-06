@@ -18,6 +18,8 @@ type SendReminderState = {
   reminders: SendReminderRecord[];
   createReminder: (reminder: Omit<SendReminderRecord, 'id' | 'createdAt' | 'status'>) => string;
   cancelReminders: (reminderIds: string[]) => void;
+  markRemindersTriggered: (reminderIds: string[]) => void;
+  markRemindersReplied: (reminderIds: string[]) => void;
 };
 
 const createReminderId = () => `rem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -51,6 +53,28 @@ export const useSendReminderStore = create<SendReminderState>()(
               ? {
                   ...reminder,
                   status: 'cancelled'
+                }
+              : reminder
+          )
+        })),
+      markRemindersTriggered: (reminderIds) =>
+        set((state) => ({
+          reminders: state.reminders.map((reminder) =>
+            reminderIds.includes(reminder.id)
+              ? {
+                  ...reminder,
+                  status: 'triggered'
+                }
+              : reminder
+          )
+        })),
+      markRemindersReplied: (reminderIds) =>
+        set((state) => ({
+          reminders: state.reminders.map((reminder) =>
+            reminderIds.includes(reminder.id)
+              ? {
+                  ...reminder,
+                  status: 'replied'
                 }
               : reminder
           )

@@ -1,6 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { save } from '@tauri-apps/plugin-dialog';
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
 import type { ComposerDraft } from '@components/composer/Composer';
 import { ComponentGallery } from '@components/dev/ComponentGallery';
@@ -22,6 +23,7 @@ import { useUnreadBadge } from '@hooks/useUnreadBadge';
 import { useUnreadTrayIndicator } from '@hooks/useUnreadTrayIndicator';
 import { toComposerScheduledAttachment } from '@lib/composer-attachments';
 import { buildContactDirectory, mergeContactProfiles } from '@lib/contacts-directory';
+import { isWithinQuietHours } from '@lib/desktop-notifications';
 import { evaluateMailRules, filterRulesForAccount, type MailRuleCandidate } from '@lib/mail-rules';
 import { toThreadSummary } from '@lib/thread-summary';
 import { downloadAttachment } from '@lib/attachment-download';
@@ -40,6 +42,7 @@ import { api, tauriRuntime } from '@lib/tauri-bridge';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useContactProfileStore } from '@stores/useContactProfileStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
+import { usePreferencesStore } from '@stores/usePreferencesStore';
 import { hydrateSignatureStore } from '@stores/useSignatureStore';
 import { useSendReminderStore } from '@stores/useSendReminderStore';
 import { type StoreThreadAction, useThreadStore } from '@stores/useThreadStore';
@@ -67,6 +70,12 @@ type LocalSnoozeRecord = {
   accountId: string;
   originalFolderIds: string[];
   until: string;
+};
+
+type LocalReminderOverride = {
+  folderIds: string[];
+  isUnread: boolean;
+  lastMessageAt: string;
 };
 
 const toSafeHtml = (value: string) =>
@@ -257,6 +266,7 @@ const MailShell = () => {
   const [, setQueuedOutboxMessages] = useState<OutboxMessage[]>([]);
   const [localSentThreadRecords, setLocalSentThreadRecords] = useState<ThreadRecord[]>([]);
   const [localSnoozes, setLocalSnoozes] = useState<Record<string, LocalSnoozeRecord>>({});
+  const [localReminderOverrides, setLocalReminderOverrides] = useState<Record<string, LocalReminderOverride>>({});
   const [scheduledSends, setScheduledSends] = useState<ScheduledSendRecord[]>([]);
   const processedRuleVersionsRef = useRef<Record<string, string>>({});
   const accounts = useAccountStore((state) => state.accounts);
@@ -267,8 +277,13 @@ const MailShell = () => {
   const reminders = useSendReminderStore((state) => state.reminders);
   const createReminder = useSendReminderStore((state) => state.createReminder);
   const cancelReminderRecords = useSendReminderStore((state) => state.cancelReminders);
+  const markReminderReplied = useSendReminderStore((state) => state.markRemindersReplied);
+  const markReminderTriggered = useSendReminderStore((state) => state.markRemindersTriggered);
   const contactProfiles = useContactProfileStore((state) => state.profiles);
   const mailRules = useMailRulesStore((state) => state.rules);
+  const notificationsEnabled = usePreferencesStore((state) => state.notificationsEnabled);
+  const quietHoursStart = usePreferencesStore((state) => state.quietHoursStart);
+  const quietHoursEnd = usePreferencesStore((state) => state.quietHoursEnd);
   const applyThreadAction = useThreadStore((state) => state.applyThreadAction);
   const applyThreadLabels = useThreadStore((state) => state.applyThreadLabels);
   const createThreadSnapshot = useThreadStore((state) => state.createThreadSnapshot);
@@ -280,17 +295,27 @@ const MailShell = () => {
   const runtimeAllThreads = useMemo(
     () =>
       [...localSentThreadRecords, ...(mailbox?.allThreads ?? [])].map((thread) => {
+        const reminderOverride = localReminderOverrides[thread.id];
+        const reminderAdjustedThread = reminderOverride
+          ? {
+              ...thread,
+              folder_ids: reminderOverride.folderIds,
+              is_unread: reminderOverride.isUnread,
+              last_message_at: reminderOverride.lastMessageAt,
+              updated_at: reminderOverride.lastMessageAt
+            }
+          : thread;
         const snooze = localSnoozes[thread.id];
         if (!snooze) {
-          return thread;
+          return reminderAdjustedThread;
         }
 
         return {
-          ...thread,
+          ...reminderAdjustedThread,
           folder_ids: [SNOOZED_FOLDER_ID]
         };
       }),
-    [localSentThreadRecords, localSnoozes, mailbox?.allThreads]
+    [localReminderOverrides, localSentThreadRecords, localSnoozes, mailbox?.allThreads]
   );
   const folderThreadsQuery = useThreads({
     accountId: mailbox?.accountId ?? null,
@@ -962,6 +987,117 @@ const MailShell = () => {
       window.clearInterval(intervalId);
     };
   }, [scheduledSends]);
+
+  useEffect(() => {
+    const activeReminders = reminders.filter((reminder) => reminder.status === 'active');
+    if (!activeReminders.length) {
+      return;
+    }
+
+    const repliedReminderIds = activeReminders
+      .filter((reminder) => {
+        const thread = runtimeAllThreads.find((candidate) => candidate.id === reminder.threadId);
+        if (!thread) {
+          return false;
+        }
+
+        return thread.message_count > 1 && new Date(thread.last_message_at).getTime() > new Date(reminder.createdAt).getTime();
+      })
+      .map((reminder) => reminder.id);
+
+    if (!repliedReminderIds.length) {
+      return;
+    }
+
+    markReminderReplied(repliedReminderIds);
+    setComposerToast({
+      kind: 'success',
+      message: repliedReminderIds.length === 1 ? 'Follow-up reminder auto-cancelled after reply' : 'Follow-up reminders auto-cancelled after replies'
+    });
+  }, [markReminderReplied, reminders, runtimeAllThreads]);
+
+  useEffect(() => {
+    const activeReminders = reminders.filter((reminder) => reminder.status === 'active');
+    if (!activeReminders.length) {
+      return;
+    }
+
+    const processDueReminders = () => {
+      const now = Date.now();
+      const dueReminders = activeReminders.filter((reminder) => new Date(reminder.remindAt).getTime() <= now);
+
+      if (!dueReminders.length) {
+        return;
+      }
+
+      const nextReminderOverrides = Object.fromEntries(
+        dueReminders.map((reminder) => [
+          reminder.threadId,
+          {
+            folderIds: ['fld_inbox'],
+            isUnread: true,
+            lastMessageAt: new Date().toISOString()
+          } satisfies LocalReminderOverride
+        ])
+      );
+
+      setLocalReminderOverrides((current) => ({
+        ...current,
+        ...nextReminderOverrides
+      }));
+      markReminderTriggered(dueReminders.map((reminder) => reminder.id));
+
+      const firstReminder = dueReminders[0];
+      setOutboxStatus(`Follow-up reminder due: ${firstReminder.subject.trim() || '(no subject)'}`);
+      setComposerToast({
+        kind: 'success',
+        message: `Follow-up reminder due: ${firstReminder.subject.trim() || '(no subject)'}`
+      });
+
+      if (
+        tauriRuntime.isAvailable() &&
+        notificationsEnabled &&
+        !isWithinQuietHours(new Date(), quietHoursStart, quietHoursEnd)
+      ) {
+        void isPermissionGranted()
+          .then(async (granted) => {
+            const permissionGranted = granted || (await requestPermission()) === 'granted';
+            if (!permissionGranted) {
+              return;
+            }
+
+            dueReminders.slice(0, 3).forEach((reminder) => {
+              void sendNotification({
+                title: `Follow up: ${reminder.subject.trim() || 'Untitled thread'}`,
+                body: `No reply yet from ${reminder.recipients.join(', ') || 'the recipient'}.`,
+                autoCancel: true,
+                extra: {
+                  accountId: reminder.accountId,
+                  threadId: reminder.threadId,
+                  folderId: 'fld_inbox',
+                  folderRole: 'inbox'
+                }
+              });
+            });
+          })
+          .catch(() => undefined);
+      }
+    };
+
+    processDueReminders();
+
+    const intervalId = window.setInterval(processDueReminders, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    markReminderTriggered,
+    notificationsEnabled,
+    quietHoursEnd,
+    quietHoursStart,
+    reminders
+  ]);
 
   useTauriEvent<DomainEvent>(
     'domain:event',
