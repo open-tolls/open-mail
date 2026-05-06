@@ -52,6 +52,33 @@ const manifest: FrontendPluginManifest = {
   }
 };
 
+const createComposeHookManifest = (
+  pluginId: string,
+  configDefaults: Record<string, unknown>
+): FrontendPluginManifest => ({
+  config: {
+    fields: Object.fromEntries(
+      Object.entries(configDefaults).map(([key, value]) => [
+        key,
+        {
+          default: value,
+          label: key,
+          type: typeof value === 'boolean' ? 'boolean' : 'text'
+        }
+      ])
+    )
+  },
+  frontend: {
+    entry: '/src/test/fixtures/frontend-compose-hooks-plugin.tsx',
+    slots: []
+  },
+  plugin: {
+    id: pluginId,
+    name: pluginId,
+    version: '1.0.0'
+  }
+});
+
 describe('plugin manager', () => {
   beforeEach(() => {
     pluginManager.reset();
@@ -181,5 +208,45 @@ describe('plugin manager', () => {
 
     expect(pluginManager.listPlugins()).toEqual([]);
     expect(pluginManager.getPluginConfig(manifest.plugin.id)).toEqual({});
+  });
+
+  it('runs compose hooks in plugin id order and isolates plugin failures', async () => {
+    await pluginManager.loadPlugin(
+      createComposeHookManifest('com.openmail.plugin.compose-b', {
+        append_html: '<p>B</p>',
+        plugin_label: 'B',
+        throw_on_transform: true,
+        throw_on_before_send: true
+      })
+    );
+    await pluginManager.loadPlugin(
+      createComposeHookManifest('com.openmail.plugin.compose-c', {
+        append_html: '<p>C</p>',
+        plugin_label: 'C'
+      })
+    );
+    await pluginManager.loadPlugin(
+      createComposeHookManifest('com.openmail.plugin.compose-a', {
+        append_html: '<p>A</p>',
+        plugin_label: 'A'
+      })
+    );
+
+    await expect(pluginManager.runTransformHooks('compose:transform-body', '<p>Hello</p>')).resolves.toBe(
+      '<p>Hello</p><p>A</p><p>C</p>'
+    );
+
+    await expect(pluginManager.runHooks('compose:before-send', { htmlBody: '<p>Hello</p>' })).resolves.toEqual([
+      {
+        allow: true,
+        htmlBody: '<p>Hello</p>',
+        pluginLabel: 'A'
+      },
+      {
+        allow: true,
+        htmlBody: '<p>Hello</p>',
+        pluginLabel: 'C'
+      }
+    ]);
   });
 });

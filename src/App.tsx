@@ -39,6 +39,7 @@ import type {
 } from '@lib/contracts';
 import { applyTheme } from '@lib/themes';
 import { api, tauriRuntime } from '@lib/tauri-bridge';
+import { pluginManager } from '@/plugins/plugin-manager';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useContactProfileStore } from '@stores/useContactProfileStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
@@ -175,6 +176,28 @@ const htmlToPlainText = (value: string) =>
     .replace(/&#39;/g, "'")
     .replace(/&quot;/g, '"')
     .trim();
+
+const resolveComposeBeforeSendError = (results: unknown[]) => {
+  for (const result of results) {
+    if (result === false) {
+      return 'Send blocked by plugin';
+    }
+
+    if (typeof result === 'string' && result.trim()) {
+      return result.trim();
+    }
+
+    if (typeof result === 'object' && result !== null && 'allow' in result && result.allow === false) {
+      if ('message' in result && typeof result.message === 'string' && result.message.trim()) {
+        return result.message.trim();
+      }
+
+      return 'Send blocked by plugin';
+    }
+  }
+
+  return null;
+};
 
 const toLocalSentThreadRecord = (message: OutboxMessage): ThreadRecord => {
   const primaryRecipient = message.mimeMessage.to[0]?.email ?? 'Draft';
@@ -620,27 +643,12 @@ const MailShell = () => {
 
   const enqueueOutboxMutation = useMutation({
     mutationFn: async (draft: ComposerDraft): Promise<OutboxMessage> => {
-      const accountId = draft.fromAccountId || selectedComposerAccount.id;
-      const fromAccount = composerAccounts.find((account) => account.id === accountId) ?? selectedComposerAccount;
-      const request: EnqueueOutboxMessageRequest = {
-        accountId,
-        from: { name: fromAccount.displayName, email: fromAccount.email },
-        to: toMailAddresses(draft.to),
-        cc: toMailAddresses(draft.cc),
-        bcc: toMailAddresses(draft.bcc),
-        replyTo: null,
-        subject: draft.subject,
-        htmlBody: draft.body.trim().startsWith('<') ? draft.body : toSafeHtml(draft.body),
-        plainBody: htmlToPlainText(draft.body),
-        inReplyTo: draft.inReplyTo,
-        references: draft.references,
-        attachments: await toMimeAttachments(draft.attachments)
-      };
+      const request = await buildComposerRequest(draft);
 
       if (!tauriRuntime.isAvailable()) {
         return {
           id: `web_out_${Date.now()}`,
-          accountId,
+          accountId: request.accountId,
           mimeMessage: request,
           status: 'queued',
           retryCount: 0,
@@ -745,6 +753,46 @@ const MailShell = () => {
       });
   }, [messagesQuery.data, queryClient, selectedThread, updateThread]);
 
+  const buildComposerRequest = useCallback(
+    async (draft: ComposerDraft): Promise<EnqueueOutboxMessageRequest> => {
+      const accountId = draft.fromAccountId || selectedComposerAccount.id;
+      const fromAccount = composerAccounts.find((account) => account.id === accountId) ?? selectedComposerAccount;
+      const initialHtmlBody = draft.body.trim().startsWith('<') ? draft.body : toSafeHtml(draft.body);
+      const htmlBody = await pluginManager.runTransformHooks('compose:transform-body', initialHtmlBody);
+      const plainBody = htmlToPlainText(htmlBody);
+      const beforeSendResults = await pluginManager.runHooks('compose:before-send', {
+        accountId,
+        draft: {
+          ...draft,
+          body: htmlBody
+        },
+        htmlBody,
+        plainBody
+      });
+      const beforeSendError = resolveComposeBeforeSendError(beforeSendResults);
+
+      if (beforeSendError) {
+        throw new Error(beforeSendError);
+      }
+
+      return {
+        accountId,
+        from: { name: fromAccount.displayName, email: fromAccount.email },
+        to: toMailAddresses(draft.to),
+        cc: toMailAddresses(draft.cc),
+        bcc: toMailAddresses(draft.bcc),
+        replyTo: null,
+        subject: draft.subject,
+        htmlBody,
+        plainBody,
+        inReplyTo: draft.inReplyTo,
+        references: draft.references,
+        attachments: await toMimeAttachments(draft.attachments)
+      };
+    },
+    [composerAccounts, selectedComposerAccount]
+  );
+
   const handleSendDraft = async (draft: ComposerDraft, remindAt?: string | null) => {
     try {
       setOutboxStatus('Queueing message...');
@@ -774,29 +822,14 @@ const MailShell = () => {
   };
   const handleScheduleDraft = async (draft: ComposerDraft, sendAt: string) => {
     try {
-      const accountId = draft.fromAccountId || selectedComposerAccount.id;
-      const fromAccount = composerAccounts.find((account) => account.id === accountId) ?? selectedComposerAccount;
-      const request: EnqueueOutboxMessageRequest = {
-        accountId,
-        from: { name: fromAccount.displayName, email: fromAccount.email },
-        to: toMailAddresses(draft.to),
-        cc: toMailAddresses(draft.cc),
-        bcc: toMailAddresses(draft.bcc),
-        replyTo: null,
-        subject: draft.subject,
-        htmlBody: draft.body.trim().startsWith('<') ? draft.body : toSafeHtml(draft.body),
-        plainBody: htmlToPlainText(draft.body),
-        inReplyTo: draft.inReplyTo,
-        references: draft.references,
-        attachments: await toMimeAttachments(draft.attachments)
-      };
+      const request = await buildComposerRequest(draft);
 
       let scheduledRecord: ScheduledSendRecord;
       if (!tauriRuntime.isAvailable()) {
         const timestamp = new Date().toISOString();
         scheduledRecord = {
           id: `sched_${Date.now()}`,
-          accountId,
+          accountId: request.accountId,
           mimeMessage: request,
           sendAt,
           status: 'pending',

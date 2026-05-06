@@ -16,7 +16,7 @@ const toDefaultConfig = (manifest: FrontendPluginManifest) =>
 class PluginManager {
   private commands = new Map<string, FrontendCommandHandler>();
   private configValues = new Map<string, Record<string, unknown>>();
-  private hooks = new Map<string, FrontendHookHandler[]>();
+  private hooks = new Map<string, Array<{ handler: FrontendHookHandler; pluginId: string }>>();
   private listeners = new Set<() => void>();
   private manifests = new Map<string, FrontendPluginManifest>();
   private plugins = new Map<string, LoadedFrontendPlugin>();
@@ -84,7 +84,10 @@ class PluginManager {
         },
         registerHook: (name, handler) => {
           const handlers = this.hooks.get(name) ?? [];
-          handlers.push(handler);
+          handlers.push({
+            handler,
+            pluginId: manifest.plugin.id
+          });
           this.hooks.set(name, handlers);
           hookRegistrations.push({ handler, name });
         }
@@ -138,7 +141,7 @@ class PluginManager {
 
     for (const registration of plugin.hookRegistrations) {
       const handlers = this.hooks.get(registration.name) ?? [];
-      const remainingHandlers = handlers.filter((handler) => handler !== registration.handler);
+      const remainingHandlers = handlers.filter((handler) => handler.handler !== registration.handler);
       if (remainingHandlers.length) {
         this.hooks.set(registration.name, remainingHandlers);
       } else {
@@ -206,8 +209,40 @@ class PluginManager {
   }
 
   async runHooks(hookName: string, payload: unknown) {
-    const handlers = this.hooks.get(hookName) ?? [];
-    return Promise.all(handlers.map((handler) => handler(payload)));
+    const handlers = [...(this.hooks.get(hookName) ?? [])].sort((left, right) =>
+      left.pluginId.localeCompare(right.pluginId)
+    );
+    const results: unknown[] = [];
+
+    for (const registration of handlers) {
+      try {
+        results.push(await registration.handler(payload));
+      } catch {
+        continue;
+      }
+    }
+
+    return results;
+  }
+
+  async runTransformHooks<T>(hookName: string, payload: T): Promise<T> {
+    const handlers = [...(this.hooks.get(hookName) ?? [])].sort((left, right) =>
+      left.pluginId.localeCompare(right.pluginId)
+    );
+    let currentPayload = payload;
+
+    for (const registration of handlers) {
+      try {
+        const nextPayload = await registration.handler(currentPayload);
+        if (nextPayload !== undefined) {
+          currentPayload = nextPayload as T;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return currentPayload;
   }
 
   reset() {

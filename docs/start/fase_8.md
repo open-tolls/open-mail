@@ -546,6 +546,8 @@ src/components/preferences/
 
 ### 8.6 — Hooks System
 
+**Status atual:** primeiro corte entregue no frontend. O `pluginManager` agora executa hooks em ordem deterministica por `plugin_id`, isola falhas sem derrubar os demais plugins e suporta `transform hooks` sequenciais via `compose:transform-body`. O shell passou a despachar `compose:before-send` e `compose:transform-body` nos fluxos reais de `queue` e `send later`, permitindo tanto veto de envio quanto transformacao do HTML antes da mensagem ser persistida ou agendada. O backend ainda nao esta ligado aos eventos reais do dominio, entao esse bloco segue parcial.
+
 **O que implementar:**
 
 Hooks permitem plugins reagirem a eventos do sistema:
@@ -572,10 +574,10 @@ Hooks permitem plugins reagirem a eventos do sistema:
 
 **Criterio de aceite:**
 - [ ] Backend hooks despachados corretamente
-- [ ] Frontend hooks despachados corretamente
-- [ ] Transform hooks podem modificar dados
-- [ ] Plugins isolados (falha em um nao afeta outros)
-- [ ] Ordem de execucao deterministica
+- [x] Frontend hooks despachados corretamente
+- [x] Transform hooks podem modificar dados
+- [x] Plugins isolados (falha em um nao afeta outros)
+- [x] Ordem de execucao deterministica
 
 ---
 

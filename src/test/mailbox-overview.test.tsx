@@ -2,11 +2,49 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '@/App';
+import { pluginManager } from '@/plugins/plugin-manager';
+import type { FrontendPluginManifest } from '@/plugins/types';
 import { useAccountStore } from '@stores/useAccountStore';
 import { useMailRulesStore } from '@stores/useMailRulesStore';
 import { useSendReminderStore } from '@stores/useSendReminderStore';
 import { useShortcutStore } from '@stores/useShortcutStore';
 import { useSignatureStore } from '@stores/useSignatureStore';
+
+const composeHookManifest: FrontendPluginManifest = {
+  config: {
+    fields: {
+      append_html: {
+        default: '<p>Plugin appended footer</p>',
+        label: 'append_html',
+        type: 'text'
+      },
+      block_message: {
+        default: 'Composer blocked by plugin policy',
+        label: 'block_message',
+        type: 'text'
+      },
+      block_send: {
+        default: false,
+        label: 'block_send',
+        type: 'boolean'
+      },
+      plugin_label: {
+        default: 'compose-hook',
+        label: 'plugin_label',
+        type: 'text'
+      }
+    }
+  },
+  frontend: {
+    entry: '/src/test/fixtures/frontend-compose-hooks-plugin.tsx',
+    slots: []
+  },
+  plugin: {
+    id: 'com.openmail.plugin.compose-hook-fixture',
+    name: 'Compose hook fixture',
+    version: '1.0.0'
+  }
+};
 
 describe('mailbox overview integration', () => {
   beforeEach(() => {
@@ -27,6 +65,7 @@ describe('mailbox overview integration', () => {
         document
       }) as unknown as Window
     );
+    pluginManager.reset();
   });
 
   afterEach(() => {
@@ -646,6 +685,41 @@ describe('mailbox overview integration', () => {
     expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent('Queued 1 recipient(s)');
   });
 
+  it('lets compose hooks block queueing from the shell', async () => {
+    await pluginManager.loadPlugin({
+      ...composeHookManifest,
+      plugin: {
+        ...composeHookManifest.plugin,
+        id: 'com.openmail.plugin.compose-blocker'
+      },
+      config: {
+        fields: {
+          ...composeHookManifest.config!.fields,
+          block_send: {
+            default: true,
+            label: 'block_send',
+            type: 'boolean'
+          }
+        }
+      }
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Blocked by policy' } });
+    fireEvent.click(screen.getByRole('button', { name: /^queue$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Could not queue message: Composer blocked by plugin policy')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('region', { name: /composer/i })).toBeInTheDocument();
+  });
+
   it('queues a composed message with Cmd+Enter from the shell', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
@@ -735,6 +809,38 @@ describe('mailbox overview integration', () => {
     expect(screen.getByText('plan.pdf')).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent('Scheduled draft restored');
     expect(screen.queryByText('Scheduled follow-up')).not.toBeInTheDocument();
+  });
+
+  it('applies compose transform hooks before scheduling a draft', async () => {
+    await pluginManager.loadPlugin(composeHookManifest);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
+    fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Hooked scheduled message' } });
+    fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'release@example.com' } });
+    fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+    fireEvent.change(screen.getByLabelText('Pick send later date and time'), {
+      target: { value: '2026-05-04T09:01' }
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Schedule custom time' }));
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /scheduled/i }));
+    fireEvent.click(await screen.findByText('Hooked scheduled message'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: /composer/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('Plugin appended footer');
   });
 
   it('restores a locally autosaved draft when reopening the composer', async () => {
