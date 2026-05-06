@@ -159,6 +159,8 @@ impl PluginManifest {
 
 ### 8.2 — Plugin Host (Backend/Rust)
 
+**Status atual:** primeiro corte entregue no backend Rust, com `PluginHost` em memoria, discovery de `plugin.toml` em diretorios locais, registro por `plugin_id`, estados `Installed/Active/Disabled/Error`, ativacao/desativacao inicial, verificacao de permissions antes de ativar e testes cobrindo duplicate ids, backend entry ausente e policy deny. O runtime WASM e o dispatch de hooks/commands ainda ficam para os proximos cortes.
+
 **O que implementar:**
 
 ```rust
@@ -285,9 +287,9 @@ impl WasmInstance {
 | `set_config(key, value)` | (sempre disponivel) | Salvar config do plugin           |
 
 **Criterio de aceite:**
-- [ ] Plugin host descobre e carrega plugins
+- [x] Plugin host descobre e carrega plugins
 - [ ] WASM runtime funcional (wasmtime)
-- [ ] Permission checking antes de ativar
+- [x] Permission checking antes de ativar
 - [ ] APIs sandboxed (so acessivel com permission)
 - [ ] Hook dispatch funciona
 - [ ] Command execution funciona
