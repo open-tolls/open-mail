@@ -30,6 +30,15 @@ class PluginManager {
     };
   };
 
+  async installPlugin(manifest: FrontendPluginManifest): Promise<void> {
+    this.manifests.set(manifest.plugin.id, manifest);
+    if (!this.configValues.has(manifest.plugin.id)) {
+      this.configValues.set(manifest.plugin.id, toDefaultConfig(manifest));
+    }
+
+    await this.enablePlugin(manifest.plugin.id);
+  }
+
   async loadPlugin(manifest: FrontendPluginManifest): Promise<void> {
     this.manifests.set(manifest.plugin.id, manifest);
 
@@ -138,6 +147,13 @@ class PluginManager {
     }
 
     this.plugins.delete(pluginId);
+    this.emitChange();
+  }
+
+  async uninstallPlugin(pluginId: string): Promise<void> {
+    await this.unloadPlugin(pluginId);
+    this.manifests.delete(pluginId);
+    this.configValues.delete(pluginId);
     this.emitChange();
   }
 

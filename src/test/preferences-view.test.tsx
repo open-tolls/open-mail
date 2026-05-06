@@ -14,10 +14,28 @@ const tauriCoreApi = vi.hoisted(() => ({
   convertFileSrc: vi.fn((value: string) => value),
   invoke: vi.fn()
 }));
+const dialogApi = vi.hoisted(() => ({
+  open: vi.fn()
+}));
+const autostartApi = vi.hoisted(() => ({
+  disable: vi.fn(),
+  enable: vi.fn(),
+  isEnabled: vi.fn()
+}));
 
 vi.mock('@tauri-apps/api/core', () => ({
   convertFileSrc: tauriCoreApi.convertFileSrc,
   invoke: tauriCoreApi.invoke
+}));
+
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  open: dialogApi.open
+}));
+
+vi.mock('@tauri-apps/plugin-autostart', () => ({
+  disable: autostartApi.disable,
+  enable: autostartApi.enable,
+  isEnabled: autostartApi.isEnabled
 }));
 
 const setTauriRuntime = (isAvailable: boolean) => {
@@ -75,6 +93,11 @@ describe('preferences view', () => {
   beforeEach(() => {
     setTauriRuntime(false);
     tauriCoreApi.invoke.mockReset();
+    dialogApi.open.mockReset();
+    autostartApi.disable.mockReset();
+    autostartApi.enable.mockReset();
+    autostartApi.isEnabled.mockReset();
+    autostartApi.isEnabled.mockResolvedValue(false);
     vi.stubGlobal('confirm', vi.fn(() => true));
     pluginManager.reset();
   });
@@ -211,6 +234,26 @@ describe('preferences view', () => {
         review_mode: 'strict'
       })
     );
+  });
+
+  it('uninstalls a registered plugin from preferences after confirmation', async () => {
+    window.history.pushState({}, '', '/preferences');
+    await pluginManager.loadPlugin(preferencesPluginManifest);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByText('Preferences Fixture')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Preferences Fixture')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Preferences Fixture uninstalled.')).toBeInTheDocument();
   });
 
   it('applies theme and layout changes immediately from preferences', async () => {

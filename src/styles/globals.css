@@ -998,6 +998,10 @@ summary.folder-group-title::-webkit-details-marker {
   max-width: 1240px;
 }
 
+.preferences-hidden-input {
+  display: none;
+}
+
 .preferences-nav {
   position: sticky;
   top: 32px;

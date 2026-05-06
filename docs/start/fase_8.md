@@ -486,7 +486,7 @@ openmail-plugin-template/
 
 ### 8.5 — Plugin Management UI
 
-**Status atual:** segundo corte entregue em `Preferences`, integrado ao `pluginManager` frontend. O app agora lista plugins frontend registrados, mostra metadata basica, exibe permissions declaradas com destaque para `network` e `filesystem`, permite habilitar/desabilitar plugins conhecidos sem reiniciar a shell e auto-gera controles de configuracao a partir do schema do manifest, preservando valores mesmo quando o plugin e desativado e reativado. Instalacao por arquivo e uninstall ficam para os proximos cortes.
+**Status atual:** terceiro corte entregue em `Preferences`, integrado ao `pluginManager` frontend. O app agora lista plugins frontend registrados, mostra metadata basica, exibe permissions declaradas com destaque para `network` e `filesystem`, permite habilitar/desabilitar plugins conhecidos sem reiniciar a shell, auto-gera controles de configuracao a partir do schema do manifest e preserva esses valores mesmo quando o plugin e desativado e reativado. Tambem existe um primeiro fluxo de `install/uninstall` no frontend, lendo `plugin.json` por arquivo e registrando/removendo o plugin do manager em tempo real. O suporte completo a bundle `zip/folder` ainda fica como proximo passo.
 
 **O que implementar:**
 
@@ -530,7 +530,7 @@ src/components/preferences/
 - Lista de plugins instalados
 - Enable/disable toggle
 - Exibir permissions com warning para permissions sensiveis (network, filesystem)
-- Instalar plugin a partir de arquivo (zip/folder)
+- Instalar plugin a partir de arquivo (primeiro corte via `plugin.json`; zip/folder depois)
 - Desinstalar plugin
 - Ver config do plugin (se tem config schema, gerar UI)
 
@@ -538,8 +538,8 @@ src/components/preferences/
 - [x] Lista plugins instalados
 - [x] Enable/disable funciona
 - [x] Permissions exibidas
-- [ ] Instalar plugin de arquivo
-- [ ] Desinstalar plugin
+- [x] Instalar plugin de arquivo
+- [x] Desinstalar plugin
 - [x] Config UI auto-gerada a partir do schema
 
 ---

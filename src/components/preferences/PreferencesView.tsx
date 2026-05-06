@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { PluginSlot } from '@/plugins/PluginSlot';
+import { parseFrontendPluginManifest } from '@/plugins/manifest';
 import { pluginManager } from '@/plugins/plugin-manager';
 import type { FrontendPluginConfigField } from '@/plugins/types';
 import { ContactDetail } from '@components/contacts/ContactDetail';
@@ -155,6 +157,18 @@ const renderPluginConfigField = (
   );
 };
 
+const readPluginManifestFile = async (file: File) => {
+  if (typeof file.text === 'function') {
+    return file.text();
+  }
+
+  if (typeof Blob !== 'undefined' && file instanceof Blob) {
+    return new Response(file).text();
+  }
+
+  throw new Error('Failed to read plugin manifest');
+};
+
 export const PreferencesView = () => {
   const navigate = useNavigate();
   const [backendStatus, setBackendStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
@@ -165,6 +179,7 @@ export const PreferencesView = () => {
   const [contactQuery, setContactQuery] = useState('');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [pluginsStatus, setPluginsStatus] = useState<string | null>(null);
+  const installPluginInputRef = useRef<HTMLInputElement | null>(null);
   const hasHydratedRef = useRef(false);
   useSyncExternalStore(pluginManager.subscribe, () => pluginManager.getRevision(), () => 0);
   const mailboxQuery = useMailboxOverview();
@@ -464,6 +479,79 @@ export const PreferencesView = () => {
       setPluginsStatus(`${pluginName} ${shouldEnable ? 'enabled' : 'disabled'}.`);
     } catch (error) {
       setPluginsStatus(error instanceof Error ? error.message : 'Failed to update plugin state');
+    }
+  };
+
+  const installPluginFromFile = async (file: File) => {
+    const manifest = parseFrontendPluginManifest(await readPluginManifestFile(file));
+    await pluginManager.installPlugin(manifest);
+    setPluginsStatus(`${manifest.plugin.name} installed.`);
+  };
+
+  const handleInstallPlugin = async () => {
+    try {
+      if (!tauriRuntime.isAvailable()) {
+        installPluginInputRef.current?.click();
+        return;
+      }
+
+      const selected = await open({
+        filters: [
+          {
+            extensions: ['json'],
+            name: 'Plugin manifest'
+          }
+        ],
+        multiple: false
+      });
+
+      if (typeof selected !== 'string' || !selected) {
+        return;
+      }
+
+      const response = await fetch(api.system.toAssetUrl(selected));
+      const manifest = parseFrontendPluginManifest(await response.text(), {
+        manifestPath: selected,
+        toAssetUrl: api.system.toAssetUrl
+      });
+
+      await pluginManager.installPlugin(manifest);
+      setPluginsStatus(`${manifest.plugin.name} installed.`);
+    } catch (error) {
+      setPluginsStatus(error instanceof Error ? error.message : 'Failed to install plugin');
+    }
+  };
+
+  const handleInstallPluginInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      await installPluginFromFile(file);
+    } catch (error) {
+      setPluginsStatus(error instanceof Error ? error.message : 'Failed to install plugin');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleUninstallPlugin = async (pluginId: string) => {
+    const plugin = pluginManager.listPlugins().find((candidate) => candidate.manifest.plugin.id === pluginId);
+    if (!plugin) {
+      return;
+    }
+
+    if (!window.confirm(`Uninstall ${plugin.manifest.plugin.name} from Open Mail?`)) {
+      return;
+    }
+
+    try {
+      await pluginManager.uninstallPlugin(pluginId);
+      setPluginsStatus(`${plugin.manifest.plugin.name} uninstalled.`);
+    } catch (error) {
+      setPluginsStatus(error instanceof Error ? error.message : 'Failed to uninstall plugin');
     }
   };
 
@@ -775,6 +863,18 @@ export const PreferencesView = () => {
             <p className="preferences-note">
               This first manager cut lists registered frontend plugins, shows their declared permissions, and lets us enable or disable them without leaving Preferences.
             </p>
+            <div className="preferences-advanced-actions">
+              <button onClick={() => void handleInstallPlugin()} type="button">
+                Install plugin
+              </button>
+            </div>
+            <input
+              accept="application/json,.json"
+              className="preferences-hidden-input"
+              onChange={(event) => void handleInstallPluginInputChange(event)}
+              ref={installPluginInputRef}
+              type="file"
+            />
             {registeredPlugins.length ? (
               <div className="preferences-account-list">
                 {registeredPlugins.map((plugin) => (
@@ -815,6 +915,9 @@ export const PreferencesView = () => {
                         />
                         Plugin enabled
                       </label>
+                      <button onClick={() => void handleUninstallPlugin(plugin.manifest.plugin.id)} type="button">
+                        Uninstall
+                      </button>
                     </div>
                   </article>
                 ))}
@@ -822,7 +925,7 @@ export const PreferencesView = () => {
             ) : (
               <p className="preferences-note">No frontend plugins registered yet.</p>
             )}
-            <p className="preferences-note">Install from file and uninstall stay in the next cut; schema-based config is already editable here for registered frontend plugins.</p>
+            <p className="preferences-note">This install flow currently targets `plugin.json` manifests. Schema-based config is already editable here for registered frontend plugins.</p>
             {pluginsStatus ? <p className="preferences-note">{pluginsStatus}</p> : null}
           </section>
 

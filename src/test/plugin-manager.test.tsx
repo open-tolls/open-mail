@@ -171,4 +171,15 @@ describe('plugin manager', () => {
       pluginMessage: 'Persisted across reload'
     });
   });
+
+  it('fully removes an uninstalled plugin from the registry', async () => {
+    await pluginManager.installPlugin(manifest);
+
+    expect(pluginManager.listPlugins()).toHaveLength(1);
+
+    await pluginManager.uninstallPlugin(manifest.plugin.id);
+
+    expect(pluginManager.listPlugins()).toEqual([]);
+    expect(pluginManager.getPluginConfig(manifest.plugin.id)).toEqual({});
+  });
 });
