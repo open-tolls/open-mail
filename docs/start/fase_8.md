@@ -546,7 +546,7 @@ src/components/preferences/
 
 ### 8.6 — Hooks System
 
-**Status atual:** primeiro corte entregue no frontend. O `pluginManager` agora executa hooks em ordem deterministica por `plugin_id`, isola falhas sem derrubar os demais plugins e suporta `transform hooks` sequenciais via `compose:transform-body`. O shell passou a despachar `compose:before-send` e `compose:transform-body` nos fluxos reais de `queue` e `send later`, permitindo tanto veto de envio quanto transformacao do HTML antes da mensagem ser persistida ou agendada. O backend ainda nao esta ligado aos eventos reais do dominio, entao esse bloco segue parcial.
+**Status atual:** segundo corte entregue, agora cobrindo frontend e uma primeira ligacao real no backend. No frontend, o `pluginManager` executa hooks em ordem deterministica por `plugin_id`, isola falhas sem derrubar os demais plugins e suporta `transform hooks` sequenciais via `compose:transform-body`; a shell despacha `compose:before-send` e `compose:transform-body` nos fluxos reais de `queue` e `send later`. No backend, o `PluginHost` agora recebe dispatch observacional em `on_draft_created`, `on_message_sending`, `on_message_sent` e `on_sync_completed`, com cobertura de integracao nos comandos de draft/send e acesso basico ao payload via `openmail.get_payload_len()`. O que continua aberto nessa frente e a transformacao real de payload no backend e a ligacao dos hooks restantes como `on_message_received`, `on_thread_changed` e `on_account_added`.
 
 **O que implementar:**
 
@@ -573,7 +573,7 @@ Hooks permitem plugins reagirem a eventos do sistema:
 | `message:before-render`   | Antes de renderizar mensagem    | `Message`               |
 
 **Criterio de aceite:**
-- [ ] Backend hooks despachados corretamente
+- [x] Backend hooks despachados corretamente
 - [x] Frontend hooks despachados corretamente
 - [x] Transform hooks podem modificar dados
 - [x] Plugins isolados (falha em um nao afeta outros)
@@ -617,12 +617,12 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 - [x] Permission system funcional
 - [x] Plugin Manager (Frontend) com dynamic import
 - [ ] Slot system funcional (14+ slots definidos)
-- [x] Hook system funcional (backend + frontend)
+- [ ] Hook system funcional (backend + frontend)
 - [x] Command system funcional
 - [ ] Plugin SDK (frontend + backend)
 - [ ] Template de plugin
-- [ ] Plugin Management UI em Preferences
-- [ ] Install/uninstall/enable/disable
+- [x] Plugin Management UI em Preferences
+- [x] Install/uninstall/enable/disable
 - [x] Config UI auto-gerada
 - [ ] Error isolation (crash de plugin nao afeta app)
 - [ ] Plugin de exemplo funcional

@@ -264,8 +264,13 @@ impl PluginHost {
 
     pub fn dispatch_hook(&mut self, hook: &str, data: &Value) -> Vec<HookResult> {
         let mut results = Vec::new();
+        let mut plugin_ids = self.plugins.keys().cloned().collect::<Vec<_>>();
+        plugin_ids.sort();
 
-        for plugin in self.plugins.values_mut() {
+        for plugin_id in plugin_ids {
+            let Some(plugin) = self.plugins.get_mut(&plugin_id) else {
+                continue;
+            };
             if plugin.state != PluginState::Active {
                 continue;
             }

@@ -10,6 +10,7 @@ pub struct PluginContext {
     pub plugin_id: String,
     pub permissions: PluginPermissions,
     pub config: BTreeMap<String, Value>,
+    pub last_payload: Option<Value>,
     pub emitted_events: Vec<String>,
     pub logs: Vec<String>,
     pub host_calls: Vec<String>,
@@ -57,6 +58,20 @@ impl WasmInstance {
                 "get_config_len",
                 |caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
                     caller.data().config.len() as i32
+                },
+            )
+            .map_err(PluginError::WasmLinker)?;
+        linker
+            .func_wrap(
+                "openmail",
+                "get_payload_len",
+                |caller: wasmtime::Caller<'_, PluginContext>| -> i32 {
+                    caller
+                        .data()
+                        .last_payload
+                        .as_ref()
+                        .map(|payload| payload.to_string().len() as i32)
+                        .unwrap_or(0)
                 },
             )
             .map_err(PluginError::WasmLinker)?;
@@ -140,6 +155,7 @@ impl WasmInstance {
                 plugin_id: manifest.plugin.id.clone(),
                 permissions: manifest.permissions.clone(),
                 config: BTreeMap::new(),
+                last_payload: None,
                 emitted_events: Vec::new(),
                 logs: Vec::new(),
                 host_calls: Vec::new(),
@@ -156,18 +172,24 @@ impl WasmInstance {
         self.call_optional("init").map(|_| ())
     }
 
-    pub fn call_hook(&mut self, hook: &str, _data: &Value) -> Result<Value, PluginError> {
+    pub fn call_hook(&mut self, hook: &str, data: &Value) -> Result<Value, PluginError> {
+        self.store.data_mut().last_payload = Some(data.clone());
         let export = format!("hook_{}", sanitize_export_name(hook));
         self.call_required(&export)
     }
 
-    pub fn call_command(&mut self, command: &str, _args: &Value) -> Result<Value, PluginError> {
+    pub fn call_command(&mut self, command: &str, args: &Value) -> Result<Value, PluginError> {
+        self.store.data_mut().last_payload = Some(args.clone());
         let export = format!("command_{}", sanitize_export_name(command));
         self.call_required(&export)
     }
 
     pub fn host_calls(&self) -> &[String] {
         &self.store.data().host_calls
+    }
+
+    pub fn emitted_events(&self) -> &[String] {
+        &self.store.data().emitted_events
     }
 
     fn call_optional(&mut self, export: &str) -> Result<Option<Value>, PluginError> {
@@ -234,7 +256,7 @@ fn validate_import_permissions(
         };
 
         let allowed = match import.name() {
-            "log" | "emit_event" | "get_config_len" => true,
+            "log" | "emit_event" | "get_config_len" | "get_payload_len" => true,
             "db_query" => allows_database_read(permissions),
             "db_execute" => allows_database_write(permissions),
             "send_notification" => permissions.notifications,

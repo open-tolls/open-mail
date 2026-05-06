@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fs, path::Path};
 
+use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
 
@@ -28,7 +29,7 @@ use crate::{
 
 const SNOOZED_FOLDER_ID: &str = "fld_snoozed";
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnqueueOutboxMessageRequest {
     pub account_id: String,
@@ -45,7 +46,7 @@ pub struct EnqueueOutboxMessageRequest {
     pub attachments: Vec<MimeAttachment>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduleSendRequest {
     pub account_id: String,
@@ -347,7 +348,7 @@ pub struct SaveAccountCredentialsRequest {
     pub password: String,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveDraftRequest {
     pub id: String,
@@ -1024,6 +1025,20 @@ async fn get_sync_status_detail_for_state(
     Ok(state.sync_manager.detailed_status_snapshot().await)
 }
 
+fn dispatch_plugin_hook<T: Serialize>(
+    state: &AppState,
+    hook: &str,
+    payload: &T,
+) -> Result<(), String> {
+    let payload = serde_json::to_value(payload).map_err(|error| error.to_string())?;
+    let mut plugin_host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "plugin host lock poisoned".to_string())?;
+    let _ = plugin_host.dispatch_hook(hook, &payload);
+    Ok(())
+}
+
 async fn enqueue_outbox_message_for_state(
     state: &AppState,
     request: EnqueueOutboxMessageRequest,
@@ -1211,10 +1226,19 @@ async fn flush_outbox_for_state(
         .await
         .map_err(|error| error.to_string())?
         .ok_or_else(|| format!("account not found: {account_id}"))?;
+    let queued_messages = state
+        .outbox_repo
+        .find_by_status(account_id, OutboxStatus::Queued)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    for queued_message in &queued_messages {
+        dispatch_plugin_hook(state, "on_message_sending", queued_message)?;
+    }
 
     if account.connection_settings.smtp_host.ends_with("example.com") {
         let mut smtp_client = FakeSmtpClient::default();
-        return drain_outbox_for_account(
+        let report = drain_outbox_for_account(
             state.account_repo.as_ref(),
             state.outbox_repo.as_ref(),
             state.credential_store.as_ref(),
@@ -1222,11 +1246,13 @@ async fn flush_outbox_for_state(
             account_id,
         )
         .await
-        .map_err(|error| error.to_string());
+        .map_err(|error| error.to_string())?;
+        dispatch_sent_message_hooks(state, &queued_messages).await?;
+        return Ok(report);
     }
 
     let mut smtp_client = LettreSmtpClient;
-    drain_outbox_for_account(
+    let report = drain_outbox_for_account(
         state.account_repo.as_ref(),
         state.outbox_repo.as_ref(),
         state.credential_store.as_ref(),
@@ -1234,7 +1260,31 @@ async fn flush_outbox_for_state(
         account_id,
     )
     .await
-    .map_err(|error| error.to_string())
+    .map_err(|error| error.to_string())?;
+    dispatch_sent_message_hooks(state, &queued_messages).await?;
+    Ok(report)
+}
+
+async fn dispatch_sent_message_hooks(
+    state: &AppState,
+    queued_messages: &[OutboxMessage],
+) -> Result<(), String> {
+    for queued_message in queued_messages {
+        let Some(message) = state
+            .outbox_repo
+            .find_by_id(&queued_message.id)
+            .await
+            .map_err(|error| error.to_string())?
+        else {
+            continue;
+        };
+
+        if message.status == OutboxStatus::Sent {
+            dispatch_plugin_hook(state, "on_message_sent", &message)?;
+        }
+    }
+
+    Ok(())
 }
 
 async fn save_account_credentials_for_state(
@@ -1375,6 +1425,7 @@ async fn save_draft_for_state(state: &AppState, request: SaveDraftRequest) -> Re
         .save(&message)
         .await
         .map_err(|error| error.to_string())?;
+    dispatch_plugin_hook(state, "on_draft_created", &message)?;
     state
         .task_queue
         .enqueue(MailTask::SyncDraftSaved {
@@ -2228,6 +2279,7 @@ pub async fn seed_demo_data(state: &AppState) -> Result<(), String> {
 mod tests {
     use std::{
         fs,
+        path::PathBuf,
         sync::atomic::{AtomicU64, Ordering},
         sync::Arc,
         time::{SystemTime, UNIX_EPOCH},
@@ -2282,6 +2334,21 @@ mod tests {
         },
         AppState,
     };
+
+    const OBSERVING_HOOK_PLUGIN_TEMPLATE: &str = r#"
+[plugin]
+id = "{plugin_id}"
+name = "Observing Hook Plugin"
+version = "1.0.0"
+description = "Observes backend hooks"
+author = "Open Mail Team"
+license = "MIT"
+min_app_version = "1.0.0"
+
+[backend]
+entry = "backend/plugin.wasm"
+hooks = [{hooks}]
+"#;
 
     fn build_test_state() -> AppState {
         static NEXT_DB_ID: AtomicU64 = AtomicU64::new(1);
@@ -2343,7 +2410,88 @@ mod tests {
             task_queue: Arc::new(InMemoryMailTaskQueue::default()),
             sync_cursor_repo,
             sync_manager,
+            plugin_host: Arc::new(std::sync::Mutex::new(crate::plugins::PluginHost::new(
+                crate::plugins::PermissionChecker::new(
+                    crate::plugins::PermissionPolicy::allow_all(),
+                ),
+            ))),
         }
+    }
+
+    fn make_temp_plugin_dir(prefix: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "open_mail_commands_{prefix}_{}_{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir_all(&root).expect("temp plugin root should exist");
+        root
+    }
+
+    fn observing_hook_wasm(exports: &[&str]) -> Vec<u8> {
+        let hook_exports = exports
+            .iter()
+            .map(|hook| {
+                format!(
+                    r#"(func (export "hook_{hook}") (result i32)
+                        call $emit_event
+                        call $get_payload_len
+                    )"#
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let module = format!(
+            r#"
+            (module
+              (import "openmail" "emit_event" (func $emit_event))
+              (import "openmail" "get_payload_len" (func $get_payload_len (result i32)))
+              (func (export "init") (result i32)
+                i32.const 0)
+              {hook_exports}
+            )
+            "#
+        );
+
+        wat::parse_str(module).expect("wat should compile")
+    }
+
+    fn install_observing_hook_plugin(state: &AppState, plugin_id: &str, hooks: &[&str]) {
+        let root = make_temp_plugin_dir("backend_hook_plugin");
+        let plugin_dir = root.join(plugin_id);
+        let backend_dir = plugin_dir.join("backend");
+        fs::create_dir_all(&backend_dir).expect("backend dir should exist");
+        let quoted_hooks = hooks
+            .iter()
+            .map(|hook| format!(r#""{hook}""#))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let manifest = OBSERVING_HOOK_PLUGIN_TEMPLATE
+            .replace("{plugin_id}", plugin_id)
+            .replace("{hooks}", &quoted_hooks);
+        fs::write(plugin_dir.join("plugin.toml"), manifest).expect("manifest should be written");
+        fs::write(
+            backend_dir.join("plugin.wasm"),
+            observing_hook_wasm(hooks),
+        )
+        .expect("backend wasm should be written");
+
+        let mut plugin_host = state.plugin_host.lock().unwrap();
+        plugin_host
+            .discover_plugins(&[root])
+            .expect("plugin discovery should succeed");
+        plugin_host
+            .activate(plugin_id)
+            .expect("plugin should activate");
+    }
+
+    fn emitted_event_count(state: &AppState, plugin_id: &str) -> usize {
+        let plugin_host = state.plugin_host.lock().unwrap();
+        plugin_host
+            .get(plugin_id)
+            .and_then(|plugin| plugin.instance.as_ref())
+            .map(|instance| instance.emitted_events().len())
+            .unwrap_or(0)
     }
 
     fn mail_address(email: &str) -> MailAddress {
@@ -2894,6 +3042,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn flush_outbox_command_dispatches_backend_send_hooks() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+        install_observing_hook_plugin(
+            &state,
+            "com.openmail.plugin.outbox-hooks",
+            &["on_message_sending", "on_message_sent"],
+        );
+
+        enqueue_outbox_message_for_state(
+            &state,
+            EnqueueOutboxMessageRequest {
+                account_id: "acc_demo".into(),
+                from: mail_address("leco@example.com"),
+                to: vec![mail_address("team@example.com")],
+                cc: vec![],
+                bcc: vec![],
+                reply_to: None,
+                subject: "Desktop alpha".into(),
+                html_body: "<p>Ready</p>".into(),
+                plain_body: Some("Ready".into()),
+                in_reply_to: None,
+                references: vec![],
+                attachments: vec![],
+            },
+        )
+        .await
+        .unwrap();
+
+        flush_outbox_for_state(&state, "acc_demo").await.unwrap();
+
+        assert_eq!(
+            emitted_event_count(&state, "com.openmail.plugin.outbox-hooks"),
+            2
+        );
+    }
+
+    #[tokio::test]
     async fn schedule_send_command_persists_pending_message() {
         let state = build_test_state();
         seed_demo_data(&state).await.unwrap();
@@ -3056,6 +3242,39 @@ mod tests {
 
         assert!(state.message_repo.find_by_id(&draft_id).await.unwrap().is_none());
         assert_eq!(state.task_queue.pending_count().unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn save_draft_command_dispatches_backend_draft_hook() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+        install_observing_hook_plugin(
+            &state,
+            "com.openmail.plugin.draft-hooks",
+            &["on_draft_created"],
+        );
+
+        save_draft_for_state(
+            &state,
+            SaveDraftRequest {
+                id: "draft_hook_1".into(),
+                account_id: "acc_demo".into(),
+                to: vec!["team@example.com".into()],
+                cc: vec![],
+                bcc: vec![],
+                subject: "Hooked draft".into(),
+                body: "<p>Draft body</p>".into(),
+                in_reply_to: None,
+                references: vec![],
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            emitted_event_count(&state, "com.openmail.plugin.draft-hooks"),
+            1
+        );
     }
 
     #[test]

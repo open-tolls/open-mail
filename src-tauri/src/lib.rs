@@ -5,7 +5,7 @@ pub mod plugins;
 
 use std::{
     path::PathBuf,
-    sync::{atomic::{AtomicBool, Ordering}, Arc},
+    sync::{atomic::{AtomicBool, Ordering}, Arc, Mutex},
 };
 
 use commands::{
@@ -42,6 +42,7 @@ use infrastructure::{
         CredentialStore, InMemoryMailTaskQueue, MailTaskQueue, SyncEventEmitter, SyncManager,
     },
 };
+use plugins::{PermissionChecker, PermissionPolicy, PluginHost};
 #[cfg(not(target_os = "macos"))]
 use infrastructure::sync::FileCredentialStore;
 #[cfg(target_os = "macos")]
@@ -70,14 +71,28 @@ pub struct AppState {
     pub task_queue: Arc<dyn MailTaskQueue>,
     pub sync_cursor_repo: Arc<dyn SyncCursorRepository>,
     pub sync_manager: Arc<SyncManager>,
+    pub plugin_host: Arc<Mutex<PluginHost>>,
 }
 
 struct TauriSyncEventEmitter {
     app_handle: tauri::AppHandle,
+    plugin_host: Arc<Mutex<PluginHost>>,
 }
 
 impl SyncEventEmitter for TauriSyncEventEmitter {
     fn emit(&self, event: &DomainEvent) {
+        if let DomainEvent::SyncStatusChanged { account_id, state } = event {
+            if matches!(state, crate::domain::models::account::SyncState::Sleeping) {
+                if let Ok(mut plugin_host) = self.plugin_host.lock() {
+                    let payload = serde_json::json!({
+                        "accountId": account_id,
+                        "state": state,
+                    });
+                    let _ = plugin_host.dispatch_hook("on_sync_completed", &payload);
+                }
+            }
+        }
+
         let _ = self.app_handle.emit("domain:event", event);
     }
 }
@@ -258,6 +273,7 @@ pub fn run() {
                 .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
             sync_manager.set_event_emitter(Arc::new(TauriSyncEventEmitter {
                 app_handle: app.handle().clone(),
+                plugin_host: app.state::<AppState>().plugin_host.clone(),
             }));
             app.emit("domain:event", DomainEvent::ApplicationStarted)
                 .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
@@ -361,6 +377,9 @@ fn build_app_state() -> Result<AppState, String> {
         message_repo.clone(),
         sync_cursor_repo.clone(),
     ));
+    let plugin_host = Arc::new(Mutex::new(PluginHost::new(PermissionChecker::new(
+        PermissionPolicy::allow_all(),
+    ))));
 
     Ok(AppState {
         db,
@@ -378,6 +397,7 @@ fn build_app_state() -> Result<AppState, String> {
         task_queue,
         sync_cursor_repo,
         sync_manager,
+        plugin_host,
     })
 }
 
