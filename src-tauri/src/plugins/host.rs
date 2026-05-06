@@ -4,9 +4,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use serde_json::Value;
 use thiserror::Error;
+use wasmtime::Engine;
 
-use crate::plugins::{ManifestError, PluginManifest, PluginPermissions};
+use crate::plugins::{ManifestError, PluginManifest, PluginPermissions, WasmInstance};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PluginState {
@@ -16,12 +18,19 @@ pub enum PluginState {
     Error(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct LoadedPlugin {
     pub manifest: PluginManifest,
     pub root_dir: PathBuf,
     pub manifest_path: PathBuf,
     pub state: PluginState,
+    pub instance: Option<WasmInstance>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HookResult {
+    pub plugin_id: String,
+    pub result: Value,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -115,12 +124,30 @@ pub enum PluginError {
     PermissionDenied(String),
     #[error("plugin backend entry not found: {0}")]
     BackendEntryMissing(PathBuf),
+    #[error("plugin backend hook not declared in manifest: {0}")]
+    HookNotDeclared(String),
+    #[error("plugin backend command not declared in manifest: {0}")]
+    CommandNotDeclared(String),
+    #[error("plugin wasm export missing: {0}")]
+    MissingWasmExport(String),
+    #[error("plugin wasm module failed to compile")]
+    WasmModule(#[source] wasmtime::Error),
+    #[error("plugin wasm linker failed")]
+    WasmLinker(#[source] wasmtime::Error),
+    #[error("plugin wasm instantiation failed")]
+    WasmInstantiation(#[source] wasmtime::Error),
+    #[error("plugin wasm execution failed in export `{export}`")]
+    WasmExecution {
+        export: String,
+        #[source]
+        source: wasmtime::Error,
+    },
 }
 
-#[derive(Debug)]
 pub struct PluginHost {
     plugins: HashMap<String, LoadedPlugin>,
     permission_checker: PermissionChecker,
+    wasm_engine: Engine,
 }
 
 impl PluginHost {
@@ -128,6 +155,7 @@ impl PluginHost {
         Self {
             plugins: HashMap::new(),
             permission_checker,
+            wasm_engine: Engine::default(),
         }
     }
 
@@ -158,6 +186,7 @@ impl PluginHost {
                         root_dir,
                         manifest_path: manifest_path.clone(),
                         state: PluginState::Installed,
+                        instance: None,
                     },
                 );
                 discovered.push(manifest);
@@ -189,6 +218,19 @@ impl PluginHost {
                 plugin.state = PluginState::Error(error.to_string());
                 return Err(error);
             }
+
+            let wasm_bytes = fs::read(&backend_path).map_err(|source| PluginError::ReadDirectory {
+                path: backend_path.clone(),
+                source,
+            })?;
+            let mut instance =
+                WasmInstance::create(&self.wasm_engine, &wasm_bytes, &plugin.manifest)?;
+            if let Err(error) = instance.call_init() {
+                plugin.state = PluginState::Error(error.to_string());
+                return Err(error);
+            }
+
+            plugin.instance = Some(instance);
         }
 
         plugin.state = PluginState::Active;
@@ -200,6 +242,7 @@ impl PluginHost {
             .plugins
             .get_mut(plugin_id)
             .ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
+        plugin.instance = None;
         plugin.state = PluginState::Disabled;
         Ok(())
     }
@@ -212,6 +255,74 @@ impl PluginHost {
 
     pub fn get(&self, plugin_id: &str) -> Option<&LoadedPlugin> {
         self.plugins.get(plugin_id)
+    }
+
+    pub fn dispatch_hook(&mut self, hook: &str, data: &Value) -> Vec<HookResult> {
+        let mut results = Vec::new();
+
+        for plugin in self.plugins.values_mut() {
+            if plugin.state != PluginState::Active {
+                continue;
+            }
+
+            let Some(backend) = &plugin.manifest.backend else {
+                continue;
+            };
+
+            if !backend.hooks.iter().any(|registered| registered == hook) {
+                continue;
+            }
+
+            let Some(instance) = plugin.instance.as_mut() else {
+                continue;
+            };
+
+            match instance.call_hook(hook, data) {
+                Ok(result) => results.push(HookResult {
+                    plugin_id: plugin.manifest.plugin.id.clone(),
+                    result,
+                }),
+                Err(error) => {
+                    plugin.state = PluginState::Error(error.to_string());
+                }
+            }
+        }
+
+        results
+    }
+
+    pub fn execute_command(
+        &mut self,
+        plugin_id: &str,
+        command: &str,
+        args: &Value,
+    ) -> Result<Value, PluginError> {
+        let plugin = self
+            .plugins
+            .get_mut(plugin_id)
+            .ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
+
+        let backend = plugin
+            .manifest
+            .backend
+            .as_ref()
+            .ok_or_else(|| PluginError::CommandNotDeclared(command.to_string()))?;
+
+        if !backend.commands.iter().any(|registered| registered.name == command) {
+            return Err(PluginError::CommandNotDeclared(command.to_string()));
+        }
+
+        let Some(instance) = plugin.instance.as_mut() else {
+            return Err(PluginError::CommandNotDeclared(command.to_string()));
+        };
+
+        match instance.call_command(command, args) {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                plugin.state = PluginState::Error(error.to_string());
+                Err(error)
+            }
+        }
     }
 }
 
@@ -284,6 +395,8 @@ notifications = true
 
 [backend]
 entry = "backend/plugin.wasm"
+hooks = ["on_message_received"]
+commands = [{ name = "schedule_send", handler = "handle_schedule_send" }]
 "#;
 
     #[test]
@@ -321,7 +434,7 @@ entry = "backend/plugin.wasm"
         fs::create_dir_all(&backend_dir).expect("backend dir should exist");
         fs::write(plugin_dir.join("plugin.toml"), BACKEND_PLUGIN)
             .expect("plugin manifest should be written");
-        fs::write(backend_dir.join("plugin.wasm"), b"placeholder")
+        fs::write(backend_dir.join("plugin.wasm"), backend_plugin_wasm())
             .expect("backend wasm placeholder should be written");
 
         let mut host = PluginHost::new(PermissionChecker::new(PermissionPolicy::allow_all()));
@@ -335,6 +448,11 @@ entry = "backend/plugin.wasm"
                 .expect("plugin should exist")
                 .state,
             PluginState::Active
+        );
+        assert!(
+            host.get("com.openmail.plugin.send-later")
+                .and_then(|plugin| plugin.instance.as_ref())
+                .is_some()
         );
 
         host.deactivate("com.openmail.plugin.send-later")
@@ -358,7 +476,7 @@ entry = "backend/plugin.wasm"
         fs::create_dir_all(&backend_dir).expect("backend dir should exist");
         fs::write(plugin_dir.join("plugin.toml"), BACKEND_PLUGIN)
             .expect("plugin manifest should be written");
-        fs::write(backend_dir.join("plugin.wasm"), b"placeholder")
+        fs::write(backend_dir.join("plugin.wasm"), backend_plugin_wasm())
             .expect("backend wasm placeholder should be written");
 
         let mut host = PluginHost::new(PermissionChecker::new(PermissionPolicy {
@@ -428,6 +546,76 @@ entry = "backend/plugin.wasm"
         let _ = fs::remove_dir_all(root);
     }
 
+    #[test]
+    fn dispatches_hooks_and_executes_wasm_commands() {
+        let root = make_temp_plugin_dir("dispatch_hooks");
+        let plugin_dir = root.join("send-later");
+        let backend_dir = plugin_dir.join("backend");
+
+        fs::create_dir_all(&backend_dir).expect("backend dir should exist");
+        fs::write(plugin_dir.join("plugin.toml"), BACKEND_PLUGIN)
+            .expect("plugin manifest should be written");
+        fs::write(backend_dir.join("plugin.wasm"), backend_plugin_wasm())
+            .expect("backend wasm placeholder should be written");
+
+        let mut host = PluginHost::new(PermissionChecker::new(PermissionPolicy::allow_all()));
+        host.discover_plugins(&[root.clone()])
+            .expect("plugin discovery should succeed");
+        host.activate("com.openmail.plugin.send-later")
+            .expect("plugin should activate");
+
+        let hook_results = host.dispatch_hook("on_message_received", &Value::Null);
+        assert_eq!(hook_results.len(), 1);
+        assert_eq!(hook_results[0].result, Value::from(7));
+
+        let command_result = host
+            .execute_command(
+                "com.openmail.plugin.send-later",
+                "schedule_send",
+                &Value::Null,
+            )
+            .expect("command should execute");
+        assert_eq!(command_result, Value::from(42));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn isolates_plugin_errors_without_panicking_host() {
+        let root = make_temp_plugin_dir("plugin_error_isolation");
+        let plugin_dir = root.join("send-later");
+        let backend_dir = plugin_dir.join("backend");
+
+        fs::create_dir_all(&backend_dir).expect("backend dir should exist");
+        fs::write(plugin_dir.join("plugin.toml"), BACKEND_PLUGIN)
+            .expect("plugin manifest should be written");
+        fs::write(backend_dir.join("plugin.wasm"), failing_backend_plugin_wasm())
+            .expect("backend wasm placeholder should be written");
+
+        let mut host = PluginHost::new(PermissionChecker::new(PermissionPolicy::allow_all()));
+        host.discover_plugins(&[root.clone()])
+            .expect("plugin discovery should succeed");
+        host.activate("com.openmail.plugin.send-later")
+            .expect("plugin should activate");
+
+        let error = host
+            .execute_command(
+                "com.openmail.plugin.send-later",
+                "schedule_send",
+                &Value::Null,
+            )
+            .expect_err("command should fail");
+        assert!(matches!(error, PluginError::WasmExecution { .. }));
+        assert!(matches!(
+            &host.get("com.openmail.plugin.send-later")
+                .expect("plugin should exist")
+                .state,
+            PluginState::Error(_)
+        ));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
     fn make_temp_plugin_dir(prefix: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!(
             "open_mail_{prefix}_{}_{}",
@@ -436,5 +624,38 @@ entry = "backend/plugin.wasm"
         ));
         fs::create_dir_all(&root).expect("temp plugin root should exist");
         root
+    }
+
+    fn backend_plugin_wasm() -> Vec<u8> {
+        wat::parse_str(
+            r#"
+            (module
+              (func (export "init") (result i32)
+                i32.const 0)
+              (func (export "hook_on_message_received") (result i32)
+                i32.const 7)
+              (func (export "command_schedule_send") (result i32)
+                i32.const 42)
+            )
+            "#,
+        )
+        .expect("wat should compile")
+    }
+
+    fn failing_backend_plugin_wasm() -> Vec<u8> {
+        wat::parse_str(
+            r#"
+            (module
+              (func (export "init") (result i32)
+                i32.const 0)
+              (func (export "hook_on_message_received") (result i32)
+                i32.const 1)
+              (func (export "command_schedule_send") (result i32)
+                unreachable
+              )
+            )
+            "#,
+        )
+        .expect("wat should compile")
     }
 }

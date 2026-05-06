@@ -159,7 +159,7 @@ impl PluginManifest {
 
 ### 8.2 — Plugin Host (Backend/Rust)
 
-**Status atual:** primeiro corte entregue no backend Rust, com `PluginHost` em memoria, discovery de `plugin.toml` em diretorios locais, registro por `plugin_id`, estados `Installed/Active/Disabled/Error`, ativacao/desativacao inicial, verificacao de permissions antes de ativar e testes cobrindo duplicate ids, backend entry ausente e policy deny. O runtime WASM e o dispatch de hooks/commands ainda ficam para os proximos cortes.
+**Status atual:** segundo corte entregue no backend Rust, com `PluginHost` em memoria, discovery de `plugin.toml` em diretorios locais, registro por `plugin_id`, estados `Installed/Active/Disabled/Error`, ativacao/desativacao inicial, verificacao de permissions antes de ativar, runtime WASM via `wasmtime`, contrato inicial de exports (`init`, `hook_*`, `command_*`) e testes cobrindo duplicate ids, backend entry ausente, policy deny, dispatch de hooks/comandos e isolamento basico de erro no host. As APIs privilegiadas permissionadas (`db_query`, `http_request`, `read_file`, etc.) ainda ficam para os proximos cortes.
 
 **O que implementar:**
 
@@ -288,12 +288,12 @@ impl WasmInstance {
 
 **Criterio de aceite:**
 - [x] Plugin host descobre e carrega plugins
-- [ ] WASM runtime funcional (wasmtime)
+- [x] WASM runtime funcional (wasmtime)
 - [x] Permission checking antes de ativar
 - [ ] APIs sandboxed (so acessivel com permission)
-- [ ] Hook dispatch funciona
-- [ ] Command execution funciona
-- [ ] Plugin isolation (crash de plugin nao derruba app)
+- [x] Hook dispatch funciona
+- [x] Command execution funciona
+- [x] Plugin isolation (crash de plugin nao derruba app)
 
 ---
 
@@ -607,7 +607,7 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 ## Checklist Final da Fase 8
 
 - [x] Plugin manifest schema definido e documentado
-- [ ] Plugin Host (Rust) com WASM runtime
+- [x] Plugin Host (Rust) com WASM runtime
 - [ ] Permission system funcional
 - [ ] Plugin Manager (Frontend) com dynamic import
 - [ ] Slot system funcional (14+ slots definidos)
