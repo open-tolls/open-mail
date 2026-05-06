@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 
 export type FrontendPluginConfigField = {
+  description?: string;
   default?: unknown;
   label?: string;
   options?: string[];
@@ -65,6 +66,7 @@ export type SlotRegistration = {
 };
 
 export type RegisteredFrontendPlugin = {
+  config: Record<string, unknown>;
   enabled: boolean;
   manifest: FrontendPluginManifest;
 };

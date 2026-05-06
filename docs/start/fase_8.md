@@ -486,7 +486,7 @@ openmail-plugin-template/
 
 ### 8.5 — Plugin Management UI
 
-**Status atual:** primeiro corte entregue em `Preferences`, integrado ao `pluginManager` frontend. O app agora lista plugins frontend registrados, mostra metadata basica, exibe permissions declaradas com destaque para `network` e `filesystem`, e permite habilitar/desabilitar plugins conhecidos sem reiniciar a shell. Instalacao por arquivo, uninstall e UI de config gerada por schema ficam para os proximos cortes.
+**Status atual:** segundo corte entregue em `Preferences`, integrado ao `pluginManager` frontend. O app agora lista plugins frontend registrados, mostra metadata basica, exibe permissions declaradas com destaque para `network` e `filesystem`, permite habilitar/desabilitar plugins conhecidos sem reiniciar a shell e auto-gera controles de configuracao a partir do schema do manifest, preservando valores mesmo quando o plugin e desativado e reativado. Instalacao por arquivo e uninstall ficam para os proximos cortes.
 
 **O que implementar:**
 
@@ -540,7 +540,7 @@ src/components/preferences/
 - [x] Permissions exibidas
 - [ ] Instalar plugin de arquivo
 - [ ] Desinstalar plugin
-- [ ] Config UI auto-gerada a partir do schema
+- [x] Config UI auto-gerada a partir do schema
 
 ---
 
@@ -621,7 +621,7 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 - [ ] Template de plugin
 - [ ] Plugin Management UI em Preferences
 - [ ] Install/uninstall/enable/disable
-- [ ] Config UI auto-gerada
+- [x] Config UI auto-gerada
 - [ ] Error isolation (crash de plugin nao afeta app)
 - [ ] Plugin de exemplo funcional
 - [ ] Documentacao para desenvolvedores

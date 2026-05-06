@@ -1044,13 +1044,18 @@ summary.folder-group-title::-webkit-details-marker {
 }
 
 .preferences-field input,
-.preferences-field select {
+.preferences-field select,
+.preferences-field textarea {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg-soft);
   color: var(--text);
+}
+
+.preferences-field textarea {
+  resize: vertical;
 }
 
 .preferences-toggle-list {
@@ -1138,6 +1143,28 @@ summary.folder-group-title::-webkit-details-marker {
   border-color: rgba(246, 182, 111, 0.28);
   background: rgba(246, 182, 111, 0.08);
   color: var(--accent);
+}
+
+.preferences-plugin-config {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.preferences-plugin-config h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.preferences-plugin-boolean-field {
+  display: grid;
+  gap: 8px;
+}
+
+.preferences-plugin-boolean-field label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .preferences-subsection {

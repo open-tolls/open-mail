@@ -15,6 +15,7 @@ const toDefaultConfig = (manifest: FrontendPluginManifest) =>
 
 class PluginManager {
   private commands = new Map<string, FrontendCommandHandler>();
+  private configValues = new Map<string, Record<string, unknown>>();
   private hooks = new Map<string, FrontendHookHandler[]>();
   private listeners = new Set<() => void>();
   private manifests = new Map<string, FrontendPluginManifest>();
@@ -33,6 +34,9 @@ class PluginManager {
     this.manifests.set(manifest.plugin.id, manifest);
 
     if (!manifest.frontend) {
+      if (!this.configValues.has(manifest.plugin.id)) {
+        this.configValues.set(manifest.plugin.id, toDefaultConfig(manifest));
+      }
       this.emitChange();
       return;
     }
@@ -42,7 +46,8 @@ class PluginManager {
     }
 
     const module = (await import(/* @vite-ignore */ manifest.frontend.entry)).default as FrontendPlugin;
-    const config = toDefaultConfig(manifest);
+    const config = this.configValues.get(manifest.plugin.id) ?? toDefaultConfig(manifest);
+    this.configValues.set(manifest.plugin.id, config);
     const commandNames: string[] = [];
     const hookRegistrations: Array<{ handler: FrontendHookHandler; name: string }> = [];
 
@@ -62,7 +67,7 @@ class PluginManager {
 
     if (module.activate) {
       await module.activate({
-        getConfig: (key) => config[key],
+        getConfig: (key) => this.getPluginConfig(manifest.plugin.id)[key],
         registerCommand: (name, handler) => {
           const commandKey = `${manifest.plugin.id}:${name}`;
           this.commands.set(commandKey, handler);
@@ -143,6 +148,7 @@ class PluginManager {
   listPlugins(): RegisteredFrontendPlugin[] {
     return Array.from(this.manifests.values())
       .map((manifest) => ({
+        config: this.getPluginConfig(manifest.plugin.id),
         enabled: this.plugins.has(manifest.plugin.id),
         manifest
       }))
@@ -154,7 +160,24 @@ class PluginManager {
   }
 
   getPluginConfig(pluginId: string) {
-    return this.plugins.get(pluginId)?.config ?? {};
+    return this.configValues.get(pluginId) ?? this.plugins.get(pluginId)?.config ?? {};
+  }
+
+  updatePluginConfig(pluginId: string, key: string, value: unknown) {
+    const currentConfig = this.getPluginConfig(pluginId);
+    const nextConfig = {
+      ...currentConfig,
+      [key]: value
+    };
+
+    this.configValues.set(pluginId, nextConfig);
+
+    const plugin = this.plugins.get(pluginId);
+    if (plugin) {
+      plugin.config = nextConfig;
+    }
+
+    this.emitChange();
   }
 
   async executeCommand(commandName: string, args: unknown) {
@@ -173,6 +196,7 @@ class PluginManager {
 
   reset() {
     this.commands.clear();
+    this.configValues.clear();
     this.hooks.clear();
     this.manifests.clear();
     this.plugins.clear();

@@ -37,9 +37,21 @@ const setTauriRuntime = (isAvailable: boolean) => {
 const preferencesPluginManifest: FrontendPluginManifest = {
   config: {
     fields: {
+      digest_enabled: {
+        default: true,
+        label: 'Digest enabled',
+        type: 'boolean'
+      },
       plugin_message: {
         default: 'Inbox pulse',
+        label: 'Plugin message',
         type: 'text'
+      },
+      review_mode: {
+        default: 'balanced',
+        label: 'Review mode',
+        options: ['balanced', 'strict'],
+        type: 'select'
       }
     }
   },
@@ -128,22 +140,77 @@ describe('preferences view', () => {
     expect(within(pluginsSection as HTMLElement).getByText('Network')).toBeInTheDocument();
     expect(within(pluginsSection as HTMLElement).getByText('Notifications')).toBeInTheDocument();
 
-    const enabledToggle = within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' });
+    const enabledToggle = within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Plugin enabled' });
     expect(enabledToggle).toBeChecked();
 
     fireEvent.click(enabledToggle);
 
     await waitFor(() => {
-      expect(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' })).not.toBeChecked();
+      expect(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Plugin enabled' })).not.toBeChecked();
     });
     expect(screen.getByText('Preferences Fixture disabled.')).toBeInTheDocument();
 
-    fireEvent.click(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' }));
+    fireEvent.click(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Plugin enabled' }));
 
     await waitFor(() => {
-      expect(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Enabled' })).toBeChecked();
+      expect(within(pluginsSection as HTMLElement).getByRole('checkbox', { name: 'Plugin enabled' })).toBeChecked();
     });
     expect(screen.getByText('Preferences Fixture enabled.')).toBeInTheDocument();
+  });
+
+  it('auto-generates plugin config controls from schema and keeps values across toggles', async () => {
+    window.history.pushState({}, '', '/preferences');
+    await pluginManager.loadPlugin(preferencesPluginManifest);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const pluginsSection = await screen.findByRole('heading', { name: 'Plugins' });
+    const pluginsPanel = pluginsSection.closest('section') as HTMLElement;
+
+    const pluginMessageInput = within(pluginsPanel).getByLabelText('Plugin message');
+    const reviewModeSelect = within(pluginsPanel).getByLabelText('Review mode');
+    const digestEnabledToggle = within(pluginsPanel).getByRole('checkbox', { name: 'Digest enabled' });
+
+    expect(pluginMessageInput).toHaveValue('Inbox pulse');
+    expect(reviewModeSelect).toHaveValue('balanced');
+    expect(digestEnabledToggle).toBeChecked();
+
+    fireEvent.change(pluginMessageInput, { target: { value: 'Configured from preferences' } });
+    fireEvent.change(reviewModeSelect, { target: { value: 'strict' } });
+    fireEvent.click(digestEnabledToggle);
+
+    expect(pluginManager.getPluginConfig(preferencesPluginManifest.plugin.id)).toEqual(
+      expect.objectContaining({
+        digest_enabled: false,
+        plugin_message: 'Configured from preferences',
+        review_mode: 'strict'
+      })
+    );
+
+    const pluginEnabledToggle = within(pluginsPanel).getByRole('checkbox', { name: 'Plugin enabled' });
+    fireEvent.click(pluginEnabledToggle);
+
+    await waitFor(() => {
+      expect(within(pluginsPanel).getByRole('checkbox', { name: 'Plugin enabled' })).not.toBeChecked();
+    });
+
+    fireEvent.click(within(pluginsPanel).getByRole('checkbox', { name: 'Plugin enabled' }));
+
+    await waitFor(() => {
+      expect(within(pluginsPanel).getByRole('checkbox', { name: 'Plugin enabled' })).toBeChecked();
+    });
+
+    expect(pluginManager.getPluginConfig(preferencesPluginManifest.plugin.id)).toEqual(
+      expect.objectContaining({
+        digest_enabled: false,
+        plugin_message: 'Configured from preferences',
+        review_mode: 'strict'
+      })
+    );
   });
 
   it('applies theme and layout changes immediately from preferences', async () => {

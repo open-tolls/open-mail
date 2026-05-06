@@ -8,9 +8,26 @@ import type { FrontendPluginManifest } from '@/plugins/types';
 const manifest: FrontendPluginManifest = {
   config: {
     fields: {
+      enable_digest: {
+        default: true,
+        label: 'Enable digest',
+        type: 'boolean'
+      },
+      morning_time: {
+        default: '08:00',
+        label: 'Morning time',
+        type: 'time'
+      },
       plugin_message: {
+        label: 'Plugin message',
         default: 'Inbox pulse',
         type: 'text'
+      },
+      tone: {
+        default: 'calm',
+        label: 'Tone',
+        options: ['calm', 'urgent'],
+        type: 'select'
       }
     }
   },
@@ -65,17 +82,19 @@ describe('plugin manager', () => {
   it('registers frontend commands and hooks with config access', async () => {
     await pluginManager.loadPlugin(manifest);
 
+    pluginManager.updatePluginConfig(manifest.plugin.id, 'plugin_message', 'Updated pulse');
+
     await expect(
       pluginManager.executeCommand('com.openmail.plugin.frontend-fixture:ping', { draftId: 'dr_1' })
     ).resolves.toEqual({
       args: { draftId: 'dr_1' },
-      pluginMessage: 'Inbox pulse'
+      pluginMessage: 'Updated pulse'
     });
 
     await expect(pluginManager.runHooks('status:collect', { unreadCount: 2 })).resolves.toEqual([
       {
         payload: { unreadCount: 2 },
-        pluginMessage: 'Inbox pulse'
+        pluginMessage: 'Updated pulse'
       }
     ]);
   });
@@ -113,6 +132,12 @@ describe('plugin manager', () => {
 
     expect(pluginManager.listPlugins()).toEqual([
       expect.objectContaining({
+        config: expect.objectContaining({
+          enable_digest: true,
+          morning_time: '08:00',
+          plugin_message: 'Inbox pulse',
+          tone: 'calm'
+        }),
         enabled: false,
         manifest: expect.objectContaining({
           plugin: expect.objectContaining({
@@ -122,10 +147,14 @@ describe('plugin manager', () => {
       })
     ]);
 
+    pluginManager.updatePluginConfig(manifest.plugin.id, 'plugin_message', 'Persisted across reload');
     await pluginManager.enablePlugin(manifest.plugin.id);
 
     expect(pluginManager.listPlugins()).toEqual([
       expect.objectContaining({
+        config: expect.objectContaining({
+          plugin_message: 'Persisted across reload'
+        }),
         enabled: true,
         manifest: expect.objectContaining({
           plugin: expect.objectContaining({
@@ -134,5 +163,12 @@ describe('plugin manager', () => {
         })
       })
     ]);
+
+    await expect(
+      pluginManager.executeCommand('com.openmail.plugin.frontend-fixture:ping', { draftId: 'dr_2' })
+    ).resolves.toEqual({
+      args: { draftId: 'dr_2' },
+      pluginMessage: 'Persisted across reload'
+    });
   });
 });

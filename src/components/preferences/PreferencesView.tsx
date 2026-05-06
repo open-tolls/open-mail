@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { PluginSlot } from '@/plugins/PluginSlot';
 import { pluginManager } from '@/plugins/plugin-manager';
+import type { FrontendPluginConfigField } from '@/plugins/types';
 import { ContactDetail } from '@components/contacts/ContactDetail';
 import { ContactList } from '@components/contacts/ContactList';
 import { ContactSearch } from '@components/contacts/ContactSearch';
@@ -72,6 +73,86 @@ const describePluginPermissions = (plugin: ReturnType<typeof pluginManager.listP
   }
 
   return labels.length ? labels : [{ value: 'No special permissions' }];
+};
+
+const renderPluginConfigField = (
+  pluginId: string,
+  fieldKey: string,
+  field: FrontendPluginConfigField,
+  value: unknown
+) => {
+  const label = field.label ?? fieldKey;
+
+  if (field.type === 'boolean') {
+    return (
+      <div className="preferences-plugin-boolean-field" key={fieldKey}>
+        <span>{label}</span>
+        <label>
+          <input
+            checked={Boolean(value)}
+            onChange={(event) => pluginManager.updatePluginConfig(pluginId, fieldKey, event.target.checked)}
+            type="checkbox"
+          />
+          {label}
+        </label>
+      </div>
+    );
+  }
+
+  if (field.type === 'select') {
+    return (
+      <label className="preferences-field" key={fieldKey}>
+        <span>{label}</span>
+        <select
+          value={String(value ?? '')}
+          onChange={(event) => pluginManager.updatePluginConfig(pluginId, fieldKey, event.target.value)}
+        >
+          {(field.options ?? []).map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.type === 'number') {
+    return (
+      <label className="preferences-field" key={fieldKey}>
+        <span>{label}</span>
+        <input
+          type="number"
+          value={typeof value === 'number' ? value : Number(value ?? 0)}
+          onChange={(event) => pluginManager.updatePluginConfig(pluginId, fieldKey, Number(event.target.value))}
+        />
+      </label>
+    );
+  }
+
+  if (field.type === 'textarea') {
+    return (
+      <label className="preferences-field" key={fieldKey}>
+        <span>{label}</span>
+        <textarea
+          rows={4}
+          value={String(value ?? '')}
+          onChange={(event) => pluginManager.updatePluginConfig(pluginId, fieldKey, event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <label className="preferences-field" key={fieldKey}>
+      <span>{label}</span>
+      <input
+        type={field.type === 'time' ? 'time' : 'text'}
+        value={String(value ?? '')}
+        onChange={(event) => pluginManager.updatePluginConfig(pluginId, fieldKey, event.target.value)}
+      />
+    </label>
+  );
 };
 
 export const PreferencesView = () => {
@@ -712,6 +793,16 @@ export const PreferencesView = () => {
                           </span>
                         ))}
                       </div>
+                      {plugin.manifest.config?.fields ? (
+                        <div className="preferences-plugin-config">
+                          <h3>Config</h3>
+                          <div className="preferences-grid">
+                            {Object.entries(plugin.manifest.config.fields).map(([fieldKey, field]) =>
+                              renderPluginConfigField(plugin.manifest.plugin.id, fieldKey, field, plugin.config[fieldKey])
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                     <div className="preferences-account-actions">
                       <label>
@@ -722,7 +813,7 @@ export const PreferencesView = () => {
                           }}
                           type="checkbox"
                         />
-                        Enabled
+                        Plugin enabled
                       </label>
                     </div>
                   </article>
@@ -731,7 +822,7 @@ export const PreferencesView = () => {
             ) : (
               <p className="preferences-note">No frontend plugins registered yet.</p>
             )}
-            <p className="preferences-note">Install from file, uninstall, and config forms generated from schema stay in the next cut.</p>
+            <p className="preferences-note">Install from file and uninstall stay in the next cut; schema-based config is already editable here for registered frontend plugins.</p>
             {pluginsStatus ? <p className="preferences-note">{pluginsStatus}</p> : null}
           </section>
 
