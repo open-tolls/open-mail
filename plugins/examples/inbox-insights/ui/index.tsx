@@ -1,4 +1,4 @@
-import { defineFrontendPlugin } from '@/plugins/sdk';
+import { defineFrontendPlugin } from '@openmail/plugin-sdk';
 
 const InboxInsightsBadge = ({
   totalUnreadCount

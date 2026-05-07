@@ -1,0 +1,12 @@
+[package]
+name = "openmail-plugin-template-backend"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+openmail-plugin-sdk = { path = "../../sdk/backend/openmail-plugin-sdk" }
+serde_json = "1"
