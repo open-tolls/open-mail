@@ -60,6 +60,11 @@ export type LoadedFrontendPlugin = {
   module: FrontendPlugin;
 };
 
+export type FrontendPluginStatus = {
+  errorMessage: string | null;
+  state: 'disabled' | 'enabled' | 'error';
+};
+
 export type SlotRegistration = {
   component: ComponentType<Record<string, unknown>>;
   pluginId: string;
@@ -68,5 +73,7 @@ export type SlotRegistration = {
 export type RegisteredFrontendPlugin = {
   config: Record<string, unknown>;
   enabled: boolean;
+  errorMessage: string | null;
   manifest: FrontendPluginManifest;
+  state: FrontendPluginStatus['state'];
 };

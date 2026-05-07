@@ -3,6 +3,7 @@ import type {
   FrontendHookHandler,
   FrontendPlugin,
   FrontendPluginManifest,
+  FrontendPluginStatus,
   LoadedFrontendPlugin,
   RegisteredFrontendPlugin,
   SlotRegistration
@@ -20,6 +21,7 @@ class PluginManager {
   private listeners = new Set<() => void>();
   private manifests = new Map<string, FrontendPluginManifest>();
   private plugins = new Map<string, LoadedFrontendPlugin>();
+  private pluginStatuses = new Map<string, FrontendPluginStatus>();
   private revision = 0;
   private slots = new Map<string, SlotRegistration[]>();
 
@@ -32,6 +34,10 @@ class PluginManager {
 
   async installPlugin(manifest: FrontendPluginManifest): Promise<void> {
     this.manifests.set(manifest.plugin.id, manifest);
+    this.pluginStatuses.set(manifest.plugin.id, {
+      errorMessage: null,
+      state: 'disabled'
+    });
     if (!this.configValues.has(manifest.plugin.id)) {
       this.configValues.set(manifest.plugin.id, toDefaultConfig(manifest));
     }
@@ -41,11 +47,19 @@ class PluginManager {
 
   async loadPlugin(manifest: FrontendPluginManifest): Promise<void> {
     this.manifests.set(manifest.plugin.id, manifest);
+    this.pluginStatuses.set(manifest.plugin.id, {
+      errorMessage: null,
+      state: 'disabled'
+    });
 
     if (!manifest.frontend) {
       if (!this.configValues.has(manifest.plugin.id)) {
         this.configValues.set(manifest.plugin.id, toDefaultConfig(manifest));
       }
+      this.pluginStatuses.set(manifest.plugin.id, {
+        errorMessage: null,
+        state: 'enabled'
+      });
       this.emitChange();
       return;
     }
@@ -54,54 +68,96 @@ class PluginManager {
       await this.unloadPlugin(manifest.plugin.id);
     }
 
-    const module = (await import(/* @vite-ignore */ manifest.frontend.entry)).default as FrontendPlugin;
+    let module: FrontendPlugin | null = null;
     const config = this.configValues.get(manifest.plugin.id) ?? toDefaultConfig(manifest);
     this.configValues.set(manifest.plugin.id, config);
     const commandNames: string[] = [];
     const hookRegistrations: Array<{ handler: FrontendHookHandler; name: string }> = [];
+    const slotRegistrations: Array<{ slotName: string; registration: SlotRegistration }> = [];
 
-    for (const slot of manifest.frontend.slots) {
-      const component = module.components[slot.component];
-      if (!component) {
-        throw new Error(`Plugin component "${slot.component}" was not exported by ${manifest.plugin.id}`);
+    try {
+      module = (await import(/* @vite-ignore */ manifest.frontend.entry)).default as FrontendPlugin;
+
+      for (const slot of manifest.frontend.slots) {
+        const component = module.components[slot.component];
+        if (!component) {
+          throw new Error(`Plugin component "${slot.component}" was not exported by ${manifest.plugin.id}`);
+        }
+
+        const registration = {
+          pluginId: manifest.plugin.id,
+          component
+        };
+        const registrations = this.slots.get(slot.name) ?? [];
+        registrations.push(registration);
+        this.slots.set(slot.name, registrations);
+        slotRegistrations.push({ slotName: slot.name, registration });
       }
 
-      const registrations = this.slots.get(slot.name) ?? [];
-      registrations.push({
-        pluginId: manifest.plugin.id,
-        component
-      });
-      this.slots.set(slot.name, registrations);
-    }
+      if (module.activate) {
+        await module.activate({
+          getConfig: (key) => this.getPluginConfig(manifest.plugin.id)[key],
+          registerCommand: (name, handler) => {
+            const commandKey = `${manifest.plugin.id}:${name}`;
+            this.commands.set(commandKey, handler);
+            commandNames.push(commandKey);
+          },
+          registerHook: (name, handler) => {
+            const handlers = this.hooks.get(name) ?? [];
+            handlers.push({
+              handler,
+              pluginId: manifest.plugin.id
+            });
+            this.hooks.set(name, handlers);
+            hookRegistrations.push({ handler, name });
+          }
+        });
+      }
 
-    if (module.activate) {
-      await module.activate({
-        getConfig: (key) => this.getPluginConfig(manifest.plugin.id)[key],
-        registerCommand: (name, handler) => {
-          const commandKey = `${manifest.plugin.id}:${name}`;
-          this.commands.set(commandKey, handler);
-          commandNames.push(commandKey);
-        },
-        registerHook: (name, handler) => {
-          const handlers = this.hooks.get(name) ?? [];
-          handlers.push({
-            handler,
-            pluginId: manifest.plugin.id
-          });
-          this.hooks.set(name, handlers);
-          hookRegistrations.push({ handler, name });
+      this.plugins.set(manifest.plugin.id, {
+        commandNames,
+        config,
+        hookRegistrations,
+        manifest,
+        module
+      });
+      this.pluginStatuses.set(manifest.plugin.id, {
+        errorMessage: null,
+        state: 'enabled'
+      });
+      this.emitChange();
+    } catch (error) {
+      for (const commandName of commandNames) {
+        this.commands.delete(commandName);
+      }
+
+      for (const hookRegistration of hookRegistrations) {
+        const handlers = this.hooks.get(hookRegistration.name) ?? [];
+        const remainingHandlers = handlers.filter((handler) => handler.handler !== hookRegistration.handler);
+        if (remainingHandlers.length) {
+          this.hooks.set(hookRegistration.name, remainingHandlers);
+        } else {
+          this.hooks.delete(hookRegistration.name);
         }
-      });
-    }
+      }
 
-    this.plugins.set(manifest.plugin.id, {
-      commandNames,
-      config,
-      hookRegistrations,
-      manifest,
-      module
-    });
-    this.emitChange();
+      for (const { slotName, registration } of slotRegistrations) {
+        const registrations = (this.slots.get(slotName) ?? []).filter((entry) => entry !== registration);
+        if (registrations.length) {
+          this.slots.set(slotName, registrations);
+        } else {
+          this.slots.delete(slotName);
+        }
+      }
+
+      this.plugins.delete(manifest.plugin.id);
+      this.pluginStatuses.set(manifest.plugin.id, {
+        errorMessage: error instanceof Error ? error.message : 'Plugin failed to load',
+        state: 'error'
+      });
+      this.emitChange();
+      throw error;
+    }
   }
 
   async enablePlugin(pluginId: string): Promise<void> {
@@ -117,13 +173,22 @@ class PluginManager {
     const plugin = this.plugins.get(pluginId);
     if (!plugin) {
       if (this.manifests.has(pluginId)) {
+        this.pluginStatuses.set(pluginId, {
+          errorMessage: null,
+          state: 'disabled'
+        });
         this.emitChange();
       }
       return;
     }
 
+    let deactivateError: unknown = null;
     if (plugin.module.deactivate) {
-      await plugin.module.deactivate();
+      try {
+        await plugin.module.deactivate();
+      } catch (error) {
+        deactivateError = error;
+      }
     }
 
     for (const slotName of this.slots.keys()) {
@@ -150,13 +215,27 @@ class PluginManager {
     }
 
     this.plugins.delete(pluginId);
+    this.pluginStatuses.set(pluginId, {
+      errorMessage:
+        deactivateError instanceof Error
+          ? deactivateError.message
+          : deactivateError
+            ? 'Plugin failed to deactivate'
+            : null,
+      state: deactivateError ? 'error' : 'disabled'
+    });
     this.emitChange();
+
+    if (deactivateError) {
+      throw deactivateError;
+    }
   }
 
   async uninstallPlugin(pluginId: string): Promise<void> {
     await this.unloadPlugin(pluginId);
     this.manifests.delete(pluginId);
     this.configValues.delete(pluginId);
+    this.pluginStatuses.delete(pluginId);
     this.emitChange();
   }
 
@@ -169,7 +248,9 @@ class PluginManager {
       .map((manifest) => ({
         config: this.getPluginConfig(manifest.plugin.id),
         enabled: this.plugins.has(manifest.plugin.id),
-        manifest
+        errorMessage: this.pluginStatuses.get(manifest.plugin.id)?.errorMessage ?? null,
+        manifest,
+        state: this.pluginStatuses.get(manifest.plugin.id)?.state ?? 'disabled'
       }))
       .sort((left, right) => left.manifest.plugin.name.localeCompare(right.manifest.plugin.name));
   }
@@ -251,6 +332,7 @@ class PluginManager {
     this.hooks.clear();
     this.manifests.clear();
     this.plugins.clear();
+    this.pluginStatuses.clear();
     this.slots.clear();
     this.emitChange();
   }

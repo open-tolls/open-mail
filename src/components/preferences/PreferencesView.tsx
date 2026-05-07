@@ -884,6 +884,17 @@ export const PreferencesView = () => {
                       <p>{plugin.manifest.plugin.description ?? plugin.manifest.plugin.id}</p>
                       <span>v{plugin.manifest.plugin.version}</span>
                       <div className="preferences-plugin-permissions">
+                        <span
+                          className={
+                            plugin.state === 'error'
+                              ? 'preferences-plugin-permission preferences-plugin-permission-sensitive'
+                              : 'preferences-plugin-permission'
+                          }
+                        >
+                          {plugin.state === 'enabled' ? 'Enabled' : plugin.state === 'error' ? 'Error' : 'Disabled'}
+                        </span>
+                      </div>
+                      <div className="preferences-plugin-permissions">
                         {describePluginPermissions(plugin).map((permission) => (
                           <span
                             className={permission.sensitive ? 'preferences-plugin-permission preferences-plugin-permission-sensitive' : 'preferences-plugin-permission'}
@@ -893,6 +904,7 @@ export const PreferencesView = () => {
                           </span>
                         ))}
                       </div>
+                      {plugin.errorMessage ? <p className="preferences-note">{plugin.errorMessage}</p> : null}
                       {plugin.manifest.config?.fields ? (
                         <div className="preferences-plugin-config">
                           <h3>Config</h3>

@@ -89,6 +89,19 @@ const preferencesPluginManifest: FrontendPluginManifest = {
   }
 };
 
+const failingPreferencesPluginManifest: FrontendPluginManifest = {
+  frontend: {
+    entry: '/src/test/fixtures/frontend-failing-plugin.tsx',
+    slots: []
+  },
+  plugin: {
+    description: 'Broken plugin fixture for error state coverage',
+    id: 'com.openmail.plugin.broken-preferences-fixture',
+    name: 'Broken Preferences Fixture',
+    version: '1.0.0'
+  }
+};
+
 describe('preferences view', () => {
   beforeEach(() => {
     setTauriRuntime(false);
@@ -254,6 +267,24 @@ describe('preferences view', () => {
       expect(screen.queryByText('Preferences Fixture')).not.toBeInTheDocument();
     });
     expect(screen.getByText('Preferences Fixture uninstalled.')).toBeInTheDocument();
+  });
+
+  it('shows plugin error state without breaking preferences when activation fails', async () => {
+    window.history.pushState({}, '', '/preferences');
+    await expect(pluginManager.installPlugin(failingPreferencesPluginManifest)).rejects.toThrow(
+      'Plugin activation failed'
+    );
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    expect(await screen.findByText('Broken Preferences Fixture')).toBeInTheDocument();
+    expect(screen.getByText('Error')).toBeInTheDocument();
+    expect(screen.getByText('Plugin activation failed')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Plugin enabled' })).not.toBeChecked();
   });
 
   it('applies theme and layout changes immediately from preferences', async () => {

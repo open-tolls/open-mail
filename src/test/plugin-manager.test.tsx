@@ -79,6 +79,18 @@ const createComposeHookManifest = (
   }
 });
 
+const failingManifest: FrontendPluginManifest = {
+  frontend: {
+    entry: '/src/test/fixtures/frontend-failing-plugin.tsx',
+    slots: []
+  },
+  plugin: {
+    id: 'com.openmail.plugin.failing-fixture',
+    name: 'Failing Fixture',
+    version: '1.0.0'
+  }
+};
+
 describe('plugin manager', () => {
   beforeEach(() => {
     pluginManager.reset();
@@ -247,6 +259,23 @@ describe('plugin manager', () => {
         htmlBody: '<p>Hello</p>',
         pluginLabel: 'C'
       }
+    ]);
+  });
+
+  it('keeps a plugin registered in error state when activation fails', async () => {
+    await expect(pluginManager.installPlugin(failingManifest)).rejects.toThrow('Plugin activation failed');
+
+    expect(pluginManager.listPlugins()).toEqual([
+      expect.objectContaining({
+        enabled: false,
+        errorMessage: 'Plugin activation failed',
+        manifest: expect.objectContaining({
+          plugin: expect.objectContaining({
+            id: 'com.openmail.plugin.failing-fixture'
+          })
+        }),
+        state: 'error'
+      })
     ]);
   });
 });
