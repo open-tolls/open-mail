@@ -498,6 +498,7 @@ async fn persist_account_with_credentials(
         .save_batch(&create_account_folders(&account.id, now))
         .await
         .map_err(|error| error.to_string())?;
+    dispatch_plugin_hook(state, "on_account_added", &account)?;
 
     Ok(account)
 }
@@ -2305,7 +2306,7 @@ mod tests {
     };
     use crate::{
         domain::models::{
-            account::{AccountProvider, SyncState},
+            account::{AccountProvider, ConnectionSettings, SecurityType, SyncState},
             config::AppConfig,
             outbox::OutboxStatus,
             scheduled_send::ScheduledSendStatus,
@@ -3273,6 +3274,44 @@ hooks = [{hooks}]
 
         assert_eq!(
             emitted_event_count(&state, "com.openmail.plugin.draft-hooks"),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn add_account_command_dispatches_backend_account_hook() {
+        let state = build_test_state();
+        install_observing_hook_plugin(
+            &state,
+            "com.openmail.plugin.account-hooks",
+            &["on_account_added"],
+        );
+
+        add_account_for_state(
+            &state,
+            AddAccountRequest {
+                name: "Operations".into(),
+                email: "ops@example.com".into(),
+                provider: AccountProvider::Imap,
+                settings: ConnectionSettings {
+                    imap_host: "imap.example.com".into(),
+                    imap_port: 993,
+                    imap_security: SecurityType::Ssl,
+                    smtp_host: "smtp.example.com".into(),
+                    smtp_port: 587,
+                    smtp_security: SecurityType::StartTls,
+                },
+                credentials: ConnectionCredentialsRequest {
+                    username: "ops@example.com".into(),
+                    password: "secret".into(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            emitted_event_count(&state, "com.openmail.plugin.account-hooks"),
             1
         );
     }

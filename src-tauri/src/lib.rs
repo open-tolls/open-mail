@@ -76,11 +76,51 @@ pub struct AppState {
 
 struct TauriSyncEventEmitter {
     app_handle: tauri::AppHandle,
+    message_repo: Arc<dyn MessageRepository>,
+    thread_repo: Arc<dyn ThreadRepository>,
     plugin_host: Arc<Mutex<PluginHost>>,
 }
 
 impl SyncEventEmitter for TauriSyncEventEmitter {
     fn emit(&self, event: &DomainEvent) {
+        let plugin_host = self.plugin_host.clone();
+        let message_repo = self.message_repo.clone();
+        let thread_repo = self.thread_repo.clone();
+
+        match event.clone() {
+            DomainEvent::MessagesChanged { message_ids, .. } => {
+                tauri::async_runtime::spawn(async move {
+                    for message_id in message_ids {
+                        let Ok(Some(message)) = message_repo.find_by_id(&message_id).await else {
+                            continue;
+                        };
+                        let Ok(payload) = serde_json::to_value(&message) else {
+                            continue;
+                        };
+                        if let Ok(mut plugin_host) = plugin_host.lock() {
+                            let _ = plugin_host.dispatch_hook("on_message_received", &payload);
+                        }
+                    }
+                });
+            }
+            DomainEvent::ThreadsChanged { thread_ids, .. } => {
+                tauri::async_runtime::spawn(async move {
+                    for thread_id in thread_ids {
+                        let Ok(Some(thread)) = thread_repo.find_by_id(&thread_id).await else {
+                            continue;
+                        };
+                        let Ok(payload) = serde_json::to_value(&thread) else {
+                            continue;
+                        };
+                        if let Ok(mut plugin_host) = plugin_host.lock() {
+                            let _ = plugin_host.dispatch_hook("on_thread_changed", &payload);
+                        }
+                    }
+                });
+            }
+            _ => {}
+        }
+
         if let DomainEvent::SyncStatusChanged { account_id, state } = event {
             if matches!(state, crate::domain::models::account::SyncState::Sleeping) {
                 if let Ok(mut plugin_host) = self.plugin_host.lock() {
@@ -273,6 +313,8 @@ pub fn run() {
                 .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
             sync_manager.set_event_emitter(Arc::new(TauriSyncEventEmitter {
                 app_handle: app.handle().clone(),
+                message_repo: app.state::<AppState>().message_repo.clone(),
+                thread_repo: app.state::<AppState>().thread_repo.clone(),
                 plugin_host: app.state::<AppState>().plugin_host.clone(),
             }));
             app.emit("domain:event", DomainEvent::ApplicationStarted)
