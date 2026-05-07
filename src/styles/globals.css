@@ -263,6 +263,30 @@ textarea {
     rgba(255, 255, 255, 0.035);
 }
 
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border: 1px solid rgba(246, 182, 111, 0.34);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(246, 182, 111, 0.16), rgba(240, 141, 73, 0.08)),
+    rgba(10, 16, 26, 0.9);
+  color: var(--text);
+}
+
+.offline-banner strong {
+  font-size: 0.96rem;
+}
+
+.offline-banner span {
+  color: var(--muted);
+  text-align: right;
+}
+
 .composer-panel {
   display: grid;
   gap: 18px;

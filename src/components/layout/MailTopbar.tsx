@@ -7,6 +7,7 @@ import type { ThemeId } from '@lib/themes';
 
 type MailTopbarProps = {
   backendStatus: string;
+  backendTone?: 'success' | 'accent' | 'neutral' | 'warning';
   folders: FolderRecord[];
   layoutMode: 'split' | 'list';
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -20,6 +21,7 @@ type MailTopbarProps = {
 
 export const MailTopbar = ({
   backendStatus,
+  backendTone = 'success',
   folders,
   layoutMode,
   searchInputRef,
@@ -76,7 +78,7 @@ export const MailTopbar = ({
         >
           {layoutMode === 'split' ? 'Split' : 'List'}
         </button>
-        <StatusBadge label={backendStatus} tone="success" />
+        <StatusBadge label={backendStatus} tone={backendTone} />
       </div>
     </header>
   );

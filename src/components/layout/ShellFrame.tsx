@@ -41,6 +41,7 @@ const REMINDERS_FOLDER_ID = 'fld_reminders';
 type ShellFrameProps = {
   accounts: AccountRecord[];
   backendStatus: string;
+  backendTone?: 'success' | 'accent' | 'neutral' | 'warning';
   folders: FolderRecord[];
   threads: ThreadSummary[];
   activeFolderId: string | null;
@@ -59,6 +60,7 @@ type ShellFrameProps = {
   composerAccounts: AccountRecord[];
   composerAccountId: string;
   contacts: ContactDirectoryEntry[];
+  isOffline?: boolean;
   recipientSuggestions: string[];
   syncStatusByAccountId?: Record<string, SyncStatusDetail | null>;
   isOutboxBusy: boolean;
@@ -90,6 +92,7 @@ type ShellFrameProps = {
 export const ShellFrame = ({
   accounts,
   backendStatus,
+  backendTone = 'success',
   folders,
   threads,
   activeFolderId,
@@ -108,6 +111,7 @@ export const ShellFrame = ({
   composerAccounts,
   composerAccountId,
   contacts,
+  isOffline = false,
   recipientSuggestions,
   syncStatusByAccountId,
   isOutboxBusy,
@@ -608,6 +612,7 @@ export const ShellFrame = ({
       <main className="content-panel">
         <MailTopbar
           backendStatus={backendStatus}
+          backendTone={backendTone}
           folders={folders}
           layoutMode={layoutMode}
           searchInputRef={searchInputRef}
@@ -644,6 +649,13 @@ export const ShellFrame = ({
             </article>
           </div>
         </section>
+
+        {isOffline ? (
+          <div aria-label="Offline mode banner" className="offline-banner" role="status">
+            <strong>You're offline</strong>
+            <span>Changes stay local and sync automatically when the connection comes back.</span>
+          </div>
+        ) : null}
 
         {isComposerOpen ? (
           <SectionErrorBoundary title="Composer">

@@ -13,6 +13,7 @@ import { useBackendHealth } from '@hooks/useBackendHealth';
 import { useDomainEvents } from '@hooks/useDomainEvents';
 import { useDesktopNotifications } from '@hooks/useDesktopNotifications';
 import { useMailboxOverview } from '@hooks/useMailboxOverview';
+import { useNetworkStatus } from '@hooks/useNetworkStatus';
 import { useSearchThreads } from '@hooks/useSearchThreads';
 import { useSyncStatusDetail } from '@hooks/useSyncStatusDetail';
 import { useSyncStatusMap } from '@hooks/useSyncStatusMap';
@@ -279,6 +280,7 @@ const MailShell = () => {
   const queryClient = useQueryClient();
   useDomainEvents();
   const { data, isLoading, isError } = useBackendHealth();
+  const { isOffline } = useNetworkStatus();
   const mailboxQuery = useMailboxOverview();
   const mailbox = mailboxQuery.data;
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -1404,8 +1406,15 @@ const MailShell = () => {
   return (
     <ShellFrame
       backendStatus={
-        isLoading ? 'Conectando ao backend Tauri...' : isError ? 'Modo web ativo' : data ?? 'Backend pronto'
+        isOffline
+          ? 'Offline mode'
+          : isLoading
+            ? 'Conectando ao backend Tauri...'
+            : isError
+              ? 'Modo web ativo'
+              : data ?? 'Backend pronto'
       }
+      backendTone={isOffline ? 'warning' : 'success'}
       accounts={composerAccounts}
       folders={runtimeFolders}
       threads={threads}
@@ -1424,6 +1433,7 @@ const MailShell = () => {
       composerAccounts={composerAccounts}
       composerAccountId={selectedComposerAccount.id}
       contacts={contactDirectory}
+      isOffline={isOffline}
       recipientSuggestions={recipientSuggestions}
       isOutboxBusy={enqueueOutboxMutation.isPending || flushOutboxMutation.isPending}
       isMessagesLoading={

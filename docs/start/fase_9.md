@@ -171,7 +171,7 @@ i18next
 
 ### 9.4 — Error Handling & Recovery
 
-**Status atual:** primeiro corte entregue na camada frontend, com `AppErrorBoundary` global no roteamento e `SectionErrorBoundary` aplicado nas regioes mais sensiveis do shell (`sidebar`, `composer`, `thread list` e `message reader`). O fallback agora evita tela branca total quando uma dessas areas quebra e oferece acoes amigaveis de `reload` ou `retry section`. Os proximos cortes dessa frente continuam em retry de rede, offline mode e recuperacao backend.
+**Status atual:** segundo corte entregue na camada frontend. Alem de `AppErrorBoundary` global no roteamento e `SectionErrorBoundary` aplicado nas regioes mais sensiveis do shell (`sidebar`, `composer`, `thread list` e `message reader`), o app agora tambem expõe um `offline mode` visual quando o navegador/runtime perde conexao, com banner persistente e status degradado no topbar. Os proximos cortes dessa frente continuam em retry de rede, fila explicita de operacoes offline e recuperacao backend.
 
 **O que implementar:**
 

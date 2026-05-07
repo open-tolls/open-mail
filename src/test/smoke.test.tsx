@@ -57,4 +57,28 @@ describe('App smoke test', () => {
     expect(screen.getByRole('heading', { name: 'Preferences' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Mailbox folders')).not.toBeInTheDocument();
   });
+
+  it('surfaces offline mode in the mailbox shell when the browser connection drops', async () => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: false
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    window.dispatchEvent(new Event('offline'));
+
+    expect(await screen.findByLabelText('Offline mode banner')).toBeInTheDocument();
+    expect(await screen.findByText("You're offline")).toBeInTheDocument();
+    expect(await screen.findAllByText('Offline mode')).toHaveLength(2);
+
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: true
+    });
+  });
 });
