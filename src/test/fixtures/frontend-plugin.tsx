@@ -15,6 +15,26 @@ const PreferencesSection = ({ config }: { config?: Record<string, unknown> }) =>
   </section>
 );
 
+const SidebarHeader = ({ activeAccountId }: { activeAccountId?: string }) => (
+  <p>Plugin sidebar header {activeAccountId ?? 'no-account'}</p>
+);
+
+const SidebarFooter = ({ activeFolderId }: { activeFolderId?: string | null }) => (
+  <p>Plugin sidebar footer {activeFolderId ?? 'no-folder'}</p>
+);
+
+const ThreadListHeader = ({ threadCount }: { threadCount?: number }) => (
+  <p>Plugin thread header {threadCount ?? 0}</p>
+);
+
+const ThreadDialogFooter = ({ action }: { action?: string }) => <p>Plugin dialog footer {action ?? 'idle'}</p>;
+
+const ReaderFooter = ({ messageCount }: { messageCount?: number }) => (
+  <p>Plugin reader footer {messageCount ?? 0}</p>
+);
+
+const OnboardingHeader = ({ step }: { step?: string }) => <p>Plugin onboarding header {step ?? 'unknown'}</p>;
+
 const BrokenStatus = () => {
   throw new Error('plugin slot render failed');
 };
@@ -32,8 +52,14 @@ export default {
   },
   components: {
     BrokenStatus,
+    OnboardingHeader,
     PreferencesSection,
+    ReaderFooter,
+    SidebarFooter,
+    SidebarHeader,
     StatusLeft,
-    StatusRight
+    StatusRight,
+    ThreadDialogFooter,
+    ThreadListHeader
   }
 };

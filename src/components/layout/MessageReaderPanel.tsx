@@ -1,3 +1,4 @@
+import { PluginSlot } from '@/plugins/PluginSlot';
 import { MessageList } from '@components/message-list/MessageList';
 import { StatusBadge } from '@components/ui/StatusBadge';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
@@ -44,6 +45,11 @@ export const MessageReaderPanel = ({
         {selectedThread ? <StatusBadge label={`${messages.length} messages`} tone="neutral" /> : null}
       </div>
 
+      <PluginSlot
+        name="reader:header"
+        props={{ messageCount: messages.length, selectedMessageId, selectedThread }}
+      />
+
       {isMessagesLoading ? <p className="reader-empty">Carregando a thread selecionada...</p> : null}
 
       {!isMessagesLoading && !selectedThread ? (
@@ -66,6 +72,11 @@ export const MessageReaderPanel = ({
           resolveInlineImageUrl={resolveInlineImageUrl}
         />
       ) : null}
+
+      <PluginSlot
+        name="reader:footer"
+        props={{ messageCount: messages.length, selectedMessageId, selectedThread }}
+      />
     </aside>
   );
 };

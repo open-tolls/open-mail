@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PluginSlot } from '@/plugins/PluginSlot';
 import { StatusBadge } from '@components/ui/StatusBadge';
 import { ThreadList } from '@components/thread-list/ThreadList';
 import { ThreadListFilters } from '@components/thread-list/ThreadListFilters';
@@ -237,6 +238,11 @@ export const ThreadListPanel = ({
         <StatusBadge label={actionStatus ?? countLabel} tone="neutral" />
       </div>
 
+      <PluginSlot
+        name="thread-list:header"
+        props={{ activeFilter, activeFolderId, activeFolderName, selectedThreadId, threadCount: filteredThreads.length }}
+      />
+
       <ThreadListFilters activeFilter={activeFilter} onFilterChange={setActiveFilter} />
       <ThreadList
         activeFolderName={activeFolderName}
@@ -251,6 +257,10 @@ export const ThreadListPanel = ({
         onSelectThread={onSelectThread}
         selectedThreadId={selectedThreadId}
         threads={filteredThreads}
+      />
+      <PluginSlot
+        name="thread-list:footer"
+        props={{ activeFilter, activeFolderId, activeFolderName, selectedThreadId, threadCount: filteredThreads.length }}
       />
       {moveThreadIds ? (
         <div aria-label="Move threads dialog" className="thread-action-dialog" role="dialog">
@@ -267,6 +277,7 @@ export const ThreadListPanel = ({
               </button>
             ))}
           </div>
+          <PluginSlot name="thread-list:dialog-footer" props={{ action: 'move', threadIds: moveThreadIds }} />
         </div>
       ) : null}
       {snoozeThreadIds ? (
@@ -300,6 +311,7 @@ export const ThreadListPanel = ({
               Snooze custom time
             </button>
           </div>
+          <PluginSlot name="thread-list:dialog-footer" props={{ action: 'snooze', threadIds: snoozeThreadIds }} />
         </div>
       ) : null}
       {labelThreadIds ? (
@@ -335,6 +347,7 @@ export const ThreadListPanel = ({
               Apply labels
             </button>
           </div>
+          <PluginSlot name="thread-list:dialog-footer" props={{ action: 'label', threadIds: labelThreadIds }} />
         </div>
       ) : null}
     </div>

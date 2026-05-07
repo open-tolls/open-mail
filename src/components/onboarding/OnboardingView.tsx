@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useLocation } from 'react-router';
+import { PluginSlot } from '@/plugins/PluginSlot';
 import { DoneStep } from '@components/onboarding/DoneStep';
 import { ImapStep, type ImapFormState } from '@components/onboarding/ImapStep';
 import { OAuthStep } from '@components/onboarding/OAuthStep';
@@ -785,6 +786,11 @@ export const OnboardingView = () => {
       steps={onboardingSteps}
       title="Bring the first account online without leaving the product."
     >
+      <PluginSlot
+        name="onboarding:header"
+        props={{ selectedProvider, startsAtProvider, step }}
+      />
+
       {step === 'welcome' ? <WelcomeStep onContinue={() => setStep('provider')} /> : null}
 
       {step === 'provider' ? (
@@ -871,6 +877,11 @@ export const OnboardingView = () => {
       ) : null}
 
       {step === 'done' ? <DoneStep onAddAnother={resetFlow} onOpenInbox={() => navigate('/')} /> : null}
+
+      <PluginSlot
+        name="onboarding:footer"
+        props={{ createdAccountId, selectedProvider, startsAtProvider, step, syncProgress, syncStatus }}
+      />
     </OnboardingLayout>
   );
 };

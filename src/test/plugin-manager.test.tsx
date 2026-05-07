@@ -1,6 +1,9 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MailSidebar } from '@components/layout/MailSidebar';
 import { MailStatusBar } from '@components/layout/MailStatusBar';
+import { MessageReaderPanel } from '@components/layout/MessageReaderPanel';
+import { ThreadListPanel } from '@components/layout/ThreadListPanel';
 import { parseFrontendPluginManifest } from '@/plugins/manifest';
 import { PluginSlot } from '@/plugins/PluginSlot';
 import { pluginManager } from '@/plugins/plugin-manager';
@@ -38,7 +41,18 @@ const manifest: FrontendPluginManifest = {
       { component: 'StatusLeft', name: 'status-bar:left' },
       { component: 'StatusRight', name: 'status-bar:right' },
       { component: 'BrokenStatus', name: 'status-bar:right' },
-      { component: 'PreferencesSection', name: 'preferences:section' }
+      { component: 'PreferencesSection', name: 'preferences:section' },
+      { component: 'SidebarHeader', name: 'sidebar:header' },
+      { component: 'SidebarFooter', name: 'sidebar:footer' },
+      { component: 'SidebarHeader', name: 'sidebar:after-compose' },
+      { component: 'SidebarFooter', name: 'sidebar:after-system-folders' },
+      { component: 'ThreadListHeader', name: 'thread-list:header' },
+      { component: 'ThreadListHeader', name: 'thread-list:footer' },
+      { component: 'ThreadDialogFooter', name: 'thread-list:dialog-footer' },
+      { component: 'ReaderFooter', name: 'reader:header' },
+      { component: 'ReaderFooter', name: 'reader:footer' },
+      { component: 'OnboardingHeader', name: 'onboarding:header' },
+      { component: 'OnboardingHeader', name: 'onboarding:footer' }
     ]
   },
   permissions: {
@@ -152,6 +166,143 @@ describe('plugin manager', () => {
       expect(screen.getByRole('heading', { name: 'Plugin section' })).toBeInTheDocument();
     });
     expect(screen.getByText('parchment')).toBeInTheDocument();
+  });
+
+  it('renders expanded shell slots across sidebar, thread list, and reader panels', async () => {
+    await pluginManager.loadPlugin(manifest);
+
+    render(
+      <>
+        <MailSidebar
+          activeAccountId="acc_demo"
+          activeFolderId="fld_inbox"
+          accounts={[
+            {
+              id: 'acc_demo',
+              provider: 'Gmail',
+              email: 'team@example.com',
+              displayName: 'Team Inbox'
+            }
+          ]}
+          folders={[
+            {
+              id: 'fld_inbox',
+              account_id: 'acc_demo',
+              name: 'Inbox',
+              path: 'Inbox',
+              role: 'inbox',
+              unread_count: 4,
+              total_count: 20,
+              created_at: '2026-05-07T10:00:00.000Z',
+              updated_at: '2026-05-07T10:00:00.000Z'
+            }
+          ]}
+          isCollapsed={false}
+          isComposerOpen={false}
+          isOutboxBusy={false}
+          onAddAccount={() => undefined}
+          onFlushOutbox={async () => undefined}
+          onOpenPreferences={() => undefined}
+          onSelectFolder={() => undefined}
+          onToggleComposer={() => undefined}
+          onToggleSidebar={() => undefined}
+          outboxStatus="Queue ready"
+          syncStatusByAccountId={{}}
+        />
+        <ThreadListPanel
+          activeFolderId="fld_inbox"
+          activeFolderName="Inbox"
+          folders={[
+            {
+              id: 'fld_archive',
+              account_id: 'acc_demo',
+              name: 'Archive',
+              path: 'Archive',
+              role: 'archive',
+              unread_count: 0,
+              total_count: 10,
+              created_at: '2026-05-07T10:00:00.000Z',
+              updated_at: '2026-05-07T10:00:00.000Z'
+            }
+          ]}
+          isSearchActive={false}
+          onSelectThread={() => undefined}
+          searchQuery=""
+          selectedThreadId={null}
+          threads={[
+            {
+              id: 'thr_1',
+              subject: 'Plugin coverage',
+              snippet: 'Testing slots',
+              participants: ['team@example.com'],
+              isUnread: true,
+              isStarred: false,
+              hasAttachments: false,
+              messageCount: 1,
+              lastMessageAt: '2026-05-07T10:00:00.000Z'
+            }
+          ]}
+        />
+        <MessageReaderPanel
+          contacts={[]}
+          isMessagesLoading={false}
+          messages={[
+            {
+              id: 'msg_1',
+              account_id: 'acc_demo',
+              thread_id: 'thr_1',
+              from: [],
+              to: [],
+              cc: [],
+              bcc: [],
+              reply_to: [],
+              subject: 'Plugin coverage',
+              snippet: 'Testing slots',
+              body: '<p>Body</p>',
+              plain_text: 'Body',
+              message_id_header: '<msg_1@example.com>',
+              in_reply_to: null,
+              references: [],
+              folder_id: 'fld_inbox',
+              label_ids: [],
+              is_unread: true,
+              is_starred: false,
+              is_draft: false,
+              date: '2026-05-07T10:00:00.000Z',
+              attachments: [],
+              headers: {},
+              created_at: '2026-05-07T10:00:00.000Z',
+              updated_at: '2026-05-07T10:00:00.000Z'
+            }
+          ]}
+          onDownloadAttachment={() => undefined}
+          onForwardMessage={() => undefined}
+          onOpenExternalLink={() => undefined}
+          onPrintMessage={() => undefined}
+          onReplyAllMessage={() => undefined}
+          onReplyMessage={() => undefined}
+          onSelectMessage={() => undefined}
+          resolveInlineImageUrl={(path) => path}
+          selectedMessageId="msg_1"
+          selectedThread={{
+            id: 'thr_1',
+            subject: 'Plugin coverage',
+            snippet: 'Testing slots',
+            participants: ['team@example.com'],
+            isUnread: true,
+            isStarred: false,
+            hasAttachments: false,
+            messageCount: 1,
+            lastMessageAt: '2026-05-07T10:00:00.000Z'
+          }}
+        />
+      </>
+    );
+
+    expect(screen.getAllByText('Plugin sidebar header acc_demo')).toHaveLength(2);
+    expect(screen.getAllByText('Plugin sidebar footer fld_inbox')).toHaveLength(2);
+    expect(screen.getAllByText('Plugin thread header 1')).toHaveLength(2);
+    expect(screen.getAllByText('Plugin reader footer 1')).toHaveLength(2);
   });
 
   it('keeps plugin manifests registered when disabling and can enable them again', async () => {

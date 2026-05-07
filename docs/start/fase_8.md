@@ -299,7 +299,7 @@ impl WasmInstance {
 
 ### 8.3 — Plugin Manager (Frontend)
 
-**Status atual:** primeiro corte entregue no frontend, com `PluginManager` singleton em memoria, `dynamic import` de plugins por manifest, registro de slots/commands/hooks, `PluginSlot` com `useSyncExternalStore`, `Suspense` e error boundary por plugin, além de integração real nos slots `status-bar:left`, `status-bar:right` e `preferences:section`. O bootstrap automatico de plugins instalados e a expansao para os demais slots ainda ficam para os proximos cortes.
+**Status atual:** segundo corte entregue no frontend, com `PluginManager` singleton em memoria, `dynamic import` de plugins por manifest, registro de slots/commands/hooks, `PluginSlot` com `useSyncExternalStore`, `Suspense` e error boundary por plugin, além de integracao real em 14 slots nomeados do shell. Hoje o app ja expoe `status-bar:left`, `status-bar:right`, `preferences:section`, `sidebar:header`, `sidebar:after-compose`, `sidebar:after-system-folders`, `sidebar:footer`, `thread-list:header`, `thread-list:footer`, `thread-list:dialog-footer`, `reader:header`, `reader:footer`, `onboarding:header` e `onboarding:footer`. O bootstrap automatico de plugins instalados continua como proximo corte independente.
 
 **O que implementar:**
 
@@ -620,7 +620,7 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 - [x] Plugin Host (Rust) com WASM runtime
 - [x] Permission system funcional
 - [x] Plugin Manager (Frontend) com dynamic import
-- [ ] Slot system funcional (14+ slots definidos)
+- [x] Slot system funcional (14+ slots definidos)
 - [ ] Hook system funcional (backend + frontend)
 - [x] Command system funcional
 - [ ] Plugin SDK (frontend + backend)

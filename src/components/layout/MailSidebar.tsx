@@ -15,6 +15,7 @@ import {
   Trash2
 } from 'lucide-react';
 import openMailLogo from '@/assets/logo.svg';
+import { PluginSlot } from '@/plugins/PluginSlot';
 import type { FolderRecord, SyncStatusDetail } from '@lib/contracts';
 import type { AccountRecord } from '@stores/useAccountStore';
 
@@ -119,6 +120,8 @@ export const MailSidebar = ({
         </button>
       </div>
 
+      <PluginSlot name="sidebar:header" props={{ activeAccountId, isCollapsed }} />
+
       <button
         aria-label={isComposerOpen ? 'Close composer' : 'New message'}
         className="compose-button"
@@ -138,6 +141,11 @@ export const MailSidebar = ({
           </button>
         </div>
       ) : null}
+
+      <PluginSlot
+        name="sidebar:after-compose"
+        props={{ activeAccountId, isCollapsed, isComposerOpen, outboxStatus }}
+      />
 
       <nav className={isCollapsed ? 'folder-nav folder-nav-rail' : 'folder-nav'} aria-label="Mailbox folders">
         <div className="folder-group">
@@ -169,6 +177,11 @@ export const MailSidebar = ({
             );
           })}
         </div>
+
+        <PluginSlot
+          name="sidebar:after-system-folders"
+          props={{ activeFolderId, activeAccountId, isCollapsed, systemFolders }}
+        />
 
         {!isCollapsed ? (
           <details className="folder-group" open>
@@ -238,6 +251,11 @@ export const MailSidebar = ({
           ))}
         </div>
       ) : null}
+
+      <PluginSlot
+        name="sidebar:footer"
+        props={{ accounts, activeAccountId, activeFolderId, isCollapsed }}
+      />
     </aside>
   );
 };
