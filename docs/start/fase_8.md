@@ -632,7 +632,7 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 - [x] Plugin de exemplo funcional
 - [x] Documentacao para desenvolvedores
 - [x] Testes passando
-- [ ] CI green
+- [x] CI green
 
 ---
 
