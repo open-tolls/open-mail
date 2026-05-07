@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MailStatusBar } from '@components/layout/MailStatusBar';
+import { parseFrontendPluginManifest } from '@/plugins/manifest';
 import { PluginSlot } from '@/plugins/PluginSlot';
 import { pluginManager } from '@/plugins/plugin-manager';
 import type { FrontendPluginManifest } from '@/plugins/types';
@@ -277,5 +278,56 @@ describe('plugin manager', () => {
         state: 'error'
       })
     ]);
+  });
+
+  it('loads the inbox insights example plugin from the repository example bundle', async () => {
+    const manifest = parseFrontendPluginManifest(
+      JSON.stringify({
+        plugin: {
+          id: 'com.openmail.plugin.inbox-insights',
+          name: 'Inbox Insights',
+          version: '1.0.0',
+          description: 'Adds a lightweight unread summary to the status bar and Preferences.'
+        },
+        permissions: {
+          notifications: true
+        },
+        config: {
+          fields: {
+            label: {
+              type: 'text',
+              label: 'Status label',
+              default: 'Focus'
+            },
+            showUnreadBadge: {
+              type: 'boolean',
+              label: 'Show unread badge',
+              default: true
+            }
+          }
+        },
+        frontend: {
+          entry: '/plugins/examples/inbox-insights/ui/index.tsx',
+          slots: [
+            { name: 'status-bar:right', component: 'InboxInsightsBadge' },
+            { name: 'preferences:section', component: 'InboxInsightsPreferences' }
+          ]
+        }
+      })
+    );
+
+    await pluginManager.installPlugin(manifest);
+
+    render(
+      <MailStatusBar
+        actionStatusLabel="Composer ready"
+        activeFolderName="Inbox"
+        layoutMode="split"
+        syncStatusLabel="Frontend ready"
+        totalUnreadCount={5}
+      />
+    );
+
+    expect(screen.getByText('5 unread tracked')).toBeInTheDocument();
   });
 });

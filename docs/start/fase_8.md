@@ -475,12 +475,14 @@ openmail-plugin-template/
 └── README.md
 ```
 
+**Status atual:** primeiro corte pratico entregue para desenvolvedores. O repo agora inclui um SDK frontend minimo em `src/plugins/sdk.ts`, um plugin de exemplo funcional em `plugins/examples/inbox-insights`, um template frontend copiavel em `plugins/template` e uma documentacao inicial em `docs/plugins/developer-guide.md`. A publicacao real do SDK como pacote e a template de backend WASM ainda ficam para os proximos cortes.
+
 **Criterio de aceite:**
 - [ ] SDK frontend publicavel como npm package
 - [ ] SDK backend publicavel como Rust crate
-- [ ] Template de plugin funcional
-- [ ] Documentacao do SDK
-- [ ] Plugin de exemplo funcional (ex: word count no composer)
+- [x] Template de plugin funcional
+- [x] Documentacao do SDK
+- [x] Plugin de exemplo funcional (ex: word count no composer)
 
 ---
 
@@ -622,13 +624,13 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 - [ ] Hook system funcional (backend + frontend)
 - [x] Command system funcional
 - [ ] Plugin SDK (frontend + backend)
-- [ ] Template de plugin
+- [x] Template de plugin
 - [x] Plugin Management UI em Preferences
 - [x] Install/uninstall/enable/disable
 - [x] Config UI auto-gerada
 - [x] Error isolation (crash de plugin nao afeta app)
-- [ ] Plugin de exemplo funcional
-- [ ] Documentacao para desenvolvedores
+- [x] Plugin de exemplo funcional
+- [x] Documentacao para desenvolvedores
 - [x] Testes passando
 - [ ] CI green
 

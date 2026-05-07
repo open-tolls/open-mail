@@ -1,0 +1,26 @@
+{
+  "plugin": {
+    "id": "com.openmail.plugin.my-plugin",
+    "name": "My Plugin",
+    "version": "0.1.0",
+    "description": "Starter template for an Open Mail frontend plugin."
+  },
+  "permissions": {
+    "notifications": false
+  },
+  "config": {
+    "fields": {
+      "message": {
+        "type": "text",
+        "label": "Message",
+        "default": "Hello from my plugin"
+      }
+    }
+  },
+  "frontend": {
+    "entry": "./ui/index.tsx",
+    "slots": [
+      { "name": "status-bar:left", "component": "MyPluginStatus" }
+    ]
+  }
+}
