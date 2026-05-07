@@ -5,6 +5,7 @@ import { isPermissionGranted, requestPermission, sendNotification } from '@tauri
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
 import type { ComposerDraft } from '@components/composer/Composer';
 import { ComponentGallery } from '@components/dev/ComponentGallery';
+import { AppErrorBoundary } from '@components/error/AppErrorBoundary';
 import { ShellFrame } from '@components/layout/ShellFrame';
 import { OnboardingView } from '@components/onboarding/OnboardingView';
 import { PreferencesView } from '@components/preferences/PreferencesView';
@@ -1463,19 +1464,21 @@ const App = () => {
   useApplySelectedTheme();
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<MailShell />} path="/" />
-        <Route element={<MailShell />} path="/search" />
-        <Route element={<MailShell />} path="/compose" />
-        <Route element={<OnboardingView />} path="/onboarding/*" />
-        <Route element={<PreferencesView />} path="/preferences" />
-        <Route element={<MailShell />} path="/:folderId" />
-        <Route element={<MailShell />} path="/:folderId/:threadId" />
-        <Route element={<ComponentGallery />} path="/dev" />
-        <Route element={<Navigate replace to="/" />} path="*" />
-      </Routes>
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<MailShell />} path="/" />
+          <Route element={<MailShell />} path="/search" />
+          <Route element={<MailShell />} path="/compose" />
+          <Route element={<OnboardingView />} path="/onboarding/*" />
+          <Route element={<PreferencesView />} path="/preferences" />
+          <Route element={<MailShell />} path="/:folderId" />
+          <Route element={<MailShell />} path="/:folderId/:threadId" />
+          <Route element={<ComponentGallery />} path="/dev" />
+          <Route element={<Navigate replace to="/" />} path="*" />
+        </Routes>
+      </BrowserRouter>
+    </AppErrorBoundary>
   );
 };
 

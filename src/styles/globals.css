@@ -51,6 +51,66 @@ body::before {
   mask-image: radial-gradient(circle at center, black, transparent 80%);
 }
 
+.app-error-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.app-error-card,
+.section-error-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(240, 141, 73, 0.14), transparent 32%),
+    rgba(10, 23, 39, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.app-error-card {
+  max-width: 540px;
+  padding: 28px;
+}
+
+.section-error-card {
+  align-content: start;
+  min-height: 220px;
+  padding: 22px;
+}
+
+.app-error-card h1,
+.section-error-card h3 {
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.app-error-card p,
+.section-error-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.app-error-card button,
+.section-error-card button {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(246, 182, 111, 0.3);
+  border-radius: 999px;
+  background: rgba(246, 182, 111, 0.12);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.app-error-card button:hover,
+.section-error-card button:hover {
+  border-color: rgba(246, 182, 111, 0.5);
+  color: var(--accent);
+}
+
 button,
 input,
 textarea {

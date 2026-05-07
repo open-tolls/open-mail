@@ -1,5 +1,6 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Composer, type ComposerDraft } from '@components/composer/Composer';
+import { SectionErrorBoundary } from '@components/error/SectionErrorBoundary';
 import { GripVertical } from 'lucide-react';
 import { MailSidebar } from '@components/layout/MailSidebar';
 import { MailStatusBar } from '@components/layout/MailStatusBar';
@@ -584,23 +585,25 @@ export const ShellFrame = ({
   return (
     <div className={isSidebarCollapsed ? 'shell-root shell-root-sidebar-collapsed' : 'shell-root'}>
       <div className="shell-backdrop" aria-hidden="true" />
-      <MailSidebar
-        activeFolderId={activeFolderId}
-        accounts={accounts}
-        activeAccountId={composerAccountId}
-        folders={runtimeFolders}
-        isCollapsed={isSidebarCollapsed}
-        isComposerOpen={isComposerOpen}
-        isOutboxBusy={isOutboxBusy}
-        outboxStatus={outboxStatus}
-        onAddAccount={onAddAccount}
-        onFlushOutbox={onFlushOutbox}
-        onOpenPreferences={onOpenPreferences}
-        onSelectFolder={onSelectFolder}
-        syncStatusByAccountId={syncStatusByAccountId}
-        onToggleComposer={toggleComposer}
-        onToggleSidebar={toggleSidebarAndCloseComposer}
-      />
+      <SectionErrorBoundary title="Sidebar">
+        <MailSidebar
+          activeFolderId={activeFolderId}
+          accounts={accounts}
+          activeAccountId={composerAccountId}
+          folders={runtimeFolders}
+          isCollapsed={isSidebarCollapsed}
+          isComposerOpen={isComposerOpen}
+          isOutboxBusy={isOutboxBusy}
+          outboxStatus={outboxStatus}
+          onAddAccount={onAddAccount}
+          onFlushOutbox={onFlushOutbox}
+          onOpenPreferences={onOpenPreferences}
+          onSelectFolder={onSelectFolder}
+          syncStatusByAccountId={syncStatusByAccountId}
+          onToggleComposer={toggleComposer}
+          onToggleSidebar={toggleSidebarAndCloseComposer}
+        />
+      </SectionErrorBoundary>
 
       <main className="content-panel">
         <MailTopbar
@@ -643,55 +646,57 @@ export const ShellFrame = ({
         </section>
 
         {isComposerOpen ? (
-          <Composer
-            contacts={contacts}
-            fromOptions={composerAccounts}
-            initialDraft={composerInitialDraft}
-            isSending={isOutboxBusy}
-            recipientSuggestions={recipientSuggestions}
-            status={outboxStatus}
-            onClose={resetComposerState}
-            onDiscard={() => {
-              if (composerDraftId) {
-                removeDraft(composerDraftId);
-                void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
-                  setShortcutStatusLabel('Draft removed locally only');
-                });
-              }
-              selectDraft(null);
-              resetComposerState();
-            }}
-            onDraftChange={setComposerLiveDraft}
-            onFlushOutbox={onFlushOutbox}
-            onSchedule={async (draft, sendAt) => {
-              const didSchedule = await onScheduleDraft(draft, sendAt);
-              if (didSchedule) {
+          <SectionErrorBoundary title="Composer">
+            <Composer
+              contacts={contacts}
+              fromOptions={composerAccounts}
+              initialDraft={composerInitialDraft}
+              isSending={isOutboxBusy}
+              recipientSuggestions={recipientSuggestions}
+              status={outboxStatus}
+              onClose={resetComposerState}
+              onDiscard={() => {
                 if (composerDraftId) {
                   removeDraft(composerDraftId);
                   void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
-                    setShortcutStatusLabel('Scheduled message, but draft cleanup stayed local');
+                    setShortcutStatusLabel('Draft removed locally only');
                   });
                 }
                 selectDraft(null);
                 resetComposerState();
-              }
-              return didSchedule;
-            }}
-            onSend={async (draft, remindAt) => {
-              const didQueue = await onSendDraft(draft, remindAt);
-              if (didQueue) {
-                if (composerDraftId) {
-                  removeDraft(composerDraftId);
-                  void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
-                    setShortcutStatusLabel('Queued message, but draft cleanup stayed local');
-                  });
+              }}
+              onDraftChange={setComposerLiveDraft}
+              onFlushOutbox={onFlushOutbox}
+              onSchedule={async (draft, sendAt) => {
+                const didSchedule = await onScheduleDraft(draft, sendAt);
+                if (didSchedule) {
+                  if (composerDraftId) {
+                    removeDraft(composerDraftId);
+                    void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
+                      setShortcutStatusLabel('Scheduled message, but draft cleanup stayed local');
+                    });
+                  }
+                  selectDraft(null);
+                  resetComposerState();
                 }
-                selectDraft(null);
-                resetComposerState();
-              }
-              return didQueue;
-            }}
-          />
+                return didSchedule;
+              }}
+              onSend={async (draft, remindAt) => {
+                const didQueue = await onSendDraft(draft, remindAt);
+                if (didQueue) {
+                  if (composerDraftId) {
+                    removeDraft(composerDraftId);
+                    void deleteDraftFromBackend(composerAccountId, composerDraftId).catch(() => {
+                      setShortcutStatusLabel('Queued message, but draft cleanup stayed local');
+                    });
+                  }
+                  selectDraft(null);
+                  resetComposerState();
+                }
+                return didQueue;
+              }}
+            />
+          </SectionErrorBoundary>
         ) : null}
 
         <section
@@ -705,61 +710,63 @@ export const ShellFrame = ({
           ref={workspaceRef}
           style={workspaceStyle}
         >
-        <ThreadListPanel
-          activeFolderId={activeFolder?.id ?? null}
-          activeFolderName={activeFolder?.name ?? null}
-          dialogRequest={threadDialogRequest}
-          folders={runtimeFolders}
-          hasMore={hasMoreThreads}
-          isReminderFolder={isRemindersFolder}
-          isSearchActive={isSearchActive}
-          isLoading={isThreadsLoading}
-          isScheduledFolder={isScheduledFolder}
-          onApplyLabels={onApplyLabels}
-          onCancelReminders={onCancelReminders}
-          onCancelScheduledSends={onCancelScheduledSends}
-            onLoadMore={onLoadMoreThreads}
-            onMoveThreads={onMoveThreads}
-            onSnoozeThreads={onSnoozeThreads}
-            onUnsnoozeThreads={onUnsnoozeThreads}
-            onThreadAction={onThreadAction}
-            searchQuery={searchQuery}
-            selectedThreadId={visibleSelectedThreadId}
-            threads={visibleThreads}
-            onSelectThread={(threadId) => {
-              if (isDraftsFolder) {
-                const savedDraft = drafts.find((draft) => draft.id === threadId) ?? null;
-                if (!savedDraft) {
-                  return;
-                }
-
-                setSelectedDraftThreadId(threadId);
-                openComposerFromSavedDraft(savedDraft);
-                setShortcutStatusLabel('Draft restored');
-                return;
-              }
-
-              if (isScheduledFolder) {
-                setSelectedScheduledThreadId(threadId);
-                void onRestoreScheduledDraft(threadId).then((restoredDraft) => {
-                  if (!restoredDraft) {
+          <SectionErrorBoundary title="Thread list">
+            <ThreadListPanel
+              activeFolderId={activeFolder?.id ?? null}
+              activeFolderName={activeFolder?.name ?? null}
+              dialogRequest={threadDialogRequest}
+              folders={runtimeFolders}
+              hasMore={hasMoreThreads}
+              isReminderFolder={isRemindersFolder}
+              isSearchActive={isSearchActive}
+              isLoading={isThreadsLoading}
+              isScheduledFolder={isScheduledFolder}
+              onApplyLabels={onApplyLabels}
+              onCancelReminders={onCancelReminders}
+              onCancelScheduledSends={onCancelScheduledSends}
+              onLoadMore={onLoadMoreThreads}
+              onMoveThreads={onMoveThreads}
+              onSnoozeThreads={onSnoozeThreads}
+              onUnsnoozeThreads={onUnsnoozeThreads}
+              onThreadAction={onThreadAction}
+              searchQuery={searchQuery}
+              selectedThreadId={visibleSelectedThreadId}
+              threads={visibleThreads}
+              onSelectThread={(threadId) => {
+                if (isDraftsFolder) {
+                  const savedDraft = drafts.find((draft) => draft.id === threadId) ?? null;
+                  if (!savedDraft) {
                     return;
                   }
 
-                  openComposerWithDraft(restoredDraft);
-                  setShortcutStatusLabel('Scheduled draft restored');
-                });
-                return;
-              }
+                  setSelectedDraftThreadId(threadId);
+                  openComposerFromSavedDraft(savedDraft);
+                  setShortcutStatusLabel('Draft restored');
+                  return;
+                }
 
-              if (isRemindersFolder) {
+                if (isScheduledFolder) {
+                  setSelectedScheduledThreadId(threadId);
+                  void onRestoreScheduledDraft(threadId).then((restoredDraft) => {
+                    if (!restoredDraft) {
+                      return;
+                    }
+
+                    openComposerWithDraft(restoredDraft);
+                    setShortcutStatusLabel('Scheduled draft restored');
+                  });
+                  return;
+                }
+
+                if (isRemindersFolder) {
+                  onSelectThread(threadId);
+                  return;
+                }
+
                 onSelectThread(threadId);
-                return;
-              }
-
-              onSelectThread(threadId);
-            }}
-          />
+              }}
+            />
+          </SectionErrorBoundary>
 
           <button
             aria-label="Resize thread and reader panels"
@@ -775,21 +782,23 @@ export const ShellFrame = ({
             <GripVertical size={16} />
           </button>
 
-          <MessageReaderPanel
-            contacts={contacts}
-            isMessagesLoading={isScheduledFolder ? false : isMessagesLoading}
-            messages={isScheduledFolder ? [] : messages}
-            selectedMessageId={selectedMessageId}
-            selectedThread={isScheduledFolder ? null : selectedThread}
-            onForwardMessage={handleForwardMessage}
-            onOpenExternalLink={onOpenExternalLink}
-            onPrintMessage={handlePrintMessage}
-            onReplyAllMessage={(message) => handleReplyMessage(message, true)}
-            onReplyMessage={(message) => handleReplyMessage(message, false)}
-            onSelectMessage={onSelectMessage}
-            onDownloadAttachment={onDownloadAttachment}
-            resolveInlineImageUrl={resolveInlineImageUrl}
-          />
+          <SectionErrorBoundary title="Message reader">
+            <MessageReaderPanel
+              contacts={contacts}
+              isMessagesLoading={isScheduledFolder ? false : isMessagesLoading}
+              messages={isScheduledFolder ? [] : messages}
+              selectedMessageId={selectedMessageId}
+              selectedThread={isScheduledFolder ? null : selectedThread}
+              onForwardMessage={handleForwardMessage}
+              onOpenExternalLink={onOpenExternalLink}
+              onPrintMessage={handlePrintMessage}
+              onReplyAllMessage={(message) => handleReplyMessage(message, true)}
+              onReplyMessage={(message) => handleReplyMessage(message, false)}
+              onSelectMessage={onSelectMessage}
+              onDownloadAttachment={onDownloadAttachment}
+              resolveInlineImageUrl={resolveInlineImageUrl}
+            />
+          </SectionErrorBoundary>
         </section>
 
         <MailStatusBar
