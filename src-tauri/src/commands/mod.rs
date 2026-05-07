@@ -1040,6 +1040,19 @@ fn dispatch_plugin_hook<T: Serialize>(
     Ok(())
 }
 
+fn dispatch_plugin_transform_hook<T>(state: &AppState, hook: &str, payload: &T) -> Result<T, String>
+where
+    T: Serialize + serde::de::DeserializeOwned,
+{
+    let payload = serde_json::to_value(payload).map_err(|error| error.to_string())?;
+    let mut plugin_host = state
+        .plugin_host
+        .lock()
+        .map_err(|_| "plugin host lock poisoned".to_string())?;
+    let (transformed_payload, _) = plugin_host.dispatch_transform_hook(hook, &payload);
+    serde_json::from_value(transformed_payload).map_err(|error| error.to_string())
+}
+
 async fn enqueue_outbox_message_for_state(
     state: &AppState,
     request: EnqueueOutboxMessageRequest,
@@ -1233,8 +1246,16 @@ async fn flush_outbox_for_state(
         .await
         .map_err(|error| error.to_string())?;
 
-    for queued_message in &queued_messages {
-        dispatch_plugin_hook(state, "on_message_sending", queued_message)?;
+    let mut transformed_queued_messages = Vec::with_capacity(queued_messages.len());
+    for queued_message in queued_messages {
+        let transformed_message =
+            dispatch_plugin_transform_hook(state, "on_message_sending", &queued_message)?;
+        state
+            .outbox_repo
+            .save(&transformed_message)
+            .await
+            .map_err(|error| error.to_string())?;
+        transformed_queued_messages.push(transformed_message);
     }
 
     if account.connection_settings.smtp_host.ends_with("example.com") {
@@ -1248,7 +1269,7 @@ async fn flush_outbox_for_state(
         )
         .await
         .map_err(|error| error.to_string())?;
-        dispatch_sent_message_hooks(state, &queued_messages).await?;
+        dispatch_sent_message_hooks(state, &transformed_queued_messages).await?;
         return Ok(report);
     }
 
@@ -1262,7 +1283,7 @@ async fn flush_outbox_for_state(
     )
     .await
     .map_err(|error| error.to_string())?;
-    dispatch_sent_message_hooks(state, &queued_messages).await?;
+    dispatch_sent_message_hooks(state, &transformed_queued_messages).await?;
     Ok(report)
 }
 
@@ -1392,11 +1413,13 @@ async fn save_draft_for_state(state: &AppState, request: SaveDraftRequest) -> Re
         created_at: now,
         updated_at: now,
     };
+    let transformed_message =
+        dispatch_plugin_transform_hook(state, "on_draft_created", &message)?;
     let thread = Thread {
         id: thread_id,
         account_id: request.account_id.clone(),
-        subject: request.subject.clone(),
-        snippet: message.snippet.clone(),
+        subject: transformed_message.subject.clone(),
+        snippet: transformed_message.snippet.clone(),
         message_count: 1,
         participant_ids: request
             .to
@@ -1423,10 +1446,9 @@ async fn save_draft_for_state(state: &AppState, request: SaveDraftRequest) -> Re
         .map_err(|error| error.to_string())?;
     state
         .message_repo
-        .save(&message)
+        .save(&transformed_message)
         .await
         .map_err(|error| error.to_string())?;
-    dispatch_plugin_hook(state, "on_draft_created", &message)?;
     state
         .task_queue
         .enqueue(MailTask::SyncDraftSaved {
@@ -2486,6 +2508,65 @@ hooks = [{hooks}]
             .expect("plugin should activate");
     }
 
+    fn install_transforming_hook_plugin(
+        state: &AppState,
+        plugin_id: &str,
+        hook: &str,
+        transformed_json: &str,
+    ) {
+        let root = make_temp_plugin_dir("backend_transform_hook_plugin");
+        let plugin_dir = root.join(plugin_id);
+        let backend_dir = plugin_dir.join("backend");
+        fs::create_dir_all(&backend_dir).expect("backend dir should exist");
+        let manifest = OBSERVING_HOOK_PLUGIN_TEMPLATE
+            .replace("{plugin_id}", plugin_id)
+            .replace("{hooks}", &format!(r#""{hook}""#));
+        fs::write(plugin_dir.join("plugin.toml"), manifest).expect("manifest should be written");
+        fs::write(
+            backend_dir.join("plugin.wasm"),
+            transforming_hook_wasm(hook, transformed_json),
+        )
+        .expect("backend wasm should be written");
+
+        let mut plugin_host = state.plugin_host.lock().unwrap();
+        plugin_host
+            .discover_plugins(&[root])
+            .expect("plugin discovery should succeed");
+        plugin_host
+            .activate(plugin_id)
+            .expect("plugin should activate");
+    }
+
+    fn transforming_hook_wasm(hook: &str, transformed_json: &str) -> Vec<u8> {
+        let escaped_json = transformed_json.replace('\\', "\\\\").replace('"', "\\\"");
+        let export_name = hook
+            .chars()
+            .map(|character| match character {
+                'a'..='z' | 'A'..='Z' | '0'..='9' => character.to_ascii_lowercase(),
+                _ => '_',
+            })
+            .collect::<String>();
+        let wat = format!(
+            r#"
+            (module
+              (import "openmail" "set_payload_json" (func $set_payload_json (param i32 i32) (result i32)))
+              (memory (export "memory") 1)
+              (data (i32.const 0) "{escaped_json}")
+              (func (export "init") (result i32)
+                i32.const 0)
+              (func (export "hook_{export_name}") (result i32)
+                i32.const 0
+                i32.const {length}
+                call $set_payload_json
+              )
+            )
+            "#,
+            length = transformed_json.len()
+        );
+
+        wat::parse_str(wat).expect("wat should compile")
+    }
+
     fn emitted_event_count(state: &AppState, plugin_id: &str) -> usize {
         let plugin_host = state.plugin_host.lock().unwrap();
         plugin_host
@@ -3081,6 +3162,50 @@ hooks = [{hooks}]
     }
 
     #[tokio::test]
+    async fn flush_outbox_command_applies_backend_send_transforms_before_delivery() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+        install_transforming_hook_plugin(
+            &state,
+            "com.openmail.plugin.outbox-transform",
+            "on_message_sending",
+            r#"{"mime_message":{"subject":"Plugin transformed subject"}}"#,
+        );
+
+        let queued = enqueue_outbox_message_for_state(
+            &state,
+            EnqueueOutboxMessageRequest {
+                account_id: "acc_demo".into(),
+                from: mail_address("leco@example.com"),
+                to: vec![mail_address("team@example.com")],
+                cc: vec![],
+                bcc: vec![],
+                reply_to: None,
+                subject: "Desktop alpha".into(),
+                html_body: "<p>Ready</p>".into(),
+                plain_body: Some("Ready".into()),
+                in_reply_to: None,
+                references: vec![],
+                attachments: vec![],
+            },
+        )
+        .await
+        .unwrap();
+
+        flush_outbox_for_state(&state, "acc_demo").await.unwrap();
+
+        let persisted = state
+            .outbox_repo
+            .find_by_id(&queued.id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(persisted.mime_message.subject, "Plugin transformed subject");
+        assert_eq!(persisted.status, OutboxStatus::Sent);
+    }
+
+    #[tokio::test]
     async fn schedule_send_command_persists_pending_message() {
         let state = build_test_state();
         seed_demo_data(&state).await.unwrap();
@@ -3276,6 +3401,53 @@ hooks = [{hooks}]
             emitted_event_count(&state, "com.openmail.plugin.draft-hooks"),
             1
         );
+    }
+
+    #[tokio::test]
+    async fn save_draft_command_applies_backend_draft_transforms_before_persisting() {
+        let state = build_test_state();
+        seed_demo_data(&state).await.unwrap();
+        install_transforming_hook_plugin(
+            &state,
+            "com.openmail.plugin.draft-transform",
+            "on_draft_created",
+            r#"{"subject":"Plugin draft subject","snippet":"Plugin draft snippet","body":"<p>Plugin draft body</p>","plain_text":"Plugin draft snippet"}"#,
+        );
+
+        let draft_id = save_draft_for_state(
+            &state,
+            SaveDraftRequest {
+                id: "draft_transform_1".into(),
+                account_id: "acc_demo".into(),
+                to: vec!["team@example.com".into()],
+                cc: vec![],
+                bcc: vec![],
+                subject: "Original subject".into(),
+                body: "<p>Original body</p>".into(),
+                in_reply_to: None,
+                references: vec![],
+            },
+        )
+        .await
+        .unwrap();
+
+        let persisted = state
+            .message_repo
+            .find_by_id(&draft_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let persisted_thread = state
+            .thread_repo
+            .find_by_id("draft_thr_draft_transform_1")
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(persisted.subject, "Plugin draft subject");
+        assert_eq!(persisted.body, "<p>Plugin draft body</p>");
+        assert_eq!(persisted_thread.subject, "Plugin draft subject");
+        assert_eq!(persisted_thread.snippet, "Plugin draft snippet");
     }
 
     #[tokio::test]

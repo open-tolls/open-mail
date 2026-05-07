@@ -548,7 +548,7 @@ src/components/preferences/
 
 ### 8.6 — Hooks System
 
-**Status atual:** terceiro corte entregue, agora cobrindo frontend e quase todo o caminho observacional do backend. No frontend, o `pluginManager` executa hooks em ordem deterministica por `plugin_id`, isola falhas sem derrubar os demais plugins e suporta `transform hooks` sequenciais via `compose:transform-body`; a shell despacha `compose:before-send` e `compose:transform-body` nos fluxos reais de `queue` e `send later`. No backend, o `PluginHost` agora recebe dispatch observacional em `on_draft_created`, `on_message_sending`, `on_message_sent`, `on_message_received`, `on_thread_changed`, `on_account_added` e `on_sync_completed`, com cobertura de integracao nos comandos de draft/send/account e acesso basico ao payload via `openmail.get_payload_len()`. O que continua aberto nessa frente e a transformacao real de payload no backend, alem de ampliar a cobertura automatizada do fio vindo do sync para `on_message_received` e `on_thread_changed`.
+**Status atual:** quarto corte entregue, agora fechando o caminho funcional de hooks entre frontend e backend. No frontend, o `pluginManager` executa hooks em ordem deterministica por `plugin_id`, isola falhas sem derrubar os demais plugins e suporta `transform hooks` sequenciais via `compose:transform-body`; a shell despacha `compose:before-send` e `compose:transform-body` nos fluxos reais de `queue` e `send later`. No backend, o `PluginHost` recebe dispatch em `on_draft_created`, `on_message_sending`, `on_message_sent`, `on_message_received`, `on_thread_changed`, `on_account_added` e `on_sync_completed`, e agora tambem suporta transformacao real de payload via `dispatch_transform_hook`, com merge JSON parcial aplicado sequencialmente entre plugins. O runtime WASM ganhou `openmail.set_payload_json(ptr, len)` para devolver patches estruturados ao host, e os fluxos reais de `save_draft` e `flush_outbox` ja persistem esses transforms antes de salvar/enviar.
 
 **Status adicional:** o manager frontend agora tambem modela `disabled/enabled/error` por plugin, captura falhas de `import/activate/deactivate`, faz rollback de registros parciais e surfacing do erro em `Preferences`, sem derrubar a shell. Com isso, o item de `Error isolation` fica coberto de ponta a ponta entre runtime Rust, hooks frontend e render slots.
 
@@ -621,7 +621,7 @@ npm install @openmail/plugin-sdk  # (pacote local inicialmente)
 - [x] Permission system funcional
 - [x] Plugin Manager (Frontend) com dynamic import
 - [x] Slot system funcional (14+ slots definidos)
-- [ ] Hook system funcional (backend + frontend)
+- [x] Hook system funcional (backend + frontend)
 - [x] Command system funcional
 - [ ] Plugin SDK (frontend + backend)
 - [x] Template de plugin

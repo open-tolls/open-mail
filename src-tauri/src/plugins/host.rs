@@ -33,6 +33,13 @@ pub struct HookResult {
     pub result: Value,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct TransformHookResult {
+    pub plugin_id: String,
+    pub result: Value,
+    pub transformed_payload: Value,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PermissionPolicy {
     pub allow_database: bool,
@@ -288,9 +295,9 @@ impl PluginHost {
             };
 
             match instance.call_hook(hook, data) {
-                Ok(result) => results.push(HookResult {
+                Ok(execution) => results.push(HookResult {
                     plugin_id: plugin.manifest.plugin.id.clone(),
-                    result,
+                    result: execution.result,
                 }),
                 Err(error) => {
                     plugin.state = PluginState::Error(error.to_string());
@@ -299,6 +306,56 @@ impl PluginHost {
         }
 
         results
+    }
+
+    pub fn dispatch_transform_hook(
+        &mut self,
+        hook: &str,
+        data: &Value,
+    ) -> (Value, Vec<TransformHookResult>) {
+        let mut current_payload = data.clone();
+        let mut results = Vec::new();
+        let mut plugin_ids = self.plugins.keys().cloned().collect::<Vec<_>>();
+        plugin_ids.sort();
+
+        for plugin_id in plugin_ids {
+            let Some(plugin) = self.plugins.get_mut(&plugin_id) else {
+                continue;
+            };
+            if plugin.state != PluginState::Active {
+                continue;
+            }
+
+            let Some(backend) = &plugin.manifest.backend else {
+                continue;
+            };
+
+            if !backend.hooks.iter().any(|registered| registered == hook) {
+                continue;
+            }
+
+            let Some(instance) = plugin.instance.as_mut() else {
+                continue;
+            };
+
+            match instance.call_hook(hook, &current_payload) {
+                Ok(execution) => {
+                    if let Some(transformed_payload) = execution.transformed_payload {
+                        merge_json_value(&mut current_payload, &transformed_payload);
+                        results.push(TransformHookResult {
+                            plugin_id: plugin.manifest.plugin.id.clone(),
+                            result: execution.result,
+                            transformed_payload: current_payload.clone(),
+                        });
+                    }
+                }
+                Err(error) => {
+                    plugin.state = PluginState::Error(error.to_string());
+                }
+            }
+        }
+
+        (current_payload, results)
     }
 
     pub fn execute_command(
@@ -332,6 +389,24 @@ impl PluginHost {
                 plugin.state = PluginState::Error(error.to_string());
                 Err(error)
             }
+        }
+    }
+}
+
+fn merge_json_value(target: &mut Value, patch: &Value) {
+    match (target, patch) {
+        (Value::Object(target_map), Value::Object(patch_map)) => {
+            for (key, patch_value) in patch_map {
+                match target_map.get_mut(key) {
+                    Some(target_value) => merge_json_value(target_value, patch_value),
+                    None => {
+                        target_map.insert(key.clone(), patch_value.clone());
+                    }
+                }
+            }
+        }
+        (target_value, patch_value) => {
+            *target_value = patch_value.clone();
         }
     }
 }
@@ -627,6 +702,68 @@ commands = [{ name = "probe_host", handler = "handle_probe_host" }]
     }
 
     #[test]
+    fn dispatches_transform_hooks_sequentially() {
+        let root = make_temp_plugin_dir("dispatch_transform_hooks");
+        let first_dir = root.join("plugin-a");
+        let second_dir = root.join("plugin-b");
+
+        fs::create_dir_all(first_dir.join("backend")).expect("first backend dir should exist");
+        fs::create_dir_all(second_dir.join("backend")).expect("second backend dir should exist");
+        fs::write(
+            first_dir.join("plugin.toml"),
+            BACKEND_PLUGIN.replace(
+                "com.openmail.plugin.send-later",
+                "com.openmail.plugin.transform-a",
+            )
+            .replace("hooks = [\"on_message_received\"]", "hooks = [\"on_message_sending\"]"),
+        )
+        .expect("first plugin manifest should be written");
+        fs::write(
+            second_dir.join("plugin.toml"),
+            BACKEND_PLUGIN.replace(
+                "com.openmail.plugin.send-later",
+                "com.openmail.plugin.transform-b",
+            )
+            .replace("hooks = [\"on_message_received\"]", "hooks = [\"on_message_sending\"]"),
+        )
+        .expect("second plugin manifest should be written");
+        fs::write(first_dir.join("backend/plugin.wasm"), transform_subject_plugin_wasm("Alpha"))
+            .expect("first wasm should be written");
+        fs::write(second_dir.join("backend/plugin.wasm"), transform_subject_plugin_wasm("Beta"))
+            .expect("second wasm should be written");
+
+        let mut host = PluginHost::new(PermissionChecker::new(PermissionPolicy::allow_all()));
+        host.discover_plugins(&[root.clone()])
+            .expect("plugin discovery should succeed");
+        host.activate("com.openmail.plugin.transform-a")
+            .expect("first plugin should activate");
+        host.activate("com.openmail.plugin.transform-b")
+            .expect("second plugin should activate");
+
+        let payload = serde_json::json!({
+            "mimeMessage": {
+                "subject": "Original"
+            }
+        });
+        let (transformed_payload, results) =
+            host.dispatch_transform_hook("on_message_sending", &payload);
+
+        assert_eq!(
+            transformed_payload,
+            serde_json::json!({
+                "mimeMessage": {
+                    "subject": "Beta"
+                }
+            })
+        );
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].plugin_id, "com.openmail.plugin.transform-a");
+        assert_eq!(results[1].plugin_id, "com.openmail.plugin.transform-b");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn isolates_plugin_errors_without_panicking_host() {
         let root = make_temp_plugin_dir("plugin_error_isolation");
         let plugin_dir = root.join("send-later");
@@ -812,5 +949,29 @@ commands = [{ name = "probe_host", handler = "handle_probe_host" }]
             "#,
         )
         .expect("wat should compile")
+    }
+
+    fn transform_subject_plugin_wasm(subject: &str) -> Vec<u8> {
+        let subject_json = format!(r#"{{"mimeMessage":{{"subject":"{subject}"}}}}"#);
+        let escaped = subject_json.replace('\\', "\\\\").replace('"', "\\\"");
+        let length = subject_json.len();
+        let wat = format!(
+            r#"
+            (module
+              (import "openmail" "set_payload_json" (func $set_payload_json (param i32 i32) (result i32)))
+              (memory (export "memory") 1)
+              (data (i32.const 0) "{escaped}")
+              (func (export "init") (result i32)
+                i32.const 0)
+              (func (export "hook_on_message_sending") (result i32)
+                i32.const 0
+                i32.const {length}
+                call $set_payload_json
+              )
+            )
+            "#
+        );
+
+        wat::parse_str(wat).expect("wat should compile")
     }
 }

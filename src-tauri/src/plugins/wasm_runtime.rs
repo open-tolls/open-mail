@@ -11,9 +11,16 @@ pub struct PluginContext {
     pub permissions: PluginPermissions,
     pub config: BTreeMap<String, Value>,
     pub last_payload: Option<Value>,
+    pub transformed_payload: Option<Value>,
     pub emitted_events: Vec<String>,
     pub logs: Vec<String>,
     pub host_calls: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HookExecution {
+    pub result: Value,
+    pub transformed_payload: Option<Value>,
 }
 
 #[derive(Debug)]
@@ -72,6 +79,23 @@ impl WasmInstance {
                         .as_ref()
                         .map(|payload| payload.to_string().len() as i32)
                         .unwrap_or(0)
+                },
+            )
+            .map_err(PluginError::WasmLinker)?;
+        linker
+            .func_wrap(
+                "openmail",
+                "set_payload_json",
+                |mut caller: wasmtime::Caller<'_, PluginContext>, ptr: i32, len: i32| -> i32 {
+                    match read_memory_string(&mut caller, ptr, len)
+                        .and_then(|json| serde_json::from_str::<Value>(&json).ok())
+                    {
+                        Some(value) => {
+                            caller.data_mut().transformed_payload = Some(value);
+                            1
+                        }
+                        None => 0,
+                    }
                 },
             )
             .map_err(PluginError::WasmLinker)?;
@@ -156,6 +180,7 @@ impl WasmInstance {
                 permissions: manifest.permissions.clone(),
                 config: BTreeMap::new(),
                 last_payload: None,
+                transformed_payload: None,
                 emitted_events: Vec::new(),
                 logs: Vec::new(),
                 host_calls: Vec::new(),
@@ -172,10 +197,17 @@ impl WasmInstance {
         self.call_optional("init").map(|_| ())
     }
 
-    pub fn call_hook(&mut self, hook: &str, data: &Value) -> Result<Value, PluginError> {
+    pub fn call_hook(&mut self, hook: &str, data: &Value) -> Result<HookExecution, PluginError> {
         self.store.data_mut().last_payload = Some(data.clone());
+        self.store.data_mut().transformed_payload = None;
         let export = format!("hook_{}", sanitize_export_name(hook));
-        self.call_required(&export)
+        let result = self.call_required(&export)?;
+        let transformed_payload = self.store.data().transformed_payload.clone();
+
+        Ok(HookExecution {
+            result,
+            transformed_payload,
+        })
     }
 
     pub fn call_command(&mut self, command: &str, args: &Value) -> Result<Value, PluginError> {
@@ -242,6 +274,25 @@ fn sanitize_export_name(value: &str) -> String {
         .collect()
 }
 
+fn read_memory_string(
+    caller: &mut wasmtime::Caller<'_, PluginContext>,
+    ptr: i32,
+    len: i32,
+) -> Option<String> {
+    if ptr < 0 || len < 0 {
+        return None;
+    }
+
+    let memory = caller.get_export("memory")?.into_memory()?;
+    let data = memory.data(caller);
+    let start = usize::try_from(ptr).ok()?;
+    let length = usize::try_from(len).ok()?;
+    let end = start.checked_add(length)?;
+    let bytes = data.get(start..end)?;
+
+    std::str::from_utf8(bytes).ok().map(ToOwned::to_owned)
+}
+
 fn validate_import_permissions(
     module: &Module,
     permissions: &PluginPermissions,
@@ -256,7 +307,7 @@ fn validate_import_permissions(
         };
 
         let allowed = match import.name() {
-            "log" | "emit_event" | "get_config_len" | "get_payload_len" => true,
+            "log" | "emit_event" | "get_config_len" | "get_payload_len" | "set_payload_json" => true,
             "db_query" => allows_database_read(permissions),
             "db_execute" => allows_database_write(permissions),
             "send_notification" => permissions.notifications,
