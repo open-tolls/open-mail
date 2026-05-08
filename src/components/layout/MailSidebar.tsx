@@ -95,7 +95,7 @@ export const MailSidebar = ({
   };
 
   return (
-    <aside className="sidebar-panel">
+    <aside aria-label="Mailbox sidebar" className="sidebar-panel" id="mail-sidebar">
       <div className="sidebar-header">
         <div className="brand-lockup">
           <div className="brand-mark">

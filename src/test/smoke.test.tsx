@@ -12,6 +12,9 @@ describe('App smoke test', () => {
 
     expect(screen.getByText('Open Mail')).toBeInTheDocument();
     expect(screen.getByText('Hello Open Mail')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main-content');
+    expect(screen.getByRole('link', { name: 'Skip to inbox' })).toHaveAttribute('href', '#mail-inbox-panel');
+    expect(screen.getByRole('link', { name: 'Skip to message' })).toHaveAttribute('href', '#mail-message-panel');
   });
 
   it('renders the isolated component gallery on the dev route', () => {

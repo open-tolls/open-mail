@@ -588,6 +588,17 @@ export const ShellFrame = ({
 
   return (
     <div className={isSidebarCollapsed ? 'shell-root shell-root-sidebar-collapsed' : 'shell-root'}>
+      <nav aria-label="Skip links" className="skip-links">
+        <a className="skip-link" href="#main-content">
+          Skip to content
+        </a>
+        <a className="skip-link" href="#mail-inbox-panel">
+          Skip to inbox
+        </a>
+        <a className="skip-link" href="#mail-message-panel">
+          Skip to message
+        </a>
+      </nav>
       <div className="shell-backdrop" aria-hidden="true" />
       <SectionErrorBoundary title="Sidebar">
         <MailSidebar
@@ -609,7 +620,7 @@ export const ShellFrame = ({
         />
       </SectionErrorBoundary>
 
-      <main className="content-panel">
+      <main className="content-panel" id="main-content">
         <MailTopbar
           backendStatus={backendStatus}
           backendTone={backendTone}
@@ -659,7 +670,8 @@ export const ShellFrame = ({
 
         {isComposerOpen ? (
           <SectionErrorBoundary title="Composer">
-            <Composer
+            <div id="mail-composer-panel" tabIndex={-1}>
+              <Composer
               contacts={contacts}
               fromOptions={composerAccounts}
               initialDraft={composerInitialDraft}
@@ -707,7 +719,8 @@ export const ShellFrame = ({
                 }
                 return didQueue;
               }}
-            />
+              />
+            </div>
           </SectionErrorBoundary>
         ) : null}
 

@@ -117,6 +117,58 @@ textarea {
   font: inherit;
 }
 
+a,
+button,
+input,
+textarea,
+select,
+summary,
+[role='button'],
+[role='option'],
+[role='separator'],
+[tabindex]:not([tabindex='-1']) {
+  outline: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible,
+[role='option']:focus-visible,
+[role='separator']:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.skip-links {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+}
+
+.skip-link {
+  position: absolute;
+  transform: translateY(-180%);
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(8, 17, 31, 0.96);
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid rgba(246, 182, 111, 0.32);
+  transition: transform 140ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .shell-root {
   position: relative;
   display: grid;

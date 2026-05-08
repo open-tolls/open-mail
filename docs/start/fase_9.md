@@ -96,17 +96,19 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 
 ### 9.2 — Accessibility (a11y)
 
+**Status atual:** primeiro corte entregue em navegacao e foco. O shell agora expoe `skip links` para `content`, `inbox` e `message`, adiciona landmarks/focus targets nas regioes principais e aplica `focus-visible` consistente nos elementos interativos. Isso ainda nao fecha a fase de a11y, mas ja melhora bastante a navegacao por teclado e prepara o terreno para screen reader copy, contrast audits e reduced motion.
+
 **O que implementar:**
 
 - [ ] Todos os elementos interativos com `role` e `aria-label`
 - [ ] Focus management (Tab order logico)
-- [ ] Focus visible (outline) em todos os focusaveis
+- [x] Focus visible (outline) em todos os focusaveis
 - [ ] Screen reader: thread list anuncia "Email from Alice, subject: Project update, 2 hours ago, unread"
 - [ ] Screen reader: message body legivel
 - [ ] High contrast mode (respeitar `prefers-contrast: high`)
 - [ ] Reduced motion (respeitar `prefers-reduced-motion`)
 - [ ] Keyboard-only navigation em toda a app
-- [ ] Skip links ("Skip to inbox", "Skip to message")
+- [x] Skip links ("Skip to inbox", "Skip to message")
 - [ ] Color contrast minimo 4.5:1 (WCAG AA)
 - [ ] Font sizing: respeitar preferencia do OS
 - [ ] Error messages acessiveis (aria-live regions)

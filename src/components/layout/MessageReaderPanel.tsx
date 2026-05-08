@@ -36,7 +36,12 @@ export const MessageReaderPanel = ({
   resolveInlineImageUrl
 }: MessageReaderPanelProps) => {
   return (
-    <aside className="insight-panel reader-panel">
+    <aside
+      aria-label="Message reader"
+      className="insight-panel reader-panel"
+      id="mail-message-panel"
+      tabIndex={-1}
+    >
       <div className="section-heading">
         <div>
           <p className="eyebrow">Thread reader</p>

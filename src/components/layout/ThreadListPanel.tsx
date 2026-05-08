@@ -229,7 +229,12 @@ export const ThreadListPanel = ({
   const snoozePresets = buildSnoozePresets();
 
   return (
-    <div className="thread-panel">
+    <div
+      aria-label="Inbox thread list section"
+      className="thread-panel"
+      id="mail-inbox-panel"
+      tabIndex={-1}
+    >
       <div className="section-heading">
         <div>
           <p className="eyebrow">Prototype inbox</p>
