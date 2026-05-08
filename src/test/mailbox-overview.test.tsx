@@ -185,6 +185,26 @@ describe('mailbox overview integration', () => {
     expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
   });
 
+  it('resizes the thread panel with keyboard controls', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const resizer = await screen.findByRole('separator', { name: 'Resize thread and reader panels' });
+    expect(resizer).toHaveAttribute('aria-valuenow', '58');
+
+    fireEvent.keyDown(resizer, { key: 'ArrowLeft' });
+    expect(resizer).toHaveAttribute('aria-valuenow', '54');
+
+    fireEvent.keyDown(resizer, { key: 'End' });
+    expect(resizer).toHaveAttribute('aria-valuenow', '72');
+
+    fireEvent.keyDown(resizer, { key: 'Home' });
+    expect(resizer).toHaveAttribute('aria-valuenow', '38');
+  });
+
   it('supports phase 3 keyboard shortcuts for search, composer, and thread navigation', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

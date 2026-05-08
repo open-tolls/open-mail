@@ -1,4 +1,4 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Composer, type ComposerDraft } from '@components/composer/Composer';
 import { SectionErrorBoundary } from '@components/error/SectionErrorBoundary';
 import { GripVertical } from 'lucide-react';
@@ -308,6 +308,9 @@ export const ShellFrame = ({
   const workspaceStyle = {
     '--thread-panel-width': `${threadPanelWidth}%`
   } as CSSProperties;
+  const adjustThreadPanelWidth = useCallback((nextWidth: number) => {
+    setThreadPanelWidth(nextWidth);
+  }, [setThreadPanelWidth]);
   const openComposerWithDraft = useCallback((draft?: Partial<ComposerDraft>) => {
     setSidebarCollapsed(false);
     if (!draft && activeSavedDraft) {
@@ -573,7 +576,7 @@ export const ShellFrame = ({
       }
 
       const nextWidth = ((event.clientX - bounds.left) / bounds.width) * 100;
-      setThreadPanelWidth(nextWidth);
+      adjustThreadPanelWidth(nextWidth);
     };
     const stopResize = () => setIsResizingThreadPanel(false);
 
@@ -584,7 +587,32 @@ export const ShellFrame = ({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', stopResize);
     };
-  }, [isResizingThreadPanel, setThreadPanelWidth]);
+  }, [adjustThreadPanelWidth, isResizingThreadPanel]);
+
+  const handlePanelResizerKeyDown = useCallback((event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      adjustThreadPanelWidth(threadPanelWidth - 4);
+      return;
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      adjustThreadPanelWidth(threadPanelWidth + 4);
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      adjustThreadPanelWidth(38);
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      adjustThreadPanelWidth(72);
+    }
+  }, [adjustThreadPanelWidth, threadPanelWidth]);
 
   return (
     <div className={isSidebarCollapsed ? 'shell-root shell-root-sidebar-collapsed' : 'shell-root'}>
@@ -796,7 +824,11 @@ export const ShellFrame = ({
           <button
             aria-label="Resize thread and reader panels"
             aria-orientation="vertical"
+            aria-valuemax={72}
+            aria-valuemin={38}
+            aria-valuenow={Math.round(threadPanelWidth)}
             className="panel-resizer"
+            onKeyDown={handlePanelResizerKeyDown}
             onPointerDown={(event) => {
               event.currentTarget.setPointerCapture(event.pointerId);
               setIsResizingThreadPanel(true);
