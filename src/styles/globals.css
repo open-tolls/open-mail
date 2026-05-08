@@ -5,17 +5,17 @@
   --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
   --font-body: 'Avenir Next', 'Segoe UI Variable', 'Segoe UI', sans-serif;
   --bg: #08111f;
-  --bg-elevated: rgba(10, 23, 39, 0.78);
-  --bg-soft: rgba(15, 31, 53, 0.6);
+  --bg-elevated: rgba(9, 20, 34, 0.84);
+  --bg-soft: rgba(13, 28, 47, 0.72);
   --bg-page:
     radial-gradient(circle at top left, rgba(240, 141, 73, 0.18), transparent 24%),
     radial-gradient(circle at top right, rgba(132, 216, 199, 0.12), transparent 28%),
     linear-gradient(180deg, #0c1625 0%, #07101d 100%);
-  --grid-line: rgba(255, 255, 255, 0.02);
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.16);
+  --grid-line: rgba(255, 255, 255, 0.03);
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.22);
   --text: #f5f1e8;
-  --muted: #b9c1cd;
+  --muted: #d2d9e3;
   --accent: #f6b66f;
   --accent-strong: #f08d49;
   --success: #84d8c7;

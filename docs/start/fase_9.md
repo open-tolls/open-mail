@@ -96,7 +96,7 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 
 ### 9.2 — Accessibility (a11y)
 
-**Status atual:** setimo corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements, `aria-live` nos toasts, regiao acessivel no reader, `focus management` nos dialogs e navegacao por setas na thread list, o reader agora tambem permite navegar entre mensagens com `ArrowUp`, `ArrowDown`, `Home` e `End`. Isso ainda nao fecha a fase de a11y, mas deixa o fluxo keyboard-only muito mais consistente entre inbox e leitura.
+**Status atual:** oitavo corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements, `aria-live` nos toasts, regiao acessivel no reader, `focus management` nos dialogs e navegacao por setas na thread list, o reader agora tambem permite navegar entre mensagens com `ArrowUp`, `ArrowDown`, `Home` e `End`, e o shell recebeu um reforco nos tokens de contraste/legibilidade para melhorar leitura de bordas, superficies e texto secundario. Isso ainda nao fecha a fase de a11y, mas deixa o fluxo keyboard-only e a leitura visual mais consistentes entre inbox e leitura.
 
 **O que implementar:**
 
