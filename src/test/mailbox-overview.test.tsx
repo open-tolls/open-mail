@@ -110,6 +110,29 @@ describe('mailbox overview integration', () => {
     expect(window.location.pathname).toBe('/archive');
   });
 
+  it('supports keyboard navigation across sidebar folders and labels', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const folderNav = await screen.findByLabelText('Mailbox folders');
+    const firstNavButton = within(folderNav).getByRole('button', { name: /snoozed/i });
+
+    firstNavButton.focus();
+    expect(firstNavButton).toHaveFocus();
+
+    fireEvent.keyDown(firstNavButton, { key: 'ArrowDown' });
+    expect(within(folderNav).getByRole('button', { name: /scheduled/i })).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'End' });
+    expect(within(folderNav).getByRole('button', { name: 'Label tauri-health' })).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Home' });
+    expect(within(folderNav).getByRole('button', { name: /snoozed/i })).toHaveFocus();
+  });
+
   it('filters threads through the shell search input', async () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

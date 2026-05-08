@@ -14,6 +14,7 @@ import {
   Star,
   Trash2
 } from 'lucide-react';
+import { type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef } from 'react';
 import openMailLogo from '@/assets/logo.svg';
 import { PluginSlot } from '@/plugins/PluginSlot';
 import type { FolderRecord, SyncStatusDetail } from '@lib/contracts';
@@ -76,6 +77,15 @@ export const MailSidebar = ({
 }: MailSidebarProps) => {
   const systemFolders = folders.filter((folder) => folder.role);
   const customFolders = folders.filter((folder) => !folder.role);
+  const sidebarNavItemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const sidebarNavOrder = useMemo(
+    () => [
+      ...systemFolders.map((folder) => `folder:${folder.id}`),
+      ...customFolders.map((folder) => `custom-folder:${folder.id}`),
+      ...labelPreviews.map((label) => `label:${label.id}`)
+    ],
+    [customFolders, systemFolders]
+  );
   const formatSyncLabel = (accountId: string) => {
     const detail = syncStatusByAccountId[accountId];
 
@@ -93,6 +103,53 @@ export const MailSidebar = ({
 
     return detail.state.kind === 'running' ? 'Sync running' : 'Sync idle';
   };
+
+  const registerSidebarNavItem = (itemId: string) => (element: HTMLButtonElement | null) => {
+    sidebarNavItemRefs.current[itemId] = element;
+  };
+
+  const moveSidebarNavFocus = (currentItemId: string, offset: number) => {
+    const currentIndex = sidebarNavOrder.indexOf(currentItemId);
+
+    if (currentIndex === -1 || !sidebarNavOrder.length) {
+      return;
+    }
+
+    const nextIndex = (currentIndex + offset + sidebarNavOrder.length) % sidebarNavOrder.length;
+    sidebarNavItemRefs.current[sidebarNavOrder[nextIndex]]?.focus();
+  };
+
+  const focusSidebarNavBoundary = (itemId: string) => {
+    if (!sidebarNavOrder.length) {
+      return;
+    }
+
+    const targetId = itemId === 'first' ? sidebarNavOrder[0] : sidebarNavOrder[sidebarNavOrder.length - 1];
+    sidebarNavItemRefs.current[targetId]?.focus();
+  };
+
+  const createSidebarNavKeyDownHandler =
+    (itemId: string) => (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        moveSidebarNavFocus(itemId, 1);
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        moveSidebarNavFocus(itemId, -1);
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault();
+        focusSidebarNavBoundary('first');
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault();
+        focusSidebarNavBoundary('last');
+      }
+    };
 
   return (
     <aside aria-label="Mailbox sidebar" className="sidebar-panel" id="mail-sidebar">
@@ -161,7 +218,9 @@ export const MailSidebar = ({
                 aria-label={isCollapsed ? folder.name : undefined}
                 className={folder.id === activeFolderId ? 'folder-link folder-link-active' : 'folder-link'}
                 key={folder.id}
+                onKeyDown={createSidebarNavKeyDownHandler(`folder:${folder.id}`)}
                 onClick={() => onSelectFolder(folder.id)}
+                ref={registerSidebarNavItem(`folder:${folder.id}`)}
                 type="button"
               >
                 <span className="folder-link-main">
@@ -191,7 +250,9 @@ export const MailSidebar = ({
                 <button
                   className={folder.id === activeFolderId ? 'folder-link folder-link-active' : 'folder-link'}
                   key={folder.id}
+                  onKeyDown={createSidebarNavKeyDownHandler(`custom-folder:${folder.id}`)}
                   onClick={() => onSelectFolder(folder.id)}
+                  ref={registerSidebarNavItem(`custom-folder:${folder.id}`)}
                   type="button"
                 >
                   <span className="folder-link-main">
@@ -211,7 +272,14 @@ export const MailSidebar = ({
           <details className="folder-group" open>
             <summary className="folder-group-title">Labels</summary>
             {labelPreviews.map((label) => (
-              <button aria-label={`Label ${label.name}`} className="label-link" key={label.id} type="button">
+              <button
+                aria-label={`Label ${label.name}`}
+                className="label-link"
+                key={label.id}
+                onKeyDown={createSidebarNavKeyDownHandler(`label:${label.id}`)}
+                ref={registerSidebarNavItem(`label:${label.id}`)}
+                type="button"
+              >
                 <span className="label-color" style={{ backgroundColor: label.color }} />
                 <span>{label.name}</span>
               </button>
