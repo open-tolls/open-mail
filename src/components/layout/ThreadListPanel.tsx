@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { PluginSlot } from '@/plugins/PluginSlot';
 import { StatusBadge } from '@components/ui/StatusBadge';
 import { ThreadList } from '@components/thread-list/ThreadList';
@@ -87,6 +87,9 @@ export const ThreadListPanel = ({
   const [moveThreadIds, setMoveThreadIds] = useState<string[] | null>(null);
   const [snoozeThreadIds, setSnoozeThreadIds] = useState<string[] | null>(null);
   const [customSnoozeAt, setCustomSnoozeAt] = useState('');
+  const moveDialogCloseRef = useRef<HTMLButtonElement | null>(null);
+  const snoozeDialogCloseRef = useRef<HTMLButtonElement | null>(null);
+  const labelDialogCloseRef = useRef<HTMLButtonElement | null>(null);
   const filteredThreads = useMemo(() => filterThreads(threads, activeFilter), [activeFilter, threads]);
   const title = isSearchActive ? `Search results for "${searchQuery.trim()}"` : activeFolderName ?? 'Message stream';
   const countLabel = isSearchActive ? `${filteredThreads.length} matches` : `${filteredThreads.length} threads`;
@@ -165,6 +168,34 @@ export const ThreadListPanel = ({
 
     openLabelDialog(dialogRequest.threadIds);
   }, [dialogRequest?.action, dialogRequest?.requestId, dialogRequest?.threadIds]);
+
+  useEffect(() => {
+    if (moveThreadIds) {
+      moveDialogCloseRef.current?.focus();
+    }
+  }, [moveThreadIds]);
+
+  useEffect(() => {
+    if (snoozeThreadIds) {
+      snoozeDialogCloseRef.current?.focus();
+    }
+  }, [snoozeThreadIds]);
+
+  useEffect(() => {
+    if (labelThreadIds) {
+      labelDialogCloseRef.current?.focus();
+    }
+  }, [labelThreadIds]);
+
+  const handleDialogKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+    close: () => void
+  ) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+    }
+  };
 
   const handleLabelToggle = (labelId: string) => {
     setCheckedLabelIds((currentIds) =>
@@ -268,10 +299,15 @@ export const ThreadListPanel = ({
         props={{ activeFilter, activeFolderId, activeFolderName, selectedThreadId, threadCount: filteredThreads.length }}
       />
       {moveThreadIds ? (
-        <div aria-label="Move threads dialog" className="thread-action-dialog" role="dialog">
+        <div
+          aria-label="Move threads dialog"
+          className="thread-action-dialog"
+          onKeyDown={(event) => handleDialogKeyDown(event, () => setMoveThreadIds(null))}
+          role="dialog"
+        >
           <div>
             <strong>Move {moveThreadIds.length} thread{moveThreadIds.length === 1 ? '' : 's'} to...</strong>
-            <button aria-label="Close move dialog" onClick={() => setMoveThreadIds(null)} type="button">
+            <button aria-label="Close move dialog" onClick={() => setMoveThreadIds(null)} ref={moveDialogCloseRef} type="button">
               Close
             </button>
           </div>
@@ -286,10 +322,20 @@ export const ThreadListPanel = ({
         </div>
       ) : null}
       {snoozeThreadIds ? (
-        <div aria-label="Snooze threads dialog" className="thread-action-dialog" role="dialog">
+        <div
+          aria-label="Snooze threads dialog"
+          className="thread-action-dialog"
+          onKeyDown={(event) => handleDialogKeyDown(event, () => setSnoozeThreadIds(null))}
+          role="dialog"
+        >
           <div>
             <strong>Snooze {snoozeThreadIds.length} thread{snoozeThreadIds.length === 1 ? '' : 's'} until...</strong>
-            <button aria-label="Close snooze dialog" onClick={() => setSnoozeThreadIds(null)} type="button">
+            <button
+              aria-label="Close snooze dialog"
+              onClick={() => setSnoozeThreadIds(null)}
+              ref={snoozeDialogCloseRef}
+              type="button"
+            >
               Close
             </button>
           </div>
@@ -320,10 +366,20 @@ export const ThreadListPanel = ({
         </div>
       ) : null}
       {labelThreadIds ? (
-        <div aria-label="Label threads dialog" className="thread-action-dialog" role="dialog">
+        <div
+          aria-label="Label threads dialog"
+          className="thread-action-dialog"
+          onKeyDown={(event) => handleDialogKeyDown(event, () => setLabelThreadIds(null))}
+          role="dialog"
+        >
           <div>
             <strong>Label {labelThreadIds.length} thread{labelThreadIds.length === 1 ? '' : 's'}</strong>
-            <button aria-label="Close label dialog" onClick={() => setLabelThreadIds(null)} type="button">
+            <button
+              aria-label="Close label dialog"
+              onClick={() => setLabelThreadIds(null)}
+              ref={labelDialogCloseRef}
+              type="button"
+            >
               Close
             </button>
           </div>

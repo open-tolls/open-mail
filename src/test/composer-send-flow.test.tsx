@@ -168,6 +168,37 @@ describe('Composer send flow', () => {
     expect(typeof onSchedule.mock.calls[0]?.[1]).toBe('string');
   });
 
+  it('moves focus into send later dialog and closes it with Escape', () => {
+    render(
+      <Composer
+        from="leco@example.com"
+        initialDraft={{
+          attachments: [],
+          bcc: [],
+          body: '<p>Hello</p>',
+          cc: [],
+          subject: 'Schedule me',
+          to: ['atlas@example.com']
+        }}
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
+        onSend={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+
+    const closeButton = screen.getByRole('button', { name: 'Close send later dialog' });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Send later dialog' }), { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Send later dialog' })).not.toBeInTheDocument();
+  });
+
   it('sets a follow-up reminder before queueing a draft', async () => {
     const onSend = vi.fn().mockResolvedValue(true);
 

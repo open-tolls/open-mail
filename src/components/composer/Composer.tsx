@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { ComposerAttachments } from '@components/composer/ComposerAttachments';
 import { ComposerEditor } from '@components/composer/ComposerEditor';
 import { ComposerFooter } from '@components/composer/ComposerFooter';
@@ -115,6 +115,8 @@ export const Composer = ({
   const updateSignature = useSignatureStore((state) => state.update);
   const templates = useTemplateStore((state) => state.templates);
   const previousFromAccountIdRef = useRef(mergedDraft.fromAccountId);
+  const reminderDialogCloseRef = useRef<HTMLButtonElement | null>(null);
+  const scheduleDialogCloseRef = useRef<HTMLButtonElement | null>(null);
   const resolvedFromOptions = fromOptions?.length
     ? fromOptions
     : [
@@ -225,8 +227,30 @@ export const Composer = ({
     signatures
   ]);
 
+  useEffect(() => {
+    if (isReminderDialogOpen) {
+      reminderDialogCloseRef.current?.focus();
+    }
+  }, [isReminderDialogOpen]);
+
+  useEffect(() => {
+    if (isScheduleDialogOpen) {
+      scheduleDialogCloseRef.current?.focus();
+    }
+  }, [isScheduleDialogOpen]);
+
   const handleClose = () => {
     onClose();
+  };
+
+  const handleAuxDialogKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+    close: () => void
+  ) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+    }
   };
 
   const handleDiscard = () => {
@@ -499,10 +523,20 @@ export const Composer = ({
         status={localStatus ?? status}
       />
       {isReminderDialogOpen ? (
-        <div aria-label="Send reminder dialog" className="thread-action-dialog" role="dialog">
+        <div
+          aria-label="Send reminder dialog"
+          className="thread-action-dialog"
+          onKeyDown={(event) => handleAuxDialogKeyDown(event, () => setIsReminderDialogOpen(false))}
+          role="dialog"
+        >
           <div>
             <strong>Remind me if nobody replies</strong>
-            <button aria-label="Close send reminder dialog" onClick={() => setIsReminderDialogOpen(false)} type="button">
+            <button
+              aria-label="Close send reminder dialog"
+              onClick={() => setIsReminderDialogOpen(false)}
+              ref={reminderDialogCloseRef}
+              type="button"
+            >
               Close
             </button>
           </div>
@@ -537,10 +571,20 @@ export const Composer = ({
         </div>
       ) : null}
       {isScheduleDialogOpen ? (
-        <div aria-label="Send later dialog" className="thread-action-dialog" role="dialog">
+        <div
+          aria-label="Send later dialog"
+          className="thread-action-dialog"
+          onKeyDown={(event) => handleAuxDialogKeyDown(event, () => setIsScheduleDialogOpen(false))}
+          role="dialog"
+        >
           <div>
             <strong>Schedule this message</strong>
-            <button aria-label="Close send later dialog" onClick={() => setIsScheduleDialogOpen(false)} type="button">
+            <button
+              aria-label="Close send later dialog"
+              onClick={() => setIsScheduleDialogOpen(false)}
+              ref={scheduleDialogCloseRef}
+              type="button"
+            >
               Close
             </button>
           </div>

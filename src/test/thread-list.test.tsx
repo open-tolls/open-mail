@@ -211,6 +211,31 @@ describe('ThreadList', () => {
     expect(screen.queryByRole('dialog', { name: 'Move threads dialog' })).not.toBeInTheDocument();
   });
 
+  it('moves focus into thread dialogs and closes them with Escape', () => {
+    render(
+      <ThreadListPanel
+        activeFolderId="fld_inbox"
+        activeFolderName="Inbox"
+        folders={[folder('fld_inbox', 'Inbox'), folder('fld_archive', 'Archive')]}
+        isSearchActive={false}
+        onMoveThreads={vi.fn()}
+        onSelectThread={vi.fn()}
+        searchQuery=""
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Thread 0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected threads to folder' }));
+
+    const closeButton = screen.getByRole('button', { name: 'Close move dialog' });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Move threads dialog' }), { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Move threads dialog' })).not.toBeInTheDocument();
+  });
+
   it('opens a label dialog and reports checked plus newly created labels', () => {
     const onApplyLabels = vi.fn();
 

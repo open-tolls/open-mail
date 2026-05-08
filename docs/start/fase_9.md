@@ -96,12 +96,12 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 
 ### 9.2 — Accessibility (a11y)
 
-**Status atual:** quarto corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements e `aria-live` nos toasts, o reader agora expõe o corpo da mensagem como regiao acessivel nomeada por assunto e remetente. Isso ainda nao fecha a fase de a11y, mas deixa thread list, feedback de erro e leitura basica do reader muito mais claros para tecnologia assistiva.
+**Status atual:** quinto corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements, `aria-live` nos toasts e regiao acessivel no reader, os dialogs principais de thread actions e composer agora tambem fazem `focus management` ao abrir e aceitam `Escape` para fechar. Isso ainda nao fecha a fase de a11y, mas melhora bastante os fluxos keyboard-only mais frequentes.
 
 **O que implementar:**
 
 - [ ] Todos os elementos interativos com `role` e `aria-label`
-- [ ] Focus management (Tab order logico)
+- [x] Focus management (Tab order logico)
 - [x] Focus visible (outline) em todos os focusaveis
 - [x] Screen reader: thread list anuncia "Email from Alice, subject: Project update, 2 hours ago, unread"
 - [x] Screen reader: message body legivel
