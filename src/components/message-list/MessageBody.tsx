@@ -3,6 +3,7 @@ import type { AttachmentRecord } from '@lib/contracts';
 
 type MessageBodyProps = {
   attachments?: AttachmentRecord[];
+  ariaLabel?: string;
   html: string;
   onOpenExternalLink?: (url: string) => void;
   plainText: string | null;
@@ -227,6 +228,7 @@ const resolveLocalInlineImageUrl = (localPath: string) => localPath;
 
 export const MessageBody = ({
   attachments = [],
+  ariaLabel = 'Message body',
   html,
   onOpenExternalLink,
   plainText,
@@ -261,7 +263,7 @@ export const MessageBody = ({
   };
 
   return (
-    <div className="message-body">
+    <section aria-label={ariaLabel} className="message-body">
       {hasBlockedRemoteImages && !areRemoteImagesVisible ? (
         <div className="message-remote-images-warning">
           <span>Remote images are blocked for privacy.</span>
@@ -284,6 +286,6 @@ export const MessageBody = ({
         {isQuotedTextVisible ? 'Hide quoted text' : 'Show quoted text'}
       </button>
       {isQuotedTextVisible ? <blockquote className="message-quoted-text">Quoted text placeholder</blockquote> : null}
-    </div>
+    </section>
   );
 };

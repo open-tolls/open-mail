@@ -112,6 +112,7 @@ describe('MessageList', () => {
 
     expect(onSelectMessage).toHaveBeenCalledWith('msg_first');
     expect(screen.getByText('First message')).toBeInTheDocument();
+    expect(screen.getAllByRole('region', { name: 'Message body for Thread subject from Sender Example' })).toHaveLength(2);
   });
 
   it('shows a contact card from the message header on hover', async () => {

@@ -40,6 +40,10 @@ export const MessageItem = ({
 }: MessageItemProps) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const securityAnalysis = analyzeMessageSecurity(message);
+  const primarySender = message.from[0];
+  const bodyAriaLabel = `Message body for ${message.subject || 'No subject'} from ${
+    primarySender?.name ?? primarySender?.email ?? 'Unknown sender'
+  }`;
 
   useEffect(() => {
     setIsExpanded(defaultExpanded);
@@ -60,6 +64,7 @@ export const MessageItem = ({
       <MessageSecurityBanner analysis={securityAnalysis} message={message} onOpenExternalLink={onOpenExternalLink} />
       <MessageBody
         attachments={message.attachments}
+        ariaLabel={bodyAriaLabel}
         html={message.body}
         plainText={message.plain_text}
         onOpenExternalLink={onOpenExternalLink}
