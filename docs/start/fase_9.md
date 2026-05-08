@@ -96,7 +96,7 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 
 ### 9.2 — Accessibility (a11y)
 
-**Status atual:** oitavo corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements, `aria-live` nos toasts, regiao acessivel no reader, `focus management` nos dialogs e navegacao por setas na thread list, o reader agora tambem permite navegar entre mensagens com `ArrowUp`, `ArrowDown`, `Home` e `End`, e o shell recebeu um reforco nos tokens de contraste/legibilidade para melhorar leitura de bordas, superficies e texto secundario. Isso ainda nao fecha a fase de a11y, mas deixa o fluxo keyboard-only e a leitura visual mais consistentes entre inbox e leitura.
+**Status atual:** nono corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements, `aria-live` nos toasts, regiao acessivel no reader, `focus management` nos dialogs e navegacao por setas na thread list, o reader agora tambem permite navegar entre mensagens com `ArrowUp`, `ArrowDown`, `Home` e `End`, o shell recebeu um reforco nos tokens de contraste/legibilidade para melhorar leitura de bordas, superficies e texto secundario, e a base de tipografia passou a respeitar explicitamente `text-size-adjust` do sistema/navegador com microcopy minima um pouco menos comprimida. Isso ainda nao fecha a fase de a11y, mas deixa o fluxo keyboard-only e a leitura visual mais consistentes entre inbox e leitura.
 
 **O que implementar:**
 
@@ -110,7 +110,7 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 - [ ] Keyboard-only navigation em toda a app
 - [x] Skip links ("Skip to inbox", "Skip to message")
 - [ ] Color contrast minimo 4.5:1 (WCAG AA)
-- [ ] Font sizing: respeitar preferencia do OS
+- [x] Font sizing: respeitar preferencia do OS
 - [x] Error messages acessiveis (aria-live regions)
 
 **Ferramentas de teste:**

@@ -4,6 +4,8 @@
   color-scheme: dark;
   --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
   --font-body: 'Avenir Next', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  --font-size-caption: clamp(0.8rem, 0.78rem + 0.08vw, 0.9rem);
+  --font-size-micro: clamp(0.76rem, 0.74rem + 0.08vw, 0.84rem);
   --bg: #08111f;
   --bg-elevated: rgba(9, 20, 34, 0.84);
   --bg-soft: rgba(13, 28, 47, 0.72);
@@ -33,10 +35,17 @@ body,
   min-height: 100%;
 }
 
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg-page);
   color: var(--text);
   font-family: var(--font-body);
+  line-height: 1.5;
 }
 
 body::before {
@@ -252,7 +261,7 @@ summary:focus-visible,
   margin: 0 0 4px;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  font-size: 0.7rem;
+  font-size: var(--font-size-micro);
   color: var(--muted);
 }
 
@@ -398,7 +407,7 @@ summary:focus-visible,
   display: grid;
   gap: 7px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--font-size-caption);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -864,7 +873,7 @@ summary:focus-visible,
 
 .outbox-mini-card span {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--font-size-micro);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -893,7 +902,7 @@ summary:focus-visible,
 .folder-group-title {
   margin: 0;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--font-size-micro);
   letter-spacing: 0.14em;
   list-style: none;
   text-transform: uppercase;
@@ -1073,7 +1082,7 @@ summary.folder-group-title::-webkit-details-marker {
 
 .account-list-item small {
   color: var(--accent);
-  font-size: 0.74rem;
+  font-size: var(--font-size-micro);
   text-transform: capitalize;
 }
 
@@ -2438,7 +2447,7 @@ summary.folder-group-title::-webkit-details-marker {
 
 .message-attachment-card em {
   color: var(--accent);
-  font-size: 0.76rem;
+  font-size: var(--font-size-caption);
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.08em;
