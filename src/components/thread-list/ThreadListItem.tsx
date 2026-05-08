@@ -14,6 +14,7 @@ type ThreadListItemProps = {
   thread: ThreadSummary;
   onAction: (action: ThreadAction, threadId: string) => void;
   onContextMenu: (threadId: string, event: MouseEvent<HTMLDivElement>) => void;
+  onOpenContextMenu?: (threadId: string, element: HTMLElement) => void;
   onNavigate?: (threadId: string, direction: 'next' | 'previous' | 'first' | 'last') => void;
   onSelect: (threadId: string, event: ThreadSelectEvent) => void;
 };
@@ -26,6 +27,7 @@ export const ThreadListItem = ({
   thread,
   onAction,
   onContextMenu,
+  onOpenContextMenu,
   onNavigate,
   onSelect
 }: ThreadListItemProps) => {
@@ -64,6 +66,12 @@ export const ThreadListItem = ({
     if (event.key === 'End') {
       event.preventDefault();
       onNavigate?.(thread.id, 'last');
+      return;
+    }
+
+    if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+      event.preventDefault();
+      onOpenContextMenu?.(thread.id, event.currentTarget);
     }
   };
 

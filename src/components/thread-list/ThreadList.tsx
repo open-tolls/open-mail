@@ -1,4 +1,4 @@
-import { type MouseEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type UIEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Clock3, MailOpen, Star, Trash2, Undo2, XCircle } from 'lucide-react';
 import type { ThreadSummary } from '@lib/contracts';
 import { ThreadListEmpty } from '@components/thread-list/ThreadListEmpty';
@@ -64,6 +64,7 @@ export const ThreadList = ({
   onSelectThread
 }: ThreadListProps) => {
   const parentRef = useRef<HTMLDivElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(640);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
@@ -118,6 +119,8 @@ export const ThreadList = ({
     if (!contextMenu) {
       return;
     }
+    const firstItem = contextMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]');
+    firstItem?.focus();
 
     const closeContextMenu = () => setContextMenu(null);
     const closeContextMenuOnEscape = (event: KeyboardEvent) => {
@@ -181,6 +184,18 @@ export const ThreadList = ({
     });
   };
 
+  const openContextMenuFromKeyboard = (threadId: string, element: HTMLElement) => {
+    const bounds = element.getBoundingClientRect();
+    setSelectedIds(new Set([threadId]));
+    setLastSelectedIndex(threads.findIndex((thread) => thread.id === threadId));
+    onSelectThread(threadId);
+    setContextMenu({
+      threadId,
+      x: bounds.left + bounds.width / 2,
+      y: bounds.top + 12
+    });
+  };
+
   const handleScroll = (event: UIEvent<HTMLDivElement>) => {
     const element = event.currentTarget;
     setScrollTop(element.scrollTop);
@@ -241,6 +256,45 @@ export const ThreadList = ({
     focusThreadAtIndex(targetIndex);
   };
 
+  const handleContextMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(contextMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    if (!items.length) {
+      return;
+    }
+
+    const currentIndex = items.findIndex((item) => item === document.activeElement);
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      items[(currentIndex + 1 + items.length) % items.length]?.focus();
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(currentIndex - 1 + items.length) % items.length]?.focus();
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      items[0]?.focus();
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setContextMenu(null);
+      setPendingFocusThreadId(contextMenu?.threadId ?? null);
+    }
+  };
+
   if (isLoading && !threads.length) {
     return <ThreadListLoading />;
   }
@@ -275,10 +329,11 @@ export const ThreadList = ({
                 isMultiSelected={selectedIds.has(thread.id)}
                 isSelected={thread.id === selectedThreadId}
                 key={thread.id}
-                onAction={(action, actionThreadId) => handleAction(action, actionThreadId)}
-                onContextMenu={handleContextMenu}
-                onNavigate={handleNavigate}
-                onSelect={handleSelect}
+              onAction={(action, actionThreadId) => handleAction(action, actionThreadId)}
+              onContextMenu={handleContextMenu}
+              onOpenContextMenu={openContextMenuFromKeyboard}
+              onNavigate={handleNavigate}
+              onSelect={handleSelect}
                 style={{
                   height: THREAD_ROW_HEIGHT - 10,
                   position: 'absolute',
@@ -296,6 +351,8 @@ export const ThreadList = ({
           aria-label="Thread context menu"
           className="thread-context-menu"
           onClick={(event) => event.stopPropagation()}
+          onKeyDown={handleContextMenuKeyDown}
+          ref={contextMenuRef}
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {(isScheduledFolder

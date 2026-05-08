@@ -207,6 +207,54 @@ describe('ThreadList', () => {
     expect(screen.queryByRole('menu', { name: 'Thread context menu' })).not.toBeInTheDocument();
   });
 
+  it('opens the context menu from the keyboard and focuses the first action', async () => {
+    render(
+      <ThreadList
+        activeFolderName="Inbox"
+        isSearchActive={false}
+        onAction={vi.fn()}
+        onSelectThread={vi.fn()}
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    const thread = screen.getByText('Thread 0').closest('[data-thread-id]') as HTMLElement;
+    thread.focus();
+
+    fireEvent.keyDown(thread, { key: 'F10', shiftKey: true });
+
+    const firstItem = await screen.findByRole('menuitem', { name: 'Archive' });
+    expect(screen.getByRole('menu', { name: 'Thread context menu' })).toBeInTheDocument();
+    expect(firstItem).toHaveFocus();
+  });
+
+  it('navigates context menu items with arrow keys', async () => {
+    render(
+      <ThreadList
+        activeFolderName="Inbox"
+        isSearchActive={false}
+        onAction={vi.fn()}
+        onSelectThread={vi.fn()}
+        selectedThreadId="thr_0"
+        threads={[makeThread(0)]}
+      />
+    );
+
+    const thread = screen.getByText('Thread 0').closest('[data-thread-id]') as HTMLElement;
+    thread.focus();
+    fireEvent.keyDown(thread, { key: 'F10', shiftKey: true });
+
+    const archive = await screen.findByRole('menuitem', { name: 'Archive' });
+    expect(archive).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole('menu', { name: 'Thread context menu' }), { key: 'ArrowDown' });
+    expect(screen.getByRole('menuitem', { name: 'Move to trash' })).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole('menu', { name: 'Thread context menu' }), { key: 'End' });
+    expect(screen.getByRole('menuitem', { name: 'Snooze' })).toHaveFocus();
+  });
+
   it('filters threads by unread, starred, and attachments', () => {
     const threads = [
       makeThread(1, { isUnread: true, isStarred: false, hasAttachments: false }),
