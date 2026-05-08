@@ -283,4 +283,79 @@ describe('Composer send flow', () => {
       expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('Hello Atlas,');
     });
   });
+
+  it('moves focus into the template picker and closes it with Escape', () => {
+    useTemplateStore.setState({
+      templates: [
+        {
+          id: 'tpl_followup',
+          title: 'Follow-up template',
+          accountId: null,
+          subject: '',
+          body: '<p>Hello</p>',
+          variables: []
+        }
+      ]
+    });
+
+    render(
+      <Composer
+        from="leco@example.com"
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
+        onSend={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Template picker' });
+    const closeButton = screen.getByRole('button', { name: 'Close template picker' });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Template picker' })).not.toBeInTheDocument();
+  });
+
+  it('moves focus into template variables dialog and closes it with Escape', () => {
+    useTemplateStore.setState({
+      templates: [
+        {
+          id: 'tpl_followup',
+          title: 'Follow-up template',
+          accountId: null,
+          subject: 'Follow-up for {{project}}',
+          body: '<p>Hello {{name}},</p><p>Quick check-in.</p>',
+          variables: ['project', 'name']
+        }
+      ]
+    });
+
+    render(
+      <Composer
+        from="leco@example.com"
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
+        onSend={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    fireEvent.click(screen.getByRole('button', { name: /Follow-up template/i }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Template variables' });
+    const closeButton = screen.getByRole('button', { name: 'Close template variables dialog' });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Template variables' })).not.toBeInTheDocument();
+  });
 });

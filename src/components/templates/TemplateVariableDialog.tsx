@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 
 type TemplateVariableDialogProps = {
   templateTitle: string;
@@ -18,16 +18,34 @@ export const TemplateVariableDialog = ({
     [variables]
   );
   const [values, setValues] = useState<Record<string, string>>(initialValues);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+    }
+  };
 
   return (
-    <div aria-label="Template variables" className="composer-dialog-backdrop" role="dialog">
+    <div
+      aria-label="Template variables"
+      aria-modal="true"
+      className="composer-dialog-backdrop"
+      onKeyDown={handleKeyDown}
+      role="dialog"
+    >
       <div className="composer-dialog">
         <div className="composer-dialog-header">
           <div>
             <strong>Fill template variables</strong>
             <p>{templateTitle}</p>
           </div>
-          <button onClick={onClose} type="button">
+          <button aria-label="Close template variables dialog" onClick={onClose} ref={closeButtonRef} type="button">
             Close
           </button>
         </div>
