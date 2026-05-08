@@ -147,6 +147,31 @@ describe('preferences view', () => {
     expect(screen.getByRole('heading', { name: 'Advanced' })).toBeInTheDocument();
   });
 
+  it('supports keyboard navigation across preference sections', async () => {
+    window.history.pushState({}, '', '/preferences');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const preferencesNav = await screen.findByLabelText('Preferences sections');
+    const generalLink = within(preferencesNav).getByRole('link', { name: 'General' });
+
+    generalLink.focus();
+    expect(generalLink).toHaveFocus();
+
+    fireEvent.keyDown(generalLink, { key: 'ArrowDown' });
+    expect(within(preferencesNav).getByRole('link', { name: 'Accounts' })).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'End' });
+    expect(within(preferencesNav).getByRole('link', { name: 'Advanced' })).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Home' });
+    expect(within(preferencesNav).getByRole('link', { name: 'General' })).toHaveFocus();
+  });
+
   it('renders plugin preference sections through the plugin slot', async () => {
     window.history.pushState({}, '', '/preferences');
     await pluginManager.loadPlugin(preferencesPluginManifest);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { PluginSlot } from '@/plugins/PluginSlot';
 import { parseFrontendPluginManifest } from '@/plugins/manifest';
@@ -40,6 +40,8 @@ const sections = [
   { id: 'contacts', title: 'Contacts' },
   { id: 'advanced', title: 'Advanced' }
 ] as const;
+
+type PreferencesSectionId = (typeof sections)[number]['id'];
 
 const themeOptions: ThemeId[] = ['system', 'dark', 'light'];
 
@@ -180,6 +182,7 @@ export const PreferencesView = () => {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [pluginsStatus, setPluginsStatus] = useState<string | null>(null);
   const installPluginInputRef = useRef<HTMLInputElement | null>(null);
+  const preferencesNavRefs = useRef<Partial<Record<PreferencesSectionId, HTMLAnchorElement | null>>>({});
   const hasHydratedRef = useRef(false);
   useSyncExternalStore(pluginManager.subscribe, () => pluginManager.getRevision(), () => 0);
   const mailboxQuery = useMailboxOverview();
@@ -289,6 +292,7 @@ export const PreferencesView = () => {
       undoSendDelaySeconds
     ]
   );
+  const sectionNavOrder = useMemo(() => sections.map((section) => section.id), []);
 
   const availableAccounts = useMemo(
     () =>
@@ -662,6 +666,53 @@ export const PreferencesView = () => {
     undoSendDelaySeconds
   ]);
 
+  const registerPreferencesNavLink = (sectionId: PreferencesSectionId) => (element: HTMLAnchorElement | null) => {
+    preferencesNavRefs.current[sectionId] = element;
+  };
+
+  const movePreferencesNavFocus = (currentSectionId: PreferencesSectionId, offset: number) => {
+    const currentIndex = sectionNavOrder.indexOf(currentSectionId);
+
+    if (currentIndex === -1 || !sectionNavOrder.length) {
+      return;
+    }
+
+    const nextIndex = (currentIndex + offset + sectionNavOrder.length) % sectionNavOrder.length;
+    preferencesNavRefs.current[sectionNavOrder[nextIndex]]?.focus();
+  };
+
+  const focusPreferencesNavBoundary = (boundary: 'first' | 'last') => {
+    if (!sectionNavOrder.length) {
+      return;
+    }
+
+    const targetId = boundary === 'first' ? sectionNavOrder[0] : sectionNavOrder[sectionNavOrder.length - 1];
+    preferencesNavRefs.current[targetId]?.focus();
+  };
+
+  const createPreferencesNavKeyDownHandler =
+    (sectionId: PreferencesSectionId) => (event: ReactKeyboardEvent<HTMLAnchorElement>) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        movePreferencesNavFocus(sectionId, 1);
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        movePreferencesNavFocus(sectionId, -1);
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault();
+        focusPreferencesNavBoundary('first');
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault();
+        focusPreferencesNavBoundary('last');
+      }
+    };
+
   return (
     <main className="preferences-shell" aria-label="Open Mail preferences">
       <div className="preferences-header">
@@ -686,7 +737,13 @@ export const PreferencesView = () => {
       <div className="preferences-layout">
         <nav className="preferences-nav" aria-label="Preferences sections">
           {sections.map((section) => (
-            <a className="preferences-nav-link" href={`#${section.id}`} key={section.id}>
+            <a
+              className="preferences-nav-link"
+              href={`#${section.id}`}
+              key={section.id}
+              onKeyDown={createPreferencesNavKeyDownHandler(section.id)}
+              ref={registerPreferencesNavLink(section.id)}
+            >
               {section.title}
             </a>
           ))}
