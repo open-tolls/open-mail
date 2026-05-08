@@ -99,10 +99,10 @@ export const ComposerHeader = ({
       />
 
       <div className="composer-secondary-actions">
-        <button onClick={onToggleCc} type="button">
+        <button aria-label={isCcVisible ? 'Hide Cc field' : 'Show Cc field'} onClick={onToggleCc} type="button">
           {isCcVisible ? 'Hide Cc' : 'Add Cc'}
         </button>
-        <button onClick={onToggleBcc} type="button">
+        <button aria-label={isBccVisible ? 'Hide Bcc field' : 'Show Bcc field'} onClick={onToggleBcc} type="button">
           {isBccVisible ? 'Hide Bcc' : 'Add Bcc'}
         </button>
       </div>
@@ -134,6 +134,7 @@ export const ComposerHeader = ({
       <label className="composer-field-row">
         <span>Subject</span>
         <input
+          aria-label="Subject"
           onChange={(event) => onSubjectChange(event.target.value)}
           placeholder="What is this about?"
           value={subject}

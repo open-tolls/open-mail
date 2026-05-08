@@ -15,7 +15,7 @@ export const ProviderCard = ({
   name,
   onClick
 }: ProviderCardProps) => (
-  <button className="provider-card" onClick={onClick} type="button">
+  <button aria-label={`Choose ${name}${isRecommended ? ', recommended provider' : ' provider'}`} className="provider-card" onClick={onClick} type="button">
     <div className="provider-card-icon">
       <Icon size={20} />
     </div>

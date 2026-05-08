@@ -706,7 +706,7 @@ describe('mailbox overview integration', () => {
     const composer = await screen.findByRole('region', { name: /composer/i });
     expect(composer).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Message' })).toHaveTextContent('Best,');
-    fireEvent.click(screen.getByRole('button', { name: /add cc/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Cc field' }));
     fireEvent.focus(screen.getByLabelText(/^to$/i));
     fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'atl' } });
     fireEvent.click(await screen.findByRole('option', { name: 'atlas@example.com' }));
@@ -722,7 +722,7 @@ describe('mailbox overview integration', () => {
     });
     expect(await screen.findByText('budget.xlsx')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Review package' } });
-    fireEvent.click(screen.getByRole('button', { name: /^queue$/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
 
     await waitFor(() => {
       expect(screen.getByText('Queued 1 recipient(s)')).toBeInTheDocument();
@@ -760,7 +760,7 @@ describe('mailbox overview integration', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /new message/i }));
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Blocked by policy' } });
-    fireEvent.click(screen.getByRole('button', { name: /^queue$/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
 
     await waitFor(() => {
       expect(screen.getByText('Could not queue message: Composer blocked by plugin policy')).toBeInTheDocument();
@@ -800,7 +800,7 @@ describe('mailbox overview integration', () => {
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Sent after flush' } });
     fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'release@example.com' } });
     fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
-    fireEvent.click(screen.getByRole('button', { name: /^queue$/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
 
     await waitFor(() => {
       expect(screen.getByText('Queued 2 recipient(s)')).toBeInTheDocument();
@@ -835,7 +835,7 @@ describe('mailbox overview integration', () => {
       }
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open send later options' }));
     fireEvent.change(screen.getByLabelText('Pick send later date and time'), {
       target: { value: '2026-05-04T09:01' }
     });
@@ -875,7 +875,7 @@ describe('mailbox overview integration', () => {
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Hooked scheduled message' } });
     fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'release@example.com' } });
     fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
-    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open send later options' }));
     fireEvent.change(screen.getByLabelText('Pick send later date and time'), {
       target: { value: '2026-05-04T09:01' }
     });
@@ -993,9 +993,9 @@ describe('mailbox overview integration', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Forward' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Forward message' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Forward' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forward message' }));
 
     const composer = await screen.findByRole('region', { name: /composer/i });
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Forward draft ready');
@@ -1016,7 +1016,7 @@ describe('mailbox overview integration', () => {
 
     expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Print message' }));
 
     expect(window.open).toHaveBeenCalledTimes(1);
     expect(await screen.findByLabelText('Mailbox status')).toHaveTextContent('Print dialog opened');
@@ -1039,9 +1039,9 @@ describe('mailbox overview integration', () => {
     fireEvent.change(screen.getByLabelText(/^to$/i), { target: { value: 'atlas@example.com' } });
     fireEvent.keyDown(screen.getByLabelText(/^to$/i), { key: 'Enter' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remind me' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open send reminder options' }));
     fireEvent.click(screen.getByRole('button', { name: 'In 1 day' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
 
     expect(await screen.findByRole('button', { name: /reminders/i })).toHaveTextContent('1');
 

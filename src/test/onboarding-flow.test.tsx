@@ -13,6 +13,7 @@ describe('onboarding flow', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    expect(screen.getByRole('button', { name: 'Choose Other IMAP provider' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Other IMAP/i }));
 
     expect(screen.getByRole('heading', { name: 'Configure your mail servers' })).toBeInTheDocument();
@@ -66,6 +67,7 @@ describe('onboarding flow', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    expect(screen.getByRole('button', { name: 'Choose Gmail, recommended provider' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Gmail/i }));
 
     fireEvent.change(screen.getByLabelText('Gmail client ID'), { target: { value: 'gmail-client' } });

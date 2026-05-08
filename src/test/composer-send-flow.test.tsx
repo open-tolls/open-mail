@@ -25,7 +25,7 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
 
     expect(onSend).not.toHaveBeenCalled();
     expect(screen.getByRole('status')).toHaveTextContent('Please add at least one recipient');
@@ -49,7 +49,7 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
 
     expect(confirmSpy).toHaveBeenCalledWith('Send without subject?');
     expect(onSend).not.toHaveBeenCalled();
@@ -75,7 +75,7 @@ describe('Composer send flow', () => {
     );
 
     fireEvent.change(screen.getByLabelText(/^subject$/i), { target: { value: 'Updated subject' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
 
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalledWith('Discard this draft?');
@@ -132,6 +132,28 @@ describe('Composer send flow', () => {
     expect(screen.getByLabelText('Loading')).toBeInTheDocument();
   });
 
+  it('exposes explicit accessible names for primary composer controls', () => {
+    render(
+      <Composer
+        from="leco@example.com"
+        isSending={false}
+        recipientSuggestions={[]}
+        status="Composer ready"
+        onClose={() => undefined}
+        onFlushOutbox={vi.fn().mockResolvedValue(undefined)}
+        onSchedule={vi.fn().mockResolvedValue(true)}
+        onSend={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Open composer templates' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit composer signature' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Queue message' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show Cc field' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show Bcc field' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Subject' })).toBeInTheDocument();
+  });
+
   it('opens send later presets and schedules a draft', async () => {
     const onSchedule = vi.fn().mockResolvedValue(true);
 
@@ -156,7 +178,7 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open send later options' }));
     expect(screen.getByRole('dialog', { name: 'Send later dialog' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Tomorrow morning' }));
@@ -190,7 +212,7 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Send later' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open send later options' }));
 
     const closeButton = screen.getByRole('button', { name: 'Close send later dialog' });
     expect(closeButton).toHaveFocus();
@@ -223,11 +245,11 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remind me' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open send reminder options' }));
     expect(screen.getByRole('dialog', { name: 'Send reminder dialog' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'In 3 days' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Queue message' }));
 
     await waitFor(() => {
       expect(onSend).toHaveBeenCalledTimes(1);
@@ -272,8 +294,8 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
-    fireEvent.click(screen.getByRole('button', { name: /Follow-up template/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open composer templates' }));
+    fireEvent.click(screen.getByRole('button', { name: /Apply template Follow-up template/i }));
     fireEvent.change(screen.getByPlaceholderText('Value for project'), { target: { value: 'Phase 7' } });
     fireEvent.change(screen.getByPlaceholderText('Value for name'), { target: { value: 'Atlas' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply template' }));
@@ -311,7 +333,7 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open composer templates' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Template picker' });
     const closeButton = screen.getByRole('button', { name: 'Close template picker' });
@@ -348,8 +370,8 @@ describe('Composer send flow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
-    fireEvent.click(screen.getByRole('button', { name: /Follow-up template/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open composer templates' }));
+    fireEvent.click(screen.getByRole('button', { name: /Apply template Follow-up template/i }));
 
     const dialog = screen.getByRole('dialog', { name: 'Template variables' });
     const closeButton = screen.getByRole('button', { name: 'Close template variables dialog' });

@@ -25,6 +25,7 @@ export const SearchSuggestions = ({ activeIndex, folders, isOpen, onSelect, quer
     <div aria-label="Search suggestions" className="search-suggestions" id="mail-search-suggestions" role="listbox">
       {suggestions.map((suggestion, index) => (
         <button
+          aria-label={`${suggestion.value} ${suggestion.label}`}
           aria-selected={index === activeIndex}
           id={`mail-search-suggestion-${suggestion.id}`}
           key={suggestion.id}

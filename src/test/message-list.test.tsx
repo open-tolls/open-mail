@@ -363,7 +363,7 @@ describe('MessageList', () => {
       />
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Print message' }));
 
     expect(onPrint).toHaveBeenCalledWith(expect.objectContaining({ id: 'msg_print_action' }));
   });

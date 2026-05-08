@@ -36,7 +36,13 @@ export const TemplatePickerPopover = ({ templates, onClose, onSelect }: Template
         <div className="template-picker-list">
           {templates.length ? (
             templates.map((template) => (
-              <button className="template-picker-item" key={template.id} onClick={() => onSelect(template.id)} type="button">
+              <button
+                aria-label={`Apply template ${template.title}`}
+                className="template-picker-item"
+                key={template.id}
+                onClick={() => onSelect(template.id)}
+                type="button"
+              >
                 <strong>{template.title}</strong>
                 <span>{template.subject || 'No subject override'}</span>
                 {template.variables.length ? (
