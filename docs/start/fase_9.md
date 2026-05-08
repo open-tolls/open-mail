@@ -96,7 +96,7 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 
 ### 9.2 — Accessibility (a11y)
 
-**Status atual:** primeiro corte entregue em navegacao e foco. O shell agora expoe `skip links` para `content`, `inbox` e `message`, adiciona landmarks/focus targets nas regioes principais e aplica `focus-visible` consistente nos elementos interativos. Isso ainda nao fecha a fase de a11y, mas ja melhora bastante a navegacao por teclado e prepara o terreno para screen reader copy, contrast audits e reduced motion.
+**Status atual:** segundo corte entregue em navegacao, foco e preferencias visuais do sistema. Alem de `skip links`, landmarks/focus targets e `focus-visible` consistente, o shell agora tambem respeita `prefers-reduced-motion` para reduzir animacoes/transicoes e `prefers-contrast` para aumentar contraste, contornos e remover efeitos decorativos que atrapalham leitura. Isso ainda nao fecha a fase de a11y, mas deixa a base bem mais solida para os proximos passos de screen reader copy, keyboard-only e auditoria formal.
 
 **O que implementar:**
 
@@ -105,8 +105,8 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 - [x] Focus visible (outline) em todos os focusaveis
 - [ ] Screen reader: thread list anuncia "Email from Alice, subject: Project update, 2 hours ago, unread"
 - [ ] Screen reader: message body legivel
-- [ ] High contrast mode (respeitar `prefers-contrast: high`)
-- [ ] Reduced motion (respeitar `prefers-reduced-motion`)
+- [x] High contrast mode (respeitar `prefers-contrast: high`)
+- [x] Reduced motion (respeitar `prefers-reduced-motion`)
 - [ ] Keyboard-only navigation em toda a app
 - [x] Skip links ("Skip to inbox", "Skip to message")
 - [ ] Color contrast minimo 4.5:1 (WCAG AA)
