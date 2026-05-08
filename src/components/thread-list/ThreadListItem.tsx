@@ -14,6 +14,7 @@ type ThreadListItemProps = {
   thread: ThreadSummary;
   onAction: (action: ThreadAction, threadId: string) => void;
   onContextMenu: (threadId: string, event: MouseEvent<HTMLDivElement>) => void;
+  onNavigate?: (threadId: string, direction: 'next' | 'previous' | 'first' | 'last') => void;
   onSelect: (threadId: string, event: ThreadSelectEvent) => void;
 };
 
@@ -25,6 +26,7 @@ export const ThreadListItem = ({
   thread,
   onAction,
   onContextMenu,
+  onNavigate,
   onSelect
 }: ThreadListItemProps) => {
   const labels = getThreadLabels(thread);
@@ -38,6 +40,30 @@ export const ThreadListItem = ({
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onSelect(thread.id, event);
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      onNavigate?.(thread.id, 'next');
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      onNavigate?.(thread.id, 'previous');
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      onNavigate?.(thread.id, 'first');
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      onNavigate?.(thread.id, 'last');
     }
   };
 

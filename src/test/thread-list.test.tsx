@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThreadListPanel } from '@components/layout/ThreadListPanel';
 import { ThreadList } from '@components/thread-list/ThreadList';
 import { filterThreads } from '@components/thread-list/threadListUtils';
@@ -101,6 +101,43 @@ describe('ThreadList', () => {
 
     fireEvent.click(screen.getByText('Thread 6'), { shiftKey: true });
     expect(screen.getByLabelText('Thread selection actions')).toHaveTextContent('4 selected');
+  });
+
+  it('navigates between threads with arrow keys and home/end', async () => {
+    const onSelectThread = vi.fn();
+    const threads = Array.from({ length: 8 }, (_, index) => makeThread(index));
+
+    render(
+      <ThreadList
+        activeFolderName="Inbox"
+        isSearchActive={false}
+        onSelectThread={onSelectThread}
+        selectedThreadId="thr_0"
+        threads={threads}
+      />
+    );
+
+    const firstThread = screen.getByText('Thread 0').closest('[data-thread-id]') as HTMLElement;
+    firstThread.focus();
+
+    fireEvent.keyDown(firstThread, { key: 'ArrowDown' });
+    await screen.findByText('Thread 1');
+    expect(onSelectThread).toHaveBeenLastCalledWith('thr_1');
+    await waitFor(() => {
+      expect((screen.getByText('Thread 1').closest('[data-thread-id]') as HTMLElement)).toHaveFocus();
+    });
+
+    fireEvent.keyDown(screen.getByText('Thread 1').closest('[data-thread-id]') as HTMLElement, { key: 'End' });
+    expect(onSelectThread).toHaveBeenLastCalledWith('thr_7');
+    await waitFor(() => {
+      expect((screen.getByText('Thread 7').closest('[data-thread-id]') as HTMLElement)).toHaveFocus();
+    });
+
+    fireEvent.keyDown(screen.getByText('Thread 7').closest('[data-thread-id]') as HTMLElement, { key: 'Home' });
+    expect(onSelectThread).toHaveBeenLastCalledWith('thr_0');
+    await waitFor(() => {
+      expect((screen.getByText('Thread 0').closest('[data-thread-id]') as HTMLElement)).toHaveFocus();
+    });
   });
 
   it('reports quick actions for a single thread', () => {

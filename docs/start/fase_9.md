@@ -96,7 +96,7 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 
 ### 9.2 — Accessibility (a11y)
 
-**Status atual:** quinto corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements, `aria-live` nos toasts e regiao acessivel no reader, os dialogs principais de thread actions e composer agora tambem fazem `focus management` ao abrir e aceitam `Escape` para fechar. Isso ainda nao fecha a fase de a11y, mas melhora bastante os fluxos keyboard-only mais frequentes.
+**Status atual:** sexto corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion`, `prefers-contrast`, thread announcements, `aria-live` nos toasts, regiao acessivel no reader e `focus management` nos dialogs, a thread list agora tambem aceita navegacao por `ArrowUp`, `ArrowDown`, `Home` e `End` no padrao de `listbox`. Isso ainda nao fecha a fase de a11y, mas aproxima bem mais o shell de um fluxo keyboard-only consistente.
 
 **O que implementar:**
 

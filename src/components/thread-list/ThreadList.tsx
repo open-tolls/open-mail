@@ -69,6 +69,7 @@ export const ThreadList = ({
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<ThreadContextMenuState>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [pendingFocusThreadId, setPendingFocusThreadId] = useState<string | null>(null);
   const { startIndex, endIndex } = getVisibleWindow(scrollTop, viewportHeight, threads.length);
   const visibleThreads = useMemo(
     () => threads.slice(startIndex, endIndex),
@@ -94,6 +95,24 @@ export const ThreadList = ({
       return new Set([...current].filter((threadId) => validThreadIds.has(threadId)));
     });
   }, [threads]);
+
+  useEffect(() => {
+    if (!pendingFocusThreadId) {
+      return;
+    }
+
+    const nextFrame = window.requestAnimationFrame(() => {
+      const target = parentRef.current?.querySelector<HTMLElement>(`[data-thread-id="${pendingFocusThreadId}"]`);
+      if (target) {
+        target.focus();
+        setPendingFocusThreadId(null);
+      }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(nextFrame);
+    };
+  }, [pendingFocusThreadId, visibleThreads]);
 
   useEffect(() => {
     if (!contextMenu) {
@@ -172,6 +191,56 @@ export const ThreadList = ({
     }
   };
 
+  const focusThreadAtIndex = (targetIndex: number) => {
+    const nextThread = threads[targetIndex];
+    if (!nextThread) {
+      return;
+    }
+
+    setSelectedIds(new Set([nextThread.id]));
+    setLastSelectedIndex(targetIndex);
+    onSelectThread(nextThread.id);
+    setPendingFocusThreadId(nextThread.id);
+
+    if (parentRef.current) {
+      const targetTop = targetIndex * THREAD_ROW_HEIGHT;
+      const targetBottom = targetTop + THREAD_ROW_HEIGHT;
+      const viewportTop = parentRef.current.scrollTop;
+      const viewportBottom = viewportTop + parentRef.current.clientHeight;
+
+      if (targetTop < viewportTop) {
+        parentRef.current.scrollTop = targetTop;
+        setScrollTop(targetTop);
+      } else if (targetBottom > viewportBottom) {
+        const nextScrollTop = targetBottom - parentRef.current.clientHeight;
+        parentRef.current.scrollTop = nextScrollTop;
+        setScrollTop(nextScrollTop);
+      }
+    }
+  };
+
+  const handleNavigate = (threadId: string, direction: 'next' | 'previous' | 'first' | 'last') => {
+    const currentIndex = threads.findIndex((thread) => thread.id === threadId);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const targetIndex =
+      direction === 'first'
+        ? 0
+        : direction === 'last'
+          ? threads.length - 1
+          : direction === 'next'
+            ? Math.min(threads.length - 1, currentIndex + 1)
+            : Math.max(0, currentIndex - 1);
+
+    if (targetIndex === currentIndex) {
+      return;
+    }
+
+    focusThreadAtIndex(targetIndex);
+  };
+
   if (isLoading && !threads.length) {
     return <ThreadListLoading />;
   }
@@ -208,6 +277,7 @@ export const ThreadList = ({
                 key={thread.id}
                 onAction={(action, actionThreadId) => handleAction(action, actionThreadId)}
                 onContextMenu={handleContextMenu}
+                onNavigate={handleNavigate}
                 onSelect={handleSelect}
                 style={{
                   height: THREAD_ROW_HEIGHT - 10,
