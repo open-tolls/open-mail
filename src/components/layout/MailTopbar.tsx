@@ -1,8 +1,9 @@
-import { useState, type RefObject } from 'react';
+import { useState, type KeyboardEvent, type RefObject } from 'react';
 import { Command, Search } from 'lucide-react';
 import { SearchSuggestions } from '@components/search/SearchSuggestions';
 import { StatusBadge } from '@components/ui/StatusBadge';
 import type { FolderRecord, ThreadSummary } from '@lib/contracts';
+import { buildSearchSuggestions } from '@lib/search-suggestions';
 import type { ThemeId } from '@lib/themes';
 
 type MailTopbarProps = {
@@ -33,9 +34,47 @@ export const MailTopbar = ({
   onToggleLayoutMode
 }: MailTopbarProps) => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const suggestions = buildSearchSuggestions({ folders, query: searchQuery, threads });
+  const isSuggestionsOpen = isSearchFocused || searchQuery.trim().length > 0;
+
   const completeSearchSuggestion = (value: string) => {
     const prefix = searchQuery.trim().split(/\s+/).slice(0, -1).join(' ');
     onSearchQueryChange(prefix ? `${prefix} ${value}` : value);
+    setActiveSuggestionIndex(-1);
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!suggestions.length) {
+      if (event.key === 'Escape') {
+        setActiveSuggestionIndex(-1);
+        setIsSearchFocused(false);
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveSuggestionIndex((current) => (current + 1) % suggestions.length);
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveSuggestionIndex((current) => (current <= 0 ? suggestions.length - 1 : current - 1));
+      return;
+    }
+
+    if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
+      event.preventDefault();
+      completeSearchSuggestion(suggestions[activeSuggestionIndex]?.value ?? '');
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setActiveSuggestionIndex(-1);
+      setIsSearchFocused(false);
+    }
   };
 
   return (
@@ -44,11 +83,22 @@ export const MailTopbar = ({
         <label className="search-shell" aria-label="Search">
           <Search size={16} />
           <input
+            aria-activedescendant={
+              activeSuggestionIndex >= 0 ? `mail-search-suggestion-${suggestions[activeSuggestionIndex]?.id ?? ''}` : undefined
+            }
+            aria-autocomplete="list"
+            aria-controls={isSuggestionsOpen && suggestions.length > 0 ? 'mail-search-suggestions' : undefined}
+            aria-expanded={isSuggestionsOpen && suggestions.length > 0}
             ref={searchInputRef}
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            onBlur={() => setIsSearchFocused(false)}
+            onBlur={() => {
+              setIsSearchFocused(false);
+              setActiveSuggestionIndex(-1);
+            }}
             onFocus={() => setIsSearchFocused(true)}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search threads, people, commands"
+            role="combobox"
             value={searchQuery}
           />
           <span className="shortcut-pill">
@@ -57,8 +107,9 @@ export const MailTopbar = ({
           </span>
         </label>
         <SearchSuggestions
+          activeIndex={activeSuggestionIndex}
           folders={folders}
-          isOpen={isSearchFocused || searchQuery.trim().length > 0}
+          isOpen={isSuggestionsOpen}
           onSelect={completeSearchSuggestion}
           query={searchQuery}
           threads={threads}

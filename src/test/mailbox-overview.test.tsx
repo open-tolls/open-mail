@@ -117,7 +117,7 @@ describe('mailbox overview integration', () => {
       </QueryClientProvider>
     );
 
-    const searchInput = await screen.findByRole('textbox');
+    const searchInput = await screen.findByRole('combobox');
     fireEvent.change(searchInput, { target: { value: 'rust' } });
 
     expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('mailbox overview integration', () => {
       </QueryClientProvider>
     );
 
-    const searchInput = await screen.findByRole('textbox');
+    const searchInput = await screen.findByRole('combobox');
     fireEvent.change(searchInput, { target: { value: 'from:infra subject:health is:starred' } });
 
     expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
@@ -153,11 +153,33 @@ describe('mailbox overview integration', () => {
       </QueryClientProvider>
     );
 
-    const searchInput = await screen.findByRole('textbox');
+    const searchInput = await screen.findByRole('combobox');
     fireEvent.focus(searchInput);
     fireEvent.change(searchInput, { target: { value: 'from:inf' } });
 
     fireEvent.click(await screen.findByRole('option', { name: 'from:infra@example.com Messages from infra@example.com' }));
+
+    expect(searchInput).toHaveValue('from:infra@example.com');
+    expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
+  });
+
+  it('supports keyboard navigation for structured search suggestions', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const searchInput = await screen.findByRole('combobox');
+    fireEvent.focus(searchInput);
+    fireEvent.change(searchInput, { target: { value: 'from:inf' } });
+
+    expect(await screen.findByRole('listbox', { name: 'Search suggestions' })).toBeInTheDocument();
+
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' });
+    expect(searchInput).toHaveAttribute('aria-activedescendant', 'mail-search-suggestion-from:infra@example.com');
+
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
 
     expect(searchInput).toHaveValue('from:infra@example.com');
     expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
@@ -170,7 +192,7 @@ describe('mailbox overview integration', () => {
       </QueryClientProvider>
     );
 
-    const searchInput = await screen.findByRole('textbox');
+    const searchInput = await screen.findByRole('combobox');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     expect(searchInput).toHaveFocus();
     expect(await screen.findByRole('listbox', { name: 'Search suggestions' })).toBeInTheDocument();

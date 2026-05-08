@@ -56,6 +56,7 @@ describe('SearchSuggestions', () => {
 
     render(
       <SearchSuggestions
+        activeIndex={-1}
         folders={[folder('inbox', 'Inbox')]}
         isOpen
         onSelect={onSelect}
@@ -67,5 +68,20 @@ describe('SearchSuggestions', () => {
     fireEvent.click(screen.getByRole('option', { name: 'in:inbox Search in Inbox' }));
 
     expect(onSelect).toHaveBeenCalledWith('in:inbox');
+  });
+
+  it('marks the active suggestion for combobox keyboard navigation', () => {
+    render(
+      <SearchSuggestions
+        activeIndex={0}
+        folders={[folder('inbox', 'Inbox')]}
+        isOpen
+        onSelect={vi.fn()}
+        query="in"
+        threads={[]}
+      />
+    );
+
+    expect(screen.getByRole('option', { name: 'in:inbox Search in Inbox' })).toHaveAttribute('aria-selected', 'true');
   });
 });
