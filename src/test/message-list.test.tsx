@@ -180,6 +180,31 @@ describe('MessageList', () => {
     expect(screen.getByText('Recent threads')).toBeInTheDocument();
   });
 
+  it('opens a contact card from focus and closes it with Escape', async () => {
+    render(
+      <MessageList
+        contacts={contacts}
+        messages={[makeMessage({ id: 'msg_focus' })]}
+        selectedMessageId="msg_focus"
+        threadSubject="Thread subject"
+        onSelectMessage={vi.fn()}
+      />
+    );
+
+    const trigger = screen.getByText('Sender Example').closest('.contact-hover-trigger') as HTMLElement;
+    fireEvent.focus(trigger);
+
+    expect(await screen.findByLabelText('Contact card for sender@example.com')).toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.keyDown(trigger, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Contact card for sender@example.com')).not.toBeInTheDocument();
+    });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('shows phishing indicators for spoofed sender names and mismatched links', async () => {
     render(
       <MessageList

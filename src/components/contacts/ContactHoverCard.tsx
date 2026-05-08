@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useId, useState } from 'react';
 import { ContactCard } from '@components/contacts/ContactCard';
 import type { ContactPreview } from '@lib/contacts-directory';
 
@@ -9,6 +9,7 @@ type ContactHoverCardProps = {
 
 export const ContactHoverCard = ({ children, contact }: ContactHoverCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const cardId = useId();
 
   return (
     <span
@@ -22,10 +23,22 @@ export const ContactHoverCard = ({ children, contact }: ContactHoverCardProps) =
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
     >
-      <span className="contact-hover-trigger" tabIndex={0}>
+      <span
+        aria-controls={isOpen ? cardId : undefined}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        className="contact-hover-trigger"
+        onKeyDown={(event: KeyboardEvent<HTMLSpanElement>) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            setIsOpen(false);
+          }
+        }}
+        tabIndex={0}
+      >
         {children}
       </span>
-      {isOpen ? <ContactCard contact={contact} /> : null}
+      {isOpen ? <ContactCard contact={contact} id={cardId} /> : null}
     </span>
   );
 };

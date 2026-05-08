@@ -2,6 +2,7 @@ import type { ContactPreview } from '@lib/contacts-directory';
 
 type ContactCardProps = {
   contact: ContactPreview;
+  id?: string;
 };
 
 const formatContactDate = (value: string | null) => {
@@ -17,8 +18,8 @@ const formatContactDate = (value: string | null) => {
   }).format(new Date(value));
 };
 
-export const ContactCard = ({ contact }: ContactCardProps) => (
-  <div aria-label={`Contact card for ${contact.email}`} className="contact-hover-card" role="dialog">
+export const ContactCard = ({ contact, id }: ContactCardProps) => (
+  <div aria-label={`Contact card for ${contact.email}`} className="contact-hover-card" id={id} role="dialog">
     <div>
       <strong>{contact.name ?? contact.email}</strong>
       {contact.name ? <p>{contact.email}</p> : null}
