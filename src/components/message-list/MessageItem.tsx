@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, type KeyboardEvent as ReactKeyboardEvent, useState } from 'react';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, MessageRecord } from '@lib/contracts';
 import { analyzeMessageSecurity } from '@lib/message-security';
@@ -14,6 +14,7 @@ type MessageItemProps = {
   defaultExpanded: boolean;
   isSelected: boolean;
   message: MessageRecord;
+  onNavigate?: (messageId: string, direction: 'next' | 'previous' | 'first' | 'last') => void;
   onDownloadAttachment?: (attachment: AttachmentRecord) => void;
   onOpenExternalLink?: (url: string) => void;
   onForward?: (message: MessageRecord) => void;
@@ -29,6 +30,7 @@ export const MessageItem = ({
   defaultExpanded,
   isSelected,
   message,
+  onNavigate,
   onDownloadAttachment,
   onOpenExternalLink,
   onForward,
@@ -54,12 +56,44 @@ export const MessageItem = ({
     onSelectMessage(message.id);
   };
 
+  const handleNavigate = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      onNavigate?.(message.id, 'next');
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      onNavigate?.(message.id, 'previous');
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      onNavigate?.(message.id, 'first');
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      onNavigate?.(message.id, 'last');
+    }
+  };
+
   if (!isExpanded) {
-    return <MessageCollapsed message={message} onExpand={expandMessage} />;
+    return <MessageCollapsed message={message} onExpand={expandMessage} onNavigate={handleNavigate} />;
   }
 
   return (
-    <article className={isSelected ? 'message-card message-card-active' : 'message-card'}>
+    <article
+      aria-label={`Message from ${message.from[0]?.name ?? message.from[0]?.email ?? 'Unknown sender'}`}
+      className={isSelected ? 'message-card message-card-active' : 'message-card'}
+      data-message-id={message.id}
+      onFocus={() => onSelectMessage(message.id)}
+      onKeyDown={handleNavigate}
+      tabIndex={0}
+    >
       <MessageHeader contacts={contacts} isExpanded={isExpanded} message={message} onToggle={() => setIsExpanded(false)} />
       <MessageSecurityBanner analysis={securityAnalysis} message={message} onOpenExternalLink={onOpenExternalLink} />
       <MessageBody

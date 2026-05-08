@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ContactDirectoryEntry } from '@lib/contacts-directory';
 import type { AttachmentRecord, MessageRecord } from '@lib/contracts';
 import { MessageItem } from '@components/message-list/MessageItem';
@@ -37,6 +37,49 @@ export const MessageList = ({
   const latestMessage = chronologicalMessages.at(-1) ?? null;
   const latestMessageId = latestMessage?.id ?? null;
   const expandedMessageId = selectedMessageId ?? latestMessageId;
+  const [pendingFocusMessageId, setPendingFocusMessageId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingFocusMessageId) {
+      return;
+    }
+
+    const nextFrame = window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(`[data-message-id="${pendingFocusMessageId}"]`);
+      if (target) {
+        target.focus();
+        setPendingFocusMessageId(null);
+      }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(nextFrame);
+    };
+  }, [pendingFocusMessageId, chronologicalMessages]);
+
+  const navigateMessage = (messageId: string, direction: 'next' | 'previous' | 'first' | 'last') => {
+    const currentIndex = chronologicalMessages.findIndex((message) => message.id === messageId);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const targetIndex =
+      direction === 'first'
+        ? 0
+        : direction === 'last'
+          ? chronologicalMessages.length - 1
+          : direction === 'next'
+            ? Math.min(chronologicalMessages.length - 1, currentIndex + 1)
+            : Math.max(0, currentIndex - 1);
+
+    if (targetIndex === currentIndex) {
+      return;
+    }
+
+    const targetMessage = chronologicalMessages[targetIndex];
+    onSelectMessage(targetMessage.id);
+    setPendingFocusMessageId(targetMessage.id);
+  };
 
   if (!chronologicalMessages.length) {
     return <p className="reader-empty">This thread has no messages yet.</p>;
@@ -53,6 +96,7 @@ export const MessageList = ({
             isSelected={message.id === selectedMessageId}
             key={message.id}
             message={message}
+            onNavigate={navigateMessage}
             onDownloadAttachment={onDownloadAttachment}
             onForward={onForward}
             onOpenExternalLink={onOpenExternalLink}

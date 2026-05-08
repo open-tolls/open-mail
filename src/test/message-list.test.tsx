@@ -115,6 +115,54 @@ describe('MessageList', () => {
     expect(screen.getAllByRole('region', { name: 'Message body for Thread subject from Sender Example' })).toHaveLength(2);
   });
 
+  it('navigates between messages with arrow keys and home/end', async () => {
+    const onSelectMessage = vi.fn();
+    const messages = [
+      makeMessage({
+        id: 'msg_latest',
+        body: '<p>Latest message</p>',
+        date: '2026-03-13T11:00:00Z',
+        snippet: 'Latest snippet'
+      }),
+      makeMessage({
+        id: 'msg_first',
+        body: '<p>First message</p>',
+        date: '2026-03-13T09:00:00Z',
+        snippet: 'First snippet'
+      })
+    ];
+
+    render(
+      <MessageList
+        messages={messages}
+        selectedMessageId="msg_first"
+        threadSubject="Thread subject"
+        onSelectMessage={onSelectMessage}
+      />
+    );
+
+    const firstMessage = screen.getByText('First message').closest('[data-message-id]') as HTMLElement;
+    firstMessage.focus();
+
+    fireEvent.keyDown(firstMessage, { key: 'ArrowDown' });
+    await waitFor(() => {
+      expect(screen.getByText('Latest snippet').closest('[data-message-id]')).toHaveFocus();
+    });
+    expect(onSelectMessage).toHaveBeenLastCalledWith('msg_latest');
+
+    fireEvent.keyDown(screen.getByText('Latest snippet').closest('[data-message-id]') as HTMLElement, { key: 'Home' });
+    await waitFor(() => {
+      expect(screen.getByText('First message').closest('[data-message-id]')).toHaveFocus();
+    });
+    expect(onSelectMessage).toHaveBeenLastCalledWith('msg_first');
+
+    fireEvent.keyDown(screen.getByText('First message').closest('[data-message-id]') as HTMLElement, { key: 'End' });
+    await waitFor(() => {
+      expect(screen.getByText('Latest snippet').closest('[data-message-id]')).toHaveFocus();
+    });
+    expect(onSelectMessage).toHaveBeenLastCalledWith('msg_latest');
+  });
+
   it('shows a contact card from the message header on hover', async () => {
     render(
       <MessageList
