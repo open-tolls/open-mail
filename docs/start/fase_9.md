@@ -96,14 +96,14 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 
 ### 9.2 — Accessibility (a11y)
 
-**Status atual:** segundo corte entregue em navegacao, foco e preferencias visuais do sistema. Alem de `skip links`, landmarks/focus targets e `focus-visible` consistente, o shell agora tambem respeita `prefers-reduced-motion` para reduzir animacoes/transicoes e `prefers-contrast` para aumentar contraste, contornos e remover efeitos decorativos que atrapalham leitura. Isso ainda nao fecha a fase de a11y, mas deixa a base bem mais solida para os proximos passos de screen reader copy, keyboard-only e auditoria formal.
+**Status atual:** terceiro corte entregue em navegacao, foco, preferencias visuais do sistema e copy acessivel para screen reader. Alem de `skip links`, landmarks/focus targets, `focus-visible`, `prefers-reduced-motion` e `prefers-contrast`, a thread list agora anuncia remetente, assunto, tempo e estado (`unread`, `starred`, attachments), e os toasts principais do shell ficaram explicitos com `aria-live`/`aria-atomic`. Isso ainda nao fecha a fase de a11y, mas cobre duas dores reais de leitura assistiva enquanto prepara o terreno para keyboard-only completo e auditoria formal.
 
 **O que implementar:**
 
 - [ ] Todos os elementos interativos com `role` e `aria-label`
 - [ ] Focus management (Tab order logico)
 - [x] Focus visible (outline) em todos os focusaveis
-- [ ] Screen reader: thread list anuncia "Email from Alice, subject: Project update, 2 hours ago, unread"
+- [x] Screen reader: thread list anuncia "Email from Alice, subject: Project update, 2 hours ago, unread"
 - [ ] Screen reader: message body legivel
 - [x] High contrast mode (respeitar `prefers-contrast: high`)
 - [x] Reduced motion (respeitar `prefers-reduced-motion`)
@@ -111,7 +111,7 @@ Esta fase nao adiciona features novas. Ela transforma um software funcional em u
 - [x] Skip links ("Skip to inbox", "Skip to message")
 - [ ] Color contrast minimo 4.5:1 (WCAG AA)
 - [ ] Font sizing: respeitar preferencia do OS
-- [ ] Error messages acessiveis (aria-live regions)
+- [x] Error messages acessiveis (aria-live regions)
 
 **Ferramentas de teste:**
 - `axe-core` via Playwright

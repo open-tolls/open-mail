@@ -461,7 +461,10 @@ describe('mailbox overview integration', () => {
 
     fireEvent.keyDown(window, { key: '#' });
     expect(await screen.findByRole('heading', { name: 'Rust health-check online' })).toBeInTheDocument();
-    expect(await screen.findByRole('status', { name: 'Undo notification' })).toHaveTextContent('Thread action applied');
+    const undoToast = await screen.findByRole('status', { name: 'Undo notification' });
+    expect(undoToast).toHaveTextContent('Thread action applied');
+    expect(undoToast).toHaveAttribute('aria-live', 'polite');
+    expect(undoToast).toHaveAttribute('aria-atomic', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo last action' }));
     expect(await screen.findByRole('heading', { name: 'Premium motion system approved' })).toBeInTheDocument();
@@ -682,7 +685,10 @@ describe('mailbox overview integration', () => {
     await waitFor(() => {
       expect(screen.getByText('Queued 1 recipient(s)')).toBeInTheDocument();
     });
-    expect(screen.getByRole('status', { name: 'Composer notification' })).toHaveTextContent('Queued 1 recipient(s)');
+    const composerToast = screen.getByRole('status', { name: 'Composer notification' });
+    expect(composerToast).toHaveTextContent('Queued 1 recipient(s)');
+    expect(composerToast).toHaveAttribute('aria-live', 'polite');
+    expect(composerToast).toHaveAttribute('aria-atomic', 'true');
   });
 
   it('lets compose hooks block queueing from the shell', async () => {
@@ -718,6 +724,9 @@ describe('mailbox overview integration', () => {
       expect(screen.getByText('Could not queue message: Composer blocked by plugin policy')).toBeInTheDocument();
     });
     expect(screen.getByRole('region', { name: /composer/i })).toBeInTheDocument();
+    const composerErrorToast = screen.getByRole('alert', { name: 'Composer notification' });
+    expect(composerErrorToast).toHaveAttribute('aria-live', 'assertive');
+    expect(composerErrorToast).toHaveAttribute('aria-atomic', 'true');
   });
 
   it('queues a composed message with Cmd+Enter from the shell', async () => {

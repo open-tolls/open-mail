@@ -834,7 +834,7 @@ export const ShellFrame = ({
           totalUnreadCount={totalUnreadCount}
         />
         {currentUndoToast ? (
-          <div aria-label="Undo notification" className="undo-toast" role="status">
+          <div aria-atomic="true" aria-label="Undo notification" aria-live="polite" className="undo-toast" role="status">
             <span>{currentUndoToast.description}</span>
             <button onClick={() => void runUndo()} type="button" aria-label="Undo last action">
               Undo
@@ -843,7 +843,9 @@ export const ShellFrame = ({
         ) : null}
         {visibleComposerToast ? (
           <div
+            aria-atomic="true"
             aria-label="Composer notification"
+            aria-live={visibleComposerToast.kind === 'error' ? 'assertive' : 'polite'}
             className={['undo-toast', 'composer-toast', `composer-toast-${visibleComposerToast.kind}`].join(' ')}
             role={visibleComposerToast.kind === 'error' ? 'alert' : 'status'}
           >

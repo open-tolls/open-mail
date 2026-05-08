@@ -1,7 +1,7 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react';
 import { Archive, MailOpen, Paperclip, Star, Trash2, XCircle } from 'lucide-react';
 import type { ThreadSummary } from '@lib/contracts';
-import { formatThreadTime, getSenderInitials, getThreadLabels } from '@components/thread-list/threadListUtils';
+import { formatThreadTime, getSenderInitials, getThreadAriaLabel, getThreadLabels } from '@components/thread-list/threadListUtils';
 import type { ThreadAction } from '@components/thread-list/ThreadListToolbar';
 
 export type ThreadSelectEvent = Pick<MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>, 'ctrlKey' | 'metaKey' | 'shiftKey'>;
@@ -28,6 +28,7 @@ export const ThreadListItem = ({
   onSelect
 }: ThreadListItemProps) => {
   const labels = getThreadLabels(thread);
+  const threadAriaLabel = getThreadAriaLabel(thread);
 
   const runAction = (action: ThreadAction) => (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -42,6 +43,7 @@ export const ThreadListItem = ({
 
   return (
     <div
+      aria-label={threadAriaLabel}
       aria-current={isSelected ? 'true' : undefined}
       aria-pressed={isMultiSelected}
       aria-selected={isSelected}

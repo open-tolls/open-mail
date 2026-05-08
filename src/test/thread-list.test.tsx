@@ -50,6 +50,34 @@ describe('ThreadList', () => {
     expect(document.querySelectorAll('[data-thread-id]').length).toBeLessThan(40);
   });
 
+  it('announces thread details for screen readers', () => {
+    render(
+      <ThreadList
+        activeFolderName="Inbox"
+        isSearchActive={false}
+        onSelectThread={vi.fn()}
+        selectedThreadId="thr_0"
+        threads={[
+          makeThread(0, {
+            subject: 'Project update',
+            participants: ['Alice'],
+            isUnread: true,
+            isStarred: true,
+            hasAttachments: true,
+            messageCount: 2,
+            lastMessageAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+          })
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByRole('option', {
+        name: /Email from Alice, subject: Project update, 2 hours ago, unread, starred, has attachments, 2 messages/i
+      })
+    ).toBeInTheDocument();
+  });
+
   it('supports simple, meta, and shift selection', () => {
     const onSelectThread = vi.fn();
     const threads = Array.from({ length: 8 }, (_, index) => makeThread(index));
