@@ -674,6 +674,31 @@ describe('preferences view', () => {
     expect(within(contactsList).queryByText('Atlas Design')).not.toBeInTheDocument();
   });
 
+  it('supports keyboard navigation across contacts in preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const contactsList = await screen.findByRole('listbox', { name: 'Contacts list' });
+    const [atlasContact, secondContact] = within(contactsList).getAllByRole('option');
+
+    atlasContact.focus();
+    expect(atlasContact).toHaveFocus();
+
+    fireEvent.keyDown(atlasContact, { key: 'ArrowDown' });
+    expect(secondContact).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Home' });
+    expect(atlasContact).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'End' });
+    expect(within(contactsList).getAllByRole('option').at(-1)).toHaveFocus();
+  });
+
   it('edits and resets custom contact info in preferences', async () => {
     window.history.pushState({}, '', '/preferences');
 
