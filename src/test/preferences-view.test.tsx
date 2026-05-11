@@ -669,6 +669,53 @@ describe('preferences view', () => {
     expect(screen.queryByText('Updated rule')).not.toBeInTheDocument();
   });
 
+  it('supports keyboard navigation across mail rules in preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+    useMailRulesStore.setState({
+      rules: [
+        {
+          id: 'rule_newsletter',
+          name: 'Newsletter rule',
+          accountId: null,
+          enabled: true,
+          mode: 'all',
+          conditions: [{ id: 'condition_1', field: 'subject', operator: 'contains', value: 'newsletter' }],
+          actions: [{ id: 'action_1', type: 'archive', value: '' }]
+        },
+        {
+          id: 'rule_support',
+          name: 'Support rule',
+          accountId: null,
+          enabled: true,
+          mode: 'all',
+          conditions: [{ id: 'condition_2', field: 'from', operator: 'contains', value: 'support' }],
+          actions: [{ id: 'action_2', type: 'star', value: '' }]
+        }
+      ]
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const rulesList = await screen.findByRole('listbox', { name: 'Mail rules list' });
+    const [firstRule, secondRule] = within(rulesList).getAllByRole('option');
+
+    firstRule.focus();
+    expect(firstRule).toHaveFocus();
+
+    fireEvent.keyDown(firstRule, { key: 'ArrowDown' });
+    expect(secondRule).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Home' });
+    expect(firstRule).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'End' });
+    expect(secondRule).toHaveFocus();
+  });
+
   it('runs mail rules against loaded threads', async () => {
     window.history.pushState({}, '', '/preferences');
     useAccountStore.setState({

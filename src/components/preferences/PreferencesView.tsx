@@ -1112,6 +1112,7 @@ export const PreferencesView = () => {
                   }
                 }}
                 onEdit={setEditingRuleId}
+                selectedRuleId={editingRuleId}
                 rules={rules}
               />
               <div className="preferences-advanced-actions">
