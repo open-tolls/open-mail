@@ -587,6 +587,51 @@ describe('preferences view', () => {
     expect(screen.queryByText('Welcome template')).not.toBeInTheDocument();
   });
 
+  it('supports keyboard navigation across templates in preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+    useTemplateStore.setState({
+      templates: [
+        {
+          id: 'tpl_welcome',
+          title: 'Welcome template',
+          accountId: null,
+          subject: 'Welcome',
+          body: '<p>Hello</p>',
+          variables: []
+        },
+        {
+          id: 'tpl_followup',
+          title: 'Follow-up template',
+          accountId: null,
+          subject: 'Follow-up',
+          body: '<p>Checking in</p>',
+          variables: []
+        }
+      ]
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const templateList = await screen.findByRole('listbox', { name: 'Template list' });
+    const [firstTemplate, secondTemplate] = within(templateList).getAllByRole('option');
+
+    firstTemplate.focus();
+    expect(firstTemplate).toHaveFocus();
+
+    fireEvent.keyDown(firstTemplate, { key: 'ArrowDown' });
+    expect(secondTemplate).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Home' });
+    expect(firstTemplate).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'End' });
+    expect(secondTemplate).toHaveFocus();
+  });
+
   it('manages mail rules from preferences', async () => {
     window.history.pushState({}, '', '/preferences');
     useAccountStore.setState({

@@ -910,6 +910,7 @@ export const PreferencesView = () => {
                   }
                 }}
                 onEdit={setEditingTemplateId}
+                selectedTemplateId={editingTemplateId}
                 templates={templates}
               />
             </div>
