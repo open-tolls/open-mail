@@ -184,6 +184,7 @@ export const PreferencesView = () => {
   const installPluginInputRef = useRef<HTMLInputElement | null>(null);
   const preferencesNavRefs = useRef<Partial<Record<PreferencesSectionId, HTMLAnchorElement | null>>>({});
   const accountCardRefs = useRef<Record<string, HTMLElement | null>>({});
+  const pluginCardRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasHydratedRef = useRef(false);
   useSyncExternalStore(pluginManager.subscribe, () => pluginManager.getRevision(), () => 0);
   const mailboxQuery = useMailboxOverview();
@@ -362,6 +363,7 @@ export const PreferencesView = () => {
     [mailboxQuery.data?.allThreads, mailboxQuery.data?.threads]
   );
   const registeredPlugins = pluginManager.listPlugins();
+  const pluginNavOrder = useMemo(() => registeredPlugins.map((plugin) => plugin.manifest.plugin.id), [registeredPlugins]);
 
   const runMailRulesNow = () => {
     const results = evaluateMailRules(mailRuleCandidates, rules);
@@ -762,6 +764,53 @@ export const PreferencesView = () => {
       }
     };
 
+  const registerPluginCard = (pluginId: string) => (element: HTMLElement | null) => {
+    pluginCardRefs.current[pluginId] = element;
+  };
+
+  const movePluginCardFocus = (currentPluginId: string, offset: number) => {
+    const currentIndex = pluginNavOrder.indexOf(currentPluginId);
+
+    if (currentIndex === -1 || !pluginNavOrder.length) {
+      return;
+    }
+
+    const nextIndex = (currentIndex + offset + pluginNavOrder.length) % pluginNavOrder.length;
+    pluginCardRefs.current[pluginNavOrder[nextIndex]]?.focus();
+  };
+
+  const focusPluginCardBoundary = (boundary: 'first' | 'last') => {
+    if (!pluginNavOrder.length) {
+      return;
+    }
+
+    const targetId = boundary === 'first' ? pluginNavOrder[0] : pluginNavOrder[pluginNavOrder.length - 1];
+    pluginCardRefs.current[targetId]?.focus();
+  };
+
+  const createPluginCardKeyDownHandler =
+    (pluginId: string) => (event: ReactKeyboardEvent<HTMLElement>) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        movePluginCardFocus(pluginId, 1);
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        movePluginCardFocus(pluginId, -1);
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault();
+        focusPluginCardBoundary('first');
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault();
+        focusPluginCardBoundary('last');
+      }
+    };
+
   return (
     <main className="preferences-shell" aria-label="Open Mail preferences">
       <div className="preferences-header">
@@ -991,9 +1040,17 @@ export const PreferencesView = () => {
               type="file"
             />
             {registeredPlugins.length ? (
-              <div className="preferences-account-list">
+              <div className="preferences-account-list" aria-label="Plugins list" role="listbox">
                 {registeredPlugins.map((plugin) => (
-                  <article className="preferences-account-card" key={plugin.manifest.plugin.id}>
+                  <article
+                    aria-selected={plugin.enabled}
+                    className="preferences-account-card"
+                    key={plugin.manifest.plugin.id}
+                    onKeyDown={createPluginCardKeyDownHandler(plugin.manifest.plugin.id)}
+                    ref={registerPluginCard(plugin.manifest.plugin.id)}
+                    role="option"
+                    tabIndex={0}
+                  >
                     <div>
                       <strong>{plugin.manifest.plugin.name}</strong>
                       <p>{plugin.manifest.plugin.description ?? plugin.manifest.plugin.id}</p>

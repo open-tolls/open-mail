@@ -261,6 +261,33 @@ describe('preferences view', () => {
     expect(screen.getByText('Preferences Fixture enabled.')).toBeInTheDocument();
   });
 
+  it('supports keyboard navigation across plugins in preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+    await pluginManager.loadPlugin(preferencesPluginManifest);
+    await expect(pluginManager.installPlugin(failingPreferencesPluginManifest)).rejects.toThrow('Plugin activation failed');
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const pluginsList = await screen.findByRole('listbox', { name: 'Plugins list' });
+    const [firstPlugin, secondPlugin] = within(pluginsList).getAllByRole('option');
+
+    firstPlugin.focus();
+    expect(firstPlugin).toHaveFocus();
+
+    fireEvent.keyDown(firstPlugin, { key: 'ArrowDown' });
+    expect(secondPlugin).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Home' });
+    expect(firstPlugin).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'End' });
+    expect(secondPlugin).toHaveFocus();
+  });
+
   it('auto-generates plugin config controls from schema and keeps values across toggles', async () => {
     window.history.pushState({}, '', '/preferences');
     await pluginManager.loadPlugin(preferencesPluginManifest);
