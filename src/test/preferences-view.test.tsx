@@ -172,6 +172,48 @@ describe('preferences view', () => {
     expect(within(preferencesNav).getByRole('link', { name: 'General' })).toHaveFocus();
   });
 
+  it('supports keyboard navigation across accounts in preferences', async () => {
+    window.history.pushState({}, '', '/preferences');
+    useAccountStore.setState({
+      accounts: [
+        {
+          id: 'acc_demo',
+          provider: 'Gmail',
+          email: 'leco@example.com',
+          displayName: 'Open Mail Demo'
+        },
+        {
+          id: 'acc_ops',
+          provider: 'Outlook',
+          email: 'ops@example.com',
+          displayName: 'Operations'
+        }
+      ],
+      selectedAccountId: 'acc_demo'
+    });
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>
+    );
+
+    const accountsList = await screen.findByRole('listbox', { name: 'Accounts list' });
+    const [firstAccount, secondAccount] = within(accountsList).getAllByRole('option');
+
+    firstAccount.focus();
+    expect(firstAccount).toHaveFocus();
+
+    fireEvent.keyDown(firstAccount, { key: 'ArrowDown' });
+    expect(secondAccount).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Home' });
+    expect(firstAccount).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: 'End' });
+    expect(secondAccount).toHaveFocus();
+  });
+
   it('renders plugin preference sections through the plugin slot', async () => {
     window.history.pushState({}, '', '/preferences');
     await pluginManager.loadPlugin(preferencesPluginManifest);

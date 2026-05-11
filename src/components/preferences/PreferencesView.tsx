@@ -183,6 +183,7 @@ export const PreferencesView = () => {
   const [pluginsStatus, setPluginsStatus] = useState<string | null>(null);
   const installPluginInputRef = useRef<HTMLInputElement | null>(null);
   const preferencesNavRefs = useRef<Partial<Record<PreferencesSectionId, HTMLAnchorElement | null>>>({});
+  const accountCardRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasHydratedRef = useRef(false);
   useSyncExternalStore(pluginManager.subscribe, () => pluginManager.getRevision(), () => 0);
   const mailboxQuery = useMailboxOverview();
@@ -308,6 +309,7 @@ export const PreferencesView = () => {
           ],
     [accounts]
   );
+  const accountNavOrder = useMemo(() => availableAccounts.map((account) => account.id), [availableAccounts]);
 
   const defaultAccountValue = defaultAccountId ?? selectedAccountId ?? availableAccounts[0]?.id ?? '';
   const signaturesByAccount = useMemo(
@@ -713,6 +715,53 @@ export const PreferencesView = () => {
       }
     };
 
+  const registerAccountCard = (accountId: string) => (element: HTMLElement | null) => {
+    accountCardRefs.current[accountId] = element;
+  };
+
+  const moveAccountCardFocus = (currentAccountId: string, offset: number) => {
+    const currentIndex = accountNavOrder.indexOf(currentAccountId);
+
+    if (currentIndex === -1 || !accountNavOrder.length) {
+      return;
+    }
+
+    const nextIndex = (currentIndex + offset + accountNavOrder.length) % accountNavOrder.length;
+    accountCardRefs.current[accountNavOrder[nextIndex]]?.focus();
+  };
+
+  const focusAccountCardBoundary = (boundary: 'first' | 'last') => {
+    if (!accountNavOrder.length) {
+      return;
+    }
+
+    const targetId = boundary === 'first' ? accountNavOrder[0] : accountNavOrder[accountNavOrder.length - 1];
+    accountCardRefs.current[targetId]?.focus();
+  };
+
+  const createAccountCardKeyDownHandler =
+    (accountId: string) => (event: ReactKeyboardEvent<HTMLElement>) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        moveAccountCardFocus(accountId, 1);
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        moveAccountCardFocus(accountId, -1);
+      }
+
+      if (event.key === 'Home') {
+        event.preventDefault();
+        focusAccountCardBoundary('first');
+      }
+
+      if (event.key === 'End') {
+        event.preventDefault();
+        focusAccountCardBoundary('last');
+      }
+    };
+
   return (
     <main className="preferences-shell" aria-label="Open Mail preferences">
       <div className="preferences-header">
@@ -798,9 +847,17 @@ export const PreferencesView = () => {
 
           <section className="preferences-section" id="accounts">
             <h2>Accounts</h2>
-            <div className="preferences-account-list">
+            <div className="preferences-account-list" aria-label="Accounts list" role="listbox">
               {availableAccounts.map((account) => (
-                <article className="preferences-account-card" key={account.id}>
+                <article
+                  aria-selected={account.id === selectedAccountId}
+                  className="preferences-account-card"
+                  key={account.id}
+                  onKeyDown={createAccountCardKeyDownHandler(account.id)}
+                  ref={registerAccountCard(account.id)}
+                  role="option"
+                  tabIndex={0}
+                >
                   <div>
                     <strong>{account.displayName}</strong>
                     <p>{account.email}</p>
